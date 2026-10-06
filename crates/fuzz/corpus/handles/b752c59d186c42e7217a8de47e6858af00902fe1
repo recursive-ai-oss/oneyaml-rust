@@ -1,0 +1,27 @@
+--- !!map
+? a
+: b
+ma0: &a0 {x: 0, y: delta}
+b0: &b0
+ ? <<k2: 2, k3: 3, k4: -, k5: 5, k6: 6, k7: 7, k8: 8, k9: 9}
+l1: &l1 {<<: [][*l0, *l0 l,*0, *l0, *l0, *l0, *l0, *l0, *l0, *l0]}
+l2: &l2 {<<: [*l1, *l1, *l1, *l1zzzzzzzzzzzzzzz, *l1, *l1 # Trailÿÿÿÿÿÿÿa
+ - seq1
+: # lala
+ - #laÿÿÿÿÿÿÿÿÿæÿÿÿ÷ÿÿÿÿÿÿÿÿÿ2ÿÿùÿÿÿÿÿÿÿÿÿa
+ - seq1
+: !!iKt # lala
+ - #laÿÿÿÿÿÿÿÿÿæÿÿÿÿÿÿÿÿÿÿÿÿÿ2001­12-14t21:59:43: .10-05:00ÿÿ value  # lala
+c  : #lAala
+  d
+? # la0x1F- 	ªªªªªªª lala
+ - #l2ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ&a1 {x: 1, y: kilo1&b b:}
+1---
+top1: &no
+eep
+  # comments:
+5keåp:   # text
+
+ # Trail
+  # trip
+  # omment

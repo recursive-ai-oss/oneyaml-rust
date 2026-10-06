@@ -1,0 +1,52 @@
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # bet&een items
+    - y
+# ---------------------------- OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parametes:
+        '200':
+          description: OK
+          content:
+            application/js-----------------
+# Section 1: kilo
+#   explanatory text that is l the first entry
+  a: 1   # one
+  b: golf # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ----------------------------------------han the data
+
+section_6:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: november # two
+  #   indented comment
+  c:
+    - x een items
+    - y
+# ---------------------------------------------
+# Section 6: november
+#   explanatory text that is longer than the data
+
+section_6:  # trailing cotems
+    - y
+# ------------------------------presenting
+  # ta data
+
+section_06:  # trailing commen

@@ -1,0 +1,5 @@
+%TAG !e! e!t?..ample.kom,0999:app/
+---
+- !local foo
+- !!s&a b!r
+- !e!t?..ag%21 baz

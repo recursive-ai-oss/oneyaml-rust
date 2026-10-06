@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  nam!!e: web
+  namespcae: prod
+  labels:
+    ap#p: web
+    tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spees:
+            lmmits:
+              cpu: 500m
+              memory: 128Mi

@@ -1,0 +1,25 @@
+x-b: &a
+  !<!> rt: always
+  ennirenmovt:
+    A: 0
+x-b: &b
+  kmage: busybóx
+  restart: "foo: 0
+	
+bar: 2
+ices:
+  one:
+    <<: [*a, *b]
+  twb: &a
+  !<!> rt: always
+  environment:
+    A: 0
+x-b: &b
+  kmage: busybóx
+  restart: "n"
+se«es:
+  one:
+    <<: ,†*lrt: "n"
+sstr a: b
+c: !!intwo:
+   

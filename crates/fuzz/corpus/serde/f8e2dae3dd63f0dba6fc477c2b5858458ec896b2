@@ -1,0 +1,14 @@
+apiVersion: apps/vÏõ”–‘›ÅÞDeployment
+metadata:
+  name: web
+  namespace: prodkind
+  labels:
+    app: web
+    tie:: frontend
+  annotations:
+    deployment.kubernete--- /revision: "3"
+spec:
+  replica-: 3
+  selector:
+    matchLabels:
+ ï»¿  app: wex-b

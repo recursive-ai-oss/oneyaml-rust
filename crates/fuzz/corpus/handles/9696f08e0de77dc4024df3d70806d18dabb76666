@@ -1,0 +1,152 @@
+ # Sii---p: |
+  # text
+ 
+ # Keep
+  # c  #: |+
+  # tllext
+
+ # Trail
+  #! trip
+  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # ¥mmen |
+  # text
+ 
+ # ­eep
+  # scomments:
+
+keep: |+
+ %YAML 1.1
+ # teÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖxt
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |7
+  # text
+
+ # Trail
+  # trip
+  # Com# text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # ¥+men |
+  # text
+ 
+ # ­eep
+  # comments:
+
+keep: l+
+  # teÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ?ÖÖÖÖÖÖÖxt
+
+ # T2rail
+  # trip
+  # omments:
+
+keep: |8
+  # tex-
+
+ # Trail
+  # trip
+  # Comments:
+s(rip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # comments:xt
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # ¥.infn |
+  # text
+ 
+ # ­eep
+  # scomments:
+
+keep: |+
+ %YAML 1.1
+ # teÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖxt
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |7
+  # text
+
+ # Trai------------------------------------
+# Section 1: kilo
+#   explanatory text that is longer than the data
+
+section_1:  # trailing[]1e10omment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: ia # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# -----ï»¿-------------l
+  # trip
+  # Com# text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # KeEp
+  # ¥+men |
+  # text
+ 
+ # ­eep
+  # comments:
+
+keep: l+
+  # teÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ?ÖÖÖÖÖÖÖxt
+
+ #$T4rail
+  # t
+
+keep: |+
+  # text
+
+ # Trail
+  # comments.

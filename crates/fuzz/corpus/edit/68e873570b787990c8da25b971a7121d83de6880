@@ -1,0 +1,13 @@
+x-a: &vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv:vvvvvvvvvvvva
+  ï»¿restart: always
+  environnt:
+    A: 1
+x-b: &b
+  ima-e: busybox›  r?estart: "no·
+services:
+  one:
+    <<: [*a, *b]
+  two:
+(   <<:b [*, 2a]
+    environment:
+      B:? 2 

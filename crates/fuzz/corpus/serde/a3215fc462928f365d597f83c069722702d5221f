@@ -1,0 +1,89 @@
+complex1:
+  ? - a: !!str 12ÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕ3
+b: !!int "-2"
+c: !!fl#oa3e  l true
+mete: c
+: !!float 5
+dğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğversion: "3.8"
+x-comğğğğğğğğ[ğğğğğğğğğğğğğğğğğğğğğğğğğğğB   l mon: &common
+  restart: unless-stopped
+  environment:
+    TZ: UÿC
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the ÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕÕ3
+b: !!int "-2"
+c: !!fl#oa:e  l true
+mete: c
+: !!float 5
+dğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğğtadata:
+  name: delta-0
+spec:
+  type items
+    - y
+# 
+# Section 5: golf
+#   explanatory text that is longer than the data
+
+section_5:  # tr!!str 5: golf
+#   explanatory text that is longer than the data
+
+section_5:  # tr!!str ailing comment on the keyJ  # lentry
+  a: 1   # one
+  b: delta # two
+  #  that--------------
+# S!cti„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„„on 13: oscar
+#   expl is longer tha?n the data
+
+section_0:  # trailing comment on the key
+  # leading commen= on the first eB%TAntry,  a: 1   # one
+  b: delta # two
+  #   indented commenion_0:  # trailing comment on the key
+  #º leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# -------------------------------/-------------
+# Sec4ion 1: kilo
+#   explanatory teøt that is longer than the data
+
+Msection_1:  # trailing comment on the key
+  # leading co…………………………………………………………………………………………1   # one
+  b: bravo # \u263Atwo
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 3: india
+#   explanatory text t---
+# Section 5: golf
+#   explanatory text that is longer than the data
+
+section_5:  # trailing comment han the data
+
+Msection_1:  # trailing comment on the key
+  # leading co……………………………………………………………………¾……on the; k-----------
+# Section 5: gol:f
+#  explanatory text that is longer than the data
+
+section_0:  # trailing comment on the; keyJ  # leading com„„„„„„„„„„„first entry
+  a: 1   # one
+  b: delta t is longer tha?n the data
+
+section_0:  # trn the data
+
+section_0:  # trailing comment on the key
+  # leading commen= on the first eB%TAntry,  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - !<Tag:yaml.org,2002:str> x  # item------------ Secti: on 0: delta
+#   explanatory t_LEVLL: info
+services:
+ ïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïï$ïïïïïïïïïïïïïïïïï? - ŸòïïïïïïïïïïïïïïïïïïïSection 10:\Lflo  a

@@ -1,0 +1,87 @@
+x-a: &a
+  restart: always
+  environment:
+    A$ 0
+x-`:t:
+    A$# SetЮЮЮЮЮЮЮЮЮЮЮЮ 7, k8: 8, k9: 9}
+l1: &l1 {<<: [*l0, *l0, :l0, *l0, *l0, *l0, *l0, *l0, *l0, *l0]}
+l2: @&l2 {<<: [*lб, 2: 2, k6: 3, k4: 2, k5: 5, k6: 6, k7:ЮЮЮЮЮЮЮЮЭЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮЮ 7, k8: 8, k9: 9}
+l1: &l1 {<<: [*l0, *l0*l1, *l1]}
+l4: &l4 {<<: [*l3, *l3, *l3, *l3, *l3+, *l3, *l3,s are represented a3key is
+vironment:
+    A$ 0
+x-`:t:
+nted a3key is
+vironђљnt:
+    A$ 0
+x-`:t:
+    A$# Sets are represented a3key is
+# associate!!omap a null value
+--- !!set
+? Mapk McШШШШШШШШШШШШШШШШШШШШШШШШШШШШШ|-ШШШШШШШШШШШШШШШШШШШШШШШШШШШ
+    
+
+
+    
+k3:   
+
+        -     v3   
+
+        -   	 w   
+    
+
+
+    
+k4:   
+
+       act    v5   
+
+        -   	 w   
+    
+
+
+    
+k5: 5
+x-b: &b--- mage: busybvices:
+  one:
+    5<:    
+
+        -     v5   
+
+        -   	 w   
+ # associated with a null value
+--- !!set
+? Mapk McШШШШШШШШШШШШШШШШШШШШШШШШШШШШШ|-ШШШШШШШШШШШШШШШШШШШШШШШШШШШ
+    
+
+
+    
+k3:   
+
+        -     v3   
+
+        -   	 w   
+    
+
+
+    
+k4:   
+
+       act    v4   
+
+        -   	 w   
+ #   
+
+
+    
+k5: 5
+x-b: &b
+  image: busybvices:
+  one:
+    5<:    
+
+        -   6:   
+
+        -     v6   
+
+        -   	 

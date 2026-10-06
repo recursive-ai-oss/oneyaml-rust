@@ -1,0 +1,9 @@
+---
+t“N“p×o‹: 																																																										&node1
+  &k2 key2:  ‹Ay2: one
+tNullop2: &node2 # comment
+  key2: ---
+topNull1: &node1Â…
+  &k2 key2: &node2
+  &k1 ‹,Ay2-p: |
+  #

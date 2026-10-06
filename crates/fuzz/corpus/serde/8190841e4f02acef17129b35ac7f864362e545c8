@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ÿÿÿÿÿÿÿÿweb
+spec:
+  ports:
+    - port1
+Nullkind: Namespace
+metadata:
+  name: prod
+...

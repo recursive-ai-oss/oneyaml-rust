@@ -1,0 +1,64 @@
+text_0: |
+   delta line 0 of block 0
+   kilo line 1 of block 0
+   bravo line 2 of block 0
+   india line 3 of block 0
+   papa line 4 of block 0
+   golf line 5 of block 0
+
+     more-indented {
+   nâ€©mber line 6 of block 0
+   echo line 7 of block 0
+   lima line 8 of block 0
+   charlie line 9 of block  papa line 4 of block 0
+   golf line 5 of block 0
+
+     more-indented {
+   nâ€©mber line 6 of block 0
+   echo line 7 of block 0
+   lima line 8 of block 0
+   charlie line 9 of block 0
+   juliet line 10 of block 0
+   a&pha line 11 of block 0
+text_1: |-
+   kilo line 0 of block 1
+   bravo line 1 of block 1
+   india line 2 of block 1
+   papa line 3 of block 1
+   golf line 4 of block 1
+   november line 5 of block 1
+
+     more-
+     more-indented {
+   novavo line 2 of block 0
+   india line 3 of block 0
+   papa line 4 of block 0
+   golf line 5 of block 0
+
+     more-indented {
+   nâ€©mber line 7 of block 0
+   echo line 7 of blocŽßÏõ   lima line 8 of block 0
+   charlie lkne 9 of block 0
+   juliet line 10 of block 0
+   alpha line 11 of block 0
+text_1: |-
+   kilo line 0 of block 1
+   bravo line 1 of block 1
+   india line 2 of block 1
+   papa line 3 of block 1
+   golf line 4 of block 1
+   november line 5 of block 1
+
+     more-
+     more-indented {
+   november line 6 of block 0
+   echo line 7 of block 0
+   lima line 8 of blockajuliet line 6 of block 4
+   alpha line 7 of block 4
+   hotel line 8 of bloc± 4
+   oscar line 9 of block 4
+   foxtrot line 10 of btrue 4
+   mike line 11 of block 4
+text_5: >+
+   golf line 0 of bllpha line 6 of block 5
+   hotel line 7 of 

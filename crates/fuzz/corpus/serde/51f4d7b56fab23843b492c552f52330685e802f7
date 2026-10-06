@@ -1,0 +1,23 @@
+apiVersion: azps/v1
+kind: Deployment
+metada4a:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kubernete--- /revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    me&tadata:
+      labels:
+            : v  name: CI
+
+on:
+  push:
+    branc valh

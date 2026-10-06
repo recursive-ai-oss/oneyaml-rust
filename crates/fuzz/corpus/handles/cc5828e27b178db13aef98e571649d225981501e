@@ -1,0 +1,30 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !sh-ape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com, Use the TAG ! tag:clarkevans.com,20t: 2002:circle
+- !circle
+  center: &ORIGIN {x: 74, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  finish: { x: 89, y: 102 }
+- !label
+  start: *ORIGIN
+  color: 0xFFEEBB
+  text: Pretty ve! handle for pr¤Œenting
+  # tag:clarkevans.com,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: q29}
+  radius: 7
+- !line
+  start: 2002:circle
+- !circle
+  center: &ORIGIN {x: 74, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  finish: { x: 89, y: 102 }
+- !label
+  start: *ORIGIN
+  color: 0xFFENBB
+  text: Pretty vector drawing.

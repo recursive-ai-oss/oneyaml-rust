@@ -1,0 +1,62 @@
+x-a: &oosecretr: !
+   : v8     v8   $---
+top1: &node1
+  # coml0: &l0 {k0: 0, k1: 1k ,2: 2, k3: 3, k4: 4, :5k5 , k6: k ,2: 2, k3: 3, k4: 4, :5k5 , k6: 6, k7: 7, k8: 8, k?9: 9}
+l1: &l1 {<<: [*l0, *l0, *l0, !<!> *l0, *l0, *l0, *l0, *l0, *l0, *l0]}
+l2: &l2 {<<: [*l1, ..
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+a
+...
+- | # Empty headerâ†“
+ literal
+- >1 # Indentation indicatorâ†“
+  folded
+- |+ # Chomping indicatorâ†“
+ keep
+
+- >1- ï»¿oth indicatorsâ†“
+  strip
+ÿÿkey:
+ - bar
+b-  az
+ i!!null nvalie: aüport: 2
+ 1
+---
+nammÿÿÿÿÿÿÿÿÿÿÿÿÿe: aüport: 2\x41
+ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿkey:
+ - `ar
+b-  az
+ i!!null nvalid
+iles
+p
+mode:2
+md>eod:
+iles
+port: 2e: ÿÿÿÿÿÿmeÿÿÿÿÿ

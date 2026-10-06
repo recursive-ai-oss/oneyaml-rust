@@ -1,0 +1,31 @@
+%TG ! tag:x,2000:
+﻿%TAG ! tag:clarkevans.com,pp0pppppppppppppp
+﻿%TAG ! tag:clarkevans.com,pppppppppppppppppppppppppp2002:
+--- !shape
+  # Use the ! handle for p&esenting
+pppppprcle
+- !circle
+  p&esenting
+  gandle for presenting
+  # tag:clarkevans.! tag:x,2000:
+﻿%TAG ! tag:clarkevans.com,pp0pppppppppppppp
+﻿%TAG ! tag:clarkevans.com,pppppppppppppppppppppppppp2002:
+--- !shape
+  # Use the ! handle for p&esenting
+pppppprcle
+- !circle
+  p&esenting
+  # tagandle for presenting
+  # tag:clarkevans.com,0808:circle
+- !h: { x: 89, y: 102 }
+- # tagandle for presenting
+  # tag:clarkevans.com,0404:ci|+le
+- !h: { x: 89, y: 102 }
+- !label
+  start: *ORIty vectcom,0808:circle
+- !h: { x: 89, y: 102 }
+- # tagandle for presenting
+  # tag:clarkevans.com,0404:ci|+le
+- !h: { x: 89, y: 102 }
+- !label
+  start: *ORIty vector drawing.

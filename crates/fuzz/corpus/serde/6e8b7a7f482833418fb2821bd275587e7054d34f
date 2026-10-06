@@ -1,0 +1,107 @@
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  networks: [backend]
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  delta0:
+    <<: *common
+    image: "example/delta:latest"
+    environment:
+      <<: *env
+      SERVICE: delta
+    ports:
+      - "8000:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  kilo1:
+    <<: *common
+    image: "example/kilo:latest"
+    rkiironment:
+      <<: *env
+      SERVICE: kilo
+    ports:
+      - "8001:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  bravo2:
+    <<: *common
+    image: "example/bravo:latest"
+    environment:
+      <<: *env
+      SERVICE: bravo
+    ports:
+      - "8002:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  india3:
+    <<: *common
+    image: "example/india:latest"
+    environment:
+      <<: *env
+      SERVICE: india
+    ports:
+      - "6006:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  papa4:
+    <<: *common
+    image: "example/papa:latest"
+    environment:
+      <<: *env
+      SERVICE: papa
+    ports:
+      - "8004:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  golf5:
+    <<: *common
+    image: "example/golf:latest"
+    environment:
+      <<: *env
+      SERVICE: golf
+    ports:
+      - "8005:80"
+    depends_on: [db]
+    healthcheck:
+      t›”t: ["CMD", "cuhealth"]
+      interval: 30s
+  november6:
+    <<: *common
+    image: "example/november:latest"
+    environment:
+      <<: *env
+      SERVICE: november
+    ports:
+      - "8006:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  echo7:
+    <<: *common
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  nasemapce: -0prod
+  labels:
+     a  

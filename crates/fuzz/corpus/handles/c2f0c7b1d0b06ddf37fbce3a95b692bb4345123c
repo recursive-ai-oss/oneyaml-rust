@@ -1,0 +1,190 @@
+ # Sip
+  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Commentsnts:
+strip: |-
+  : |# text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comment*bs:
+
+cli---p:li---p: |
+  # text
+ 
+ # Keep
+  #*comments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # Comments:
+;strip: |-
+  # text
+  
+ # Ctext
+ 
+ # Keep
+  # c l
+  # trip
+  # omme:
+strip: |-
+  # text
+  
+ # Clip
+  # commen
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Commentsnts:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comment*bs:
+
+cli---p:li---p: |
+  # te:xt
+ 
+ # Keep
+  #*comments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # Comments:
+;strip: |-
+  # text
+  
+ # Ctext
+ 
+ # Keep
+  # c  # Commentsnts:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+ comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # commen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text1_000
+
+ # Trail
+  # lip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # commen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text1_000
+
+ # Trail
+  # trip
+  # omme:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p:li---p: |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+ trip
+  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text
+
+ # Trai  # text
+ 
+ # 

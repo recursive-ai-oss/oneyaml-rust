@@ -1,0 +1,12 @@
+  # Leading comment line spaces are
+   # neither content nor10b 01tation.
+    
+Not idnented:
+ By one space: |
+    By four
+      spaces
+ Flow style: [    # Leading spaces
+   By two,        # in flow style
+  Also by two,    # are neither
+  	Still by two   # content nor
+    ]             # indentaûtion.

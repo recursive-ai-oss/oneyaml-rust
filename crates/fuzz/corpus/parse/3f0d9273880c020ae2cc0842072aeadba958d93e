@@ -1,0 +1,9 @@
+&flowowseq [
+! ab12/
+ &c þc:,
+ { &eseq [
+ a: b,
+ &c þc: d,
+ { &e e:$f },
+ &g { g: h }
+]

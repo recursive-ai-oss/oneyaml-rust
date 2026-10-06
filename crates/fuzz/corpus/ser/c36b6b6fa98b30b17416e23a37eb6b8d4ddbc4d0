@@ -1,0 +1,8 @@
+a: 1.!local 0
+b:a: 1.0b:.=5
+
+c: 1e3
+d: -.inf
+e: .Nan
+f: 0e4.inf
+ 6.02e

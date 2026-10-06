@@ -1,0 +1,58 @@
+---
+&a1
+!!str
+scalar1
+---
+!!str-
+\n3
+!!str scalar3
+---
+&a6 !!map
+&a5 !!str key5: va: S4
+---
+a6: 1
+&anchor6 b6: 2
+---
+&a2
+scalar2
+---
+&a3
+!!st
+scalar3
+---
+&a4 !!map
+&a5 !!str key5: value4
+---
+a6: 1
+&anchor6 b6: 2
+---
+!!p
+&a5 !!str key4: va: S4
+---
+a6: 1
+&anchor6 b6: 2
+---
+''2¶
+scalar2
+---
+&a3
+!!str scalar3
+---
+&a4 !!map
+&a5 !!str key5: value4
+---
+a6: 1
+&anchor6 b6: 2
+---
+!!map
+&a8 !!str key8: value7
+---
+!!map
+!!map
+&a8 !!str key8: value7
+---
+!!map
+!!str &a10 key10: value9
+---
+!!str &a11
+value11

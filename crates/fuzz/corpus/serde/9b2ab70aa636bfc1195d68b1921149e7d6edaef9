@@ -1,0 +1,32 @@
+%YAML 1.2
+---
+Doc……………………………………………………………………openapi: 3.1.0
+info:
+  title: Example…………………!!map……………………… API
+  version: 1.0.0
+  description: >
+    A generated APIÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿe3
+d: -.inf
+e: .NaN
+f: 1e402e> description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getdelta0
+      summa,y: "Fetch a delta by id"
+      tags: [delta]
+      responses:
+        '200':
+          dTrueiption: OK
+          contyent:
+            application/json:
+              ilo]
+      responses:………………………off………………             $ref……………………………………um:

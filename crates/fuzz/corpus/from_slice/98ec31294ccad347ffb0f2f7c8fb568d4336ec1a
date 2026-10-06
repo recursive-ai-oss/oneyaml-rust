@@ -1,0 +1,7 @@
+a: !!str 123
+b: !!int "42"
+c: !!float 1
+d: !!bool true
+e: !!1
+d: !!bool true
+e: !!null ''

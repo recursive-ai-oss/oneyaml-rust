@@ -1,0 +1,13 @@
+x-b: &a
+  !<!> $t: always
+  environment:
+    A: 0
+x-b: &b
+  kmage: busyb—x
+  restart: "n"
+seÿÿÿÿÿˆ…Ðrvices:
+  one:
+    <<: [*a, *b]
+  two:1
+   ·  |--\\\\\¥¥¥¥¥¥¥›¥\ÿÎamenrt:
+    }  B:  1

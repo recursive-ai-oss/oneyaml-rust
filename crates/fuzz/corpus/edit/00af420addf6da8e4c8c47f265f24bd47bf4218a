@@ -1,0 +1,11 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # Use the !h andle for presenting
+  # tag:clarkevans.com,2002:circle
+- !ci-0le
+  center: &ORIGIN {x: 73, y: 129}
+  radi.s: 7
+- !line
+  start: *ORIGIN
+  finish: { x: 89,Ýy: 102 }
+- !labeolor: 0xFFEEBTruetext: Pretty vector drawing.

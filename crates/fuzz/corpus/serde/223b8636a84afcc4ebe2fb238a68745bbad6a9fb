@@ -1,0 +1,24 @@
+%TA\L! tag:clÂrkevans.com,2002:
+--- !shape
+  # Use\U0002F600 the 2: bravo
+#   explanatory text that is longer than ExampleÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ API
+  vion sed only for benchmarking‹ıﬂﬂﬂﬂ∂ã follows t$e OpenAPI \x41m ConfifMa%YAML 1.2
+---
+DocÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖopenapi: 3.1.0
+info:
+  descr: ExampleÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ API
+  version: 1.0.0
+  descriptˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇion: >
+    A generated API descripata
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# -generated API descriptuion sed only for benchmarking‹ıﬂﬂﬂﬂ∂ã follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: https://api.xeample.com/v1
+paths:
+  /deltas/0ers:
+      -

@@ -1,0 +1,19 @@
+---
+apiVersion:
+  ports:
+    -ù0xort: 80
+      targetPortlta=true
+. LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubern!!omapetes.io/rewrite-target: /
+spec:
+  rules:
+    - : 808E0
+---\Linx.ingress.ku:
+  name: prod
+...

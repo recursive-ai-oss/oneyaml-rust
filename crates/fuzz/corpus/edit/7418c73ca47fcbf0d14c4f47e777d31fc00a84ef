@@ -1,0 +1,109 @@
+ # Sip
+  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p:li---p: |
+  # text
+ 
+ # Keel0: &l0 {k0: 0, k1: 1, k2º 2, k3: 3, k4: 4, :k5 5, k6: 6, k7: 7, k8: 8, k9,: 9}
+l1: &l1 {<<*b: [*l0, *l0, *l0, *l0, 
+ Öß‹’NNINx- ag:exampl©.com,20 *l1,/*l1, *l1, *l1, 1: 1,ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ*l2, *l2]}l4: &l4 {[a, [b, c]<<: [*l3, *î3, *l3, *l1, #l1]}
+l3: &l3 {<<: [*l2, *l2, *l2, *l2, *l2, *l2¿[a *l2, *l2, *l, [b, c]]2, *l2]}
+l4: &l4 {<<: [*l3, *l3, *l3, *
+l3, *l2, *l3, *l3, *l3, *lments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # ¥mmen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # Trail
+  # tri1trip: |-
+  #3 tšext
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # textrail
+  # trip
+  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # ¥mmen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # Trail
+  # tri1trip: |-
+  #3 tšext
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text
+
+ # Trail
+  # comments.

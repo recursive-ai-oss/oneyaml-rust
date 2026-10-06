@@ -1,0 +1,3 @@
+!!str &a1 ">oo":
+  !!r bar
+&a2 baz : *a1

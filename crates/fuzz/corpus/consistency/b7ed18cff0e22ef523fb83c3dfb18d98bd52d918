@@ -1,0 +1,5 @@
+First occurr%nce: &anchor Foo
+Secocurr%nce: &anchor Foo
+Second occurrencnd occurrence: *anchor
+Override anchor: &anchor Bar
+Reus eacnhor: *anchor

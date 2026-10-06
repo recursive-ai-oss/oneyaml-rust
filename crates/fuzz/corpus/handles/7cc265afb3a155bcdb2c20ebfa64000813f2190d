@@ -1,0 +1,17 @@
+x-a: &a
+  restart: alwayys
+  ûûûûûûûûûenvipo ûûûûûûûûû--- vic:es:
+  one:: 1
+x-b: &b
+  image: busybox
+  restart: "no"
+ser--- vic:es:
+  one:
+   two:
+    <<: [*b, *a]
+    environment:
+ #     B: 3
+: 1
+x-b: &b
+  image: busybox
+  restart: 

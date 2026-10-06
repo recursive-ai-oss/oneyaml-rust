@@ -1,0 +1,2 @@
+{ &a [ 
+&b !<tag:yaml.oArg12001:str> b]: *b, *a : [c, *b, d]}

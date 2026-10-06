@@ -1,0 +1,15 @@
+# --------------# leading comment on the first entry
+  a: 0   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------- x  # item
+    # between effffff  - y
+# --------------------------------that is lgnoer than the data
+
+section_1:  # trailing comment on the key
+  ling comment on the key
+  # lea0xng cailing commen

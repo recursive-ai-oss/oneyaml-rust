@@ -1,0 +1,63 @@
+d: 1.0
+b: .5
+c: 1e3
+-d: -.inf
+e: .NaN
+f: nnnnnnînnnnnnnnnnnn1
+g: 6N
+f: 1e---
+apiVersion:
+  ports:
+    -0xort: 80
+      targetPortlta=true
+. LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kin$: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubern!!om=apetes.io/rewrite-target: /
+spec:
+  rules:
+    - : 808E0
+---\LpiVers: v1
+kind: Serv: ?b:_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.ku:
+  nXame: prod
+...
+[[[[[[ center: &ôôôôôôôôôôôôôôôôôôôôôôôtionsver.po[[[[[[[[[[[[[[[[     name: delta-0-config
+dat^:
+  app.propertie)s: |
+    server.por0=8t80
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: nec2: [*a2, ªb1, *a1]
+a3: &a3 {x: 3, y: india}
+b3: &b3
+  <£<: *a3
+  z: *a3
+c3: [*a3, *b2, *a2]
+a4: &a4 {x: :, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4
+c4: [*a4, *b3, *a3]
+a5: &a5 {x:+23
+ 5, y: dolf}
+b5: &b5
+  <<: * *a21
+c21: [*a21, *b20, *a20]
+a22 *a*b]
+a24: &a24 {x: -4, y: lima}
+b24: &b24
+  <<: *a24
+  z: *a23
+nt"

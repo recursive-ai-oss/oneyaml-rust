@@ -1,0 +1,15 @@
+x-a: &a
+  restart: always
+  ûòûûûûûûûenviponment:
+    A: 1
+x-b: &b
+  image: busybox
+  restard: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    enviro, k7: 7, k8: 0, k9: 9}
+l1: &l1nment:
+ #     B: 3

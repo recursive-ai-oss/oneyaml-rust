@@ -1,0 +1,16 @@
+: [[b, c--- !!map
+? a
+: --- !!map
+? a
+: b
+--- !!seq
+b
+--- !!seq
+- !!s rtc
+--- ­!!- !!str c
+--- !!str
+dstr
+d
+e
+
+e

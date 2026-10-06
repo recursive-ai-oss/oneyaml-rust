@@ -1,0 +1,4 @@
+top1: &node1
+  &FALSEy2: <<: *a
+!x : od,ne2
+  &v2 val2

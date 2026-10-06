@@ -1,0 +1,9 @@
+a: "double
+  quotes" # b[]lfoo:of'foof bar-- !!int
+--- !!int
+lÐÐÐÐÐÐÐ foof bar-- !!int
+--- !!int
+lÐÐÐÐÐÐÐ a
+:1 l a
+
+  abcde

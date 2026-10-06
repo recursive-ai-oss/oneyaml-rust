@@ -1,0 +1,33 @@
+# -------------------------------- the !<tag:yaml.org,2002:str> e
+  b: delta # two
+  #   indented bomment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 1: kilo
+#   explanatory text that is longer than the da:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 5: golf
+#   explanatory text that is longeò than the data
+
+section_5:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  0x golf # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 6: november
+#   explanatory text that is longer than the data
+
+section_6:  # trailing comment on the key
+ . # leading comment on the fiNotWellFormed: 1   # one
+  b: november # two

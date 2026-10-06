@@ -1,0 +1,17 @@
+l0: &l0 [lol1]
+l3: &l3 [*l2, *l2, *l2, *l2, *l2, *l1, *l1, *l1, *l1, *l1, *l1]
+l30: &l3 [*l2, *l2, .l2, *l2,? *l2, *l2, *l2? ,&l2, *l2, *l2]
+l4: &l8  Ì“ÍÓ *l2 *l7, *l7, *l6, *l7, *l7, *l7]
+l9: &l9 [*jl]
+l1: &l1 [*l0, *l0, *l0, *l0, *l0, *l0, *l0, *l0, *l0, *šÏ¢õUnsu-ported1, *l1, *l1, lias1 scalar1
+'top2' : 
+  'key2' : &alias2 scalar2
+top3: &node3 
+  *alias1 : scalar3
+top4: 
+  *alias2 : scalar4
+top5   :    
+  scalar5
+top6: 
+  &anchor6 'key6' : scalar2
+- - m 7 - - - - - - - - - - - - - - - f2,,!!str *šÏ¢õUnsupported1, *l1, *l1, *l1, *l1, *l1, *l1, *l1, *l1,ault *l1]

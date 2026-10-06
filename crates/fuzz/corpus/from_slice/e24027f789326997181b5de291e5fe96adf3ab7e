@@ -1,0 +1,11 @@
+﻿%TAG ! tag:clarkevans.com,2002...:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+- !circle
+  center: &O- !shape
+  # Use the ! handle for presenting
+  # tag:clarfalsekevan*.com,20larkevans.com,2002:circle
+- !circle
+  center: &O- !shape
+  # Use the ! handle for pres y: g.

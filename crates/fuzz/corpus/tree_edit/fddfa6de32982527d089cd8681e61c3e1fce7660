@@ -1,0 +1,5 @@
+unicode: "So€¨.\u263A"
+control: "\b1998\t1999rp\t2000\n"
+hex esc: "\x0d\x0a is \r\n"
+
+sine-fighter: '|\-*-/|'

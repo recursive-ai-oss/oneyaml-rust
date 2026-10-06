@@ -1,0 +1,6 @@
+a: 1
+b:  alpha
+#   expl¡V¡¡¡¡¡¡›¡¡¡¡¡¡¡¡¡¡¡zzzzzzzzzzzzzzzzzz: v1
+kind: ConfigMap
+metadata:
+  name: 3

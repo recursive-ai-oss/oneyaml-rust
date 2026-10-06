@@ -1,0 +1,23 @@
+[package]
+name = "oneyaml-syntax"
+description = "Lossless YAML 1.2 decoder, parser, event stream, and syntax tree underneath oneyaml."
+keywords = ["yaml", "parser", "lossless", "syntax-tree"]
+categories = ["parser-implementations", "encoding"]
+readme = "README.md"
+documentation = "https://docs.rs/oneyaml-syntax"
+# `oneyaml-syntax` has its own semver track (it may stay 0.x and break
+# more often than `oneyaml`), so it does
+# not take the workspace version that `oneyaml` and `oneyaml-core` share.
+# `oneyaml` reaches it only through `doc.syntax()`, which is outside the
+# stability promise.
+version = "0.1.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+oneyaml-core = { path = "../oneyaml-core", version = "1.0.1" }

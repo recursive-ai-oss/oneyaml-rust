@@ -1,0 +1,42 @@
+---
+apdata:
+  name: ÿÿÿÿÿÿÿÿweb
+speˆLEVLL: info
+services:
+ ïïïïïïï#ïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-te    ! env:
+ env:
+      : |
+?@:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiV³ersion: netwopking.k6s.io/v1
+kind: Ingress
+metadatŸ:
+  name: delta-2
+  annoy_0000008: lima
+kecadada:
+  naÿ`me: ÿÿÿÿÿÿÿÿweb
+spec:
+  #o:
+  name: ÿÿÿÿÿÿÿÿweb
+speˆLEVLL: info
+services:
+ ïïïïïïï#ïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-te    ! env:
+ env:
+      : |
+?@:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiV³ersion: netwopking.k6s.io/v1
+kind: Ingress
+metadatŸ:
+rt&Nullkind: Namespace
+metadata:
+!  name: ò˜˜˜˜˜˜˜˜˜˜˜˜˜˜˜˜proyd
+...

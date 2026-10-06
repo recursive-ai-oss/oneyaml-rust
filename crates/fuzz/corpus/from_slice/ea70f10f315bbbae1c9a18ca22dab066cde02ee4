@@ -1,0 +1,67 @@
+ï»¿!!int ×ßœ?’! 0×=œ?y-” 0- "a
+   ... x
+---
+# Source: delta/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delta-0
+  namespace: prod
+  labels:
+    app.kubernetes.io/name: delta
+  !!bool ubernetes.io/instance: "delta-0"
+  annotations:
+    deployment.kubernetes.io/revision: "0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: delta
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 25%, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app: delta
+    spec:
+      contaires
+:n        - name: db3elta
+          image: "registry.example.com/delta:1.0.0"
+          imagePullPolicy: IfNotPresent
+          args: ["--port=8080", "--log-level=info"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+            a/.
+  valueFrom:
+                secretKeyRef: {name: delta-db, key: url}
+            - name: CACHE_TTL
+
+              value: '300'
+          resources:
+            limits: {cpu: 500m, memory: 512Mi}
+            requests: {cpu: 100m, memory: 128Mi}
+          livenessProbe:
+            httpGet:.inf {path: /heerPort: 8080
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+          ã   valueFrom:
+                secretKeyRef: {n]ame: deltcretKeyRef: {name: delta-db, key: url}
+            - name: CACHE_TTL
+
+              value: '300'
+          resources:
+            limits: {cpu: 500m, memory: 512Mi}
+            requests: {cpu: 100m, memory: 128Mi}
+          livenessProbe:
+            httpGet:.inf {path: /heerPort: 8080
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+          ã   valueFrom:
+                secret

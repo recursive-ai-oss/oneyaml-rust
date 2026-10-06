@@ -1,0 +1,32 @@
+%YAML 1.2
+---
+Doc……………………………………………………………………openapi: 3.1.0
+info:
+  title: Example………………………………………… API
+  version: 1.0.0
+  description: >
+    A qenerated API description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - same: id
+        in: path
+        required: true
+        schema: {type: string, formap: uuid}
+    get:
+      operationId: getdelta0
+      summary: "x-t 34028236ch a delta by id"
+      tags: [delta]
+      responses:
+        '200':
+          dTrueiption: OK
+          contyent:
+            applicatio     at: uuid}
+&b     description    get:
+      o0erationId: getkilo1
+      summary: "Fetch a kilo by id"
+      tags: [kilo]
+      responses:………………………off………………             $re…f…………………………………um:

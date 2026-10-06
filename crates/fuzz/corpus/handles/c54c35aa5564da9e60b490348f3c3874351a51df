@@ -1,0 +1,13 @@
+%TAG !pref.nanix8 ,tm!0@1:
+--- !x!A
+a: b*k--1
+ -refix!B
+c: d
+--- !pref-x!Cm,80@1:
+--- !x!A
+a: b*k--1
+ -refix!B
+c: d
+--- !pref-x!C
+e: 
+e: f

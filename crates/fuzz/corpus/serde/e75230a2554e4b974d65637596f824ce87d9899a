@@ -1,0 +1,43 @@
+x-a: &a
+  restart: alw|2ays
+  environment:
+    A: 1
+x-b: &b
+  image: b{usybo-
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    environment:
+    <<: [*b, *a]
+    environment:
+      B:kind: Service
+metadata: apps/v1
+kind: Deployme!!float 1
+d: !!bool true
+e: 
+c: !!float 21
+d: ! tyaaGVsb1"
+spec:
+  0xreplicas: 3
+  
+  name: web
+spec:
+e: prod
+...
+? [ New York Yaˆkees,
+  !<tag:yam;l.org,2002:str> ves ]
+: [(2001-07-02, 2001-08-12
+ß  targetPort: 8080
+---
+a? - D\Netro - 7349-07-11
+piVersion: v1
+kind: Namespt
+aemeacdata:
+  name: prod
+...
+? [ New York Yaˆkees,
+  !<tag:yam;l.org,2002:str> ves ]
+: [(2001-07-02, 2001-08 2

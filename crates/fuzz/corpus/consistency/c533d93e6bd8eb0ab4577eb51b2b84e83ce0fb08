@@ -1,0 +1,11 @@
+---
+&a1
+!!str
+scalar1
+---
+!!str-
+\n3
+!!str scalar3
+---
+&a4 !!map
+&a5 !!st- { oner key5 º two fal:

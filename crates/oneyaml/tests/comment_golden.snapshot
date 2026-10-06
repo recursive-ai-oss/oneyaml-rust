@@ -1,0 +1,476 @@
+# oneyaml comment attachment goldens (docs/comment-attachment.md).
+# Approved baseline (2026-09-30). Each case: `=== name`, the input (`| `), then per
+# document each comment: line:col "text" -> rule N owner (blank lines).
+=== r01_directives
+| %YAML 1.2
+| # among directives
+| ---
+| a: 1
+2:1 "# among directives" -> rule 1 document header (blank 0)
+=== r01_between_documents
+| a: 1
+| # about the next one
+| ---
+| b: 2
+-- document 0
+-- document 1
+2:1 "# about the next one" -> rule 1 document header (blank 0)
+=== r01_blank_lines_do_not_matter
+| # one
+| 
+| # two
+| 
+| ---
+| x
+1:1 "# one" -> rule 1 document header (blank 0)
+3:1 "# two" -> rule 1 document header (blank 1)
+=== r01_after_end_marker
+| a
+| ...
+| # after the end
+| ---
+| b
+-- document 0
+-- document 1
+3:1 "# after the end" -> rule 1 document header (blank 0)
+=== r01_commented_out_item_before_start
+| items:
+|   - a
+|   # - b
+| ---
+| x: 1
+-- document 0
+-- document 1
+3:3 "# - b" -> rule 1 document header (blank 0)
+=== r02_license_header
+| # Copyright
+| # license text
+| 
+| # about a
+| a: 1
+1:1 "# Copyright" -> rule 2 document header (blank 0)
+2:1 "# license text" -> rule 2 document header (blank 0)
+4:1 "# about a" -> rule 3 leading Scalar "a" @5:1 (blank 1)
+=== r02_after_start_marker
+| ---
+| # header
+| 
+| key: v
+2:1 "# header" -> rule 2 document header (blank 0)
+=== r02_no_visible_root
+| ---
+| # nothing here
+| ...
+2:1 "# nothing here" -> rule 2 document header (blank 0)
+=== r02_no_visible_root_implicit_end
+| --- 
+| # still the header
+2:1 "# still the header" -> rule 2 document header (blank 0)
+=== r02_no_document
+| # only a comment
+1:1 "# only a comment" -> rule 2 document header (blank 0)
+=== r03_first_entry
+| # about a
+| a: 1
+| b: 2
+1:1 "# about a" -> rule 3 leading Scalar "a" @2:1 (blank 0)
+=== r03_first_item
+| # first
+| - 1
+| - 2
+1:1 "# first" -> rule 3 leading Scalar "1" @2:3 (blank 0)
+=== r03_anchored_root
+| # the whole mapping
+| &x
+| a: 1
+1:1 "# the whole mapping" -> rule 3 leading Mapping "&x" @2:1 (blank 0)
+=== r03_root_scalar
+| # a scalar
+| hello
+1:1 "# a scalar" -> rule 3 leading Scalar "hello" @2:1 (blank 0)
+=== r03_after_start_marker
+| ---
+| # about k
+| k: v
+2:1 "# about k" -> rule 3 leading Scalar "k" @3:1 (blank 0)
+=== r04_entry
+| a: 1
+| # lead b
+| b: 2
+2:1 "# lead b" -> rule 4 leading Scalar "b" @3:1 (blank 0)
+=== r04_nested_first_entry
+| a:
+|   # lead x
+|   x: 1
+2:3 "# lead x" -> rule 4 leading Scalar "x" @3:3 (blank 0)
+=== r04_item
+| - 1
+| # lead two
+| - 2
+2:1 "# lead two" -> rule 4 leading Scalar "2" @3:3 (blank 0)
+=== r04_value_below_key
+| k:
+|   # lead v
+|   v
+2:3 "# lead v" -> rule 4 leading Scalar "v" @3:3 (blank 0)
+=== r04_collection_with_properties
+| k:
+|   # the mapping
+|   &a
+|   x: 1
+2:3 "# the mapping" -> rule 4 leading Mapping "&a" @3:3 (blank 0)
+=== r04_explicit_key_line
+| ?
+|   # the entry
+|   a
+| : b
+2:3 "# the entry" -> rule 4 leading Scalar "a" @3:3 (blank 0)
+=== r05_entry
+| a: 1 # one
+| b: two # two
+1:6 "# one" -> rule 5 trailing Scalar "a" @1:1 (blank 0)
+2:8 "# two" -> rule 5 trailing Scalar "b" @2:1 (blank 0)
+=== r05_block_value_entry
+| key:  # about key
+|   x: 1
+1:7 "# about key" -> rule 5 trailing Scalar "key" @1:1 (blank 0)
+=== r05_item
+| - a # item a
+| - - b # inner b
+1:5 "# item a" -> rule 5 trailing Scalar "a" @1:3 (blank 0)
+2:7 "# inner b" -> rule 5 trailing Scalar "b" @2:5 (blank 0)
+=== r05_flow_value_entry
+| a: [1, 2] # entry a
+1:11 "# entry a" -> rule 5 trailing Scalar "a" @1:1 (blank 0)
+=== r05_open_bracket
+| k: [ # entry k
+|   1]
+1:6 "# entry k" -> rule 5 trailing Scalar "k" @1:1 (blank 0)
+=== r05_markers
+| %YAML 1.2 # directive
+| --- # start
+| a
+| ... # end
+1:11 "# directive" -> rule 5 document header (blank 0)
+2:5 "# start" -> rule 5 document header (blank 0)
+4:5 "# end" -> rule 5 document footer (blank 0)
+=== r05_root
+| hello # the root
+1:7 "# the root" -> rule 5 trailing Scalar "hello" @1:1 (blank 0)
+=== r05_properties_line
+| k: &a !!map # entry k
+|   x: 1
+1:13 "# entry k" -> rule 5 trailing Scalar "k" @1:1 (blank 0)
+=== r05_explicit_entry
+| ? a # key line
+| : b # value line
+1:5 "# key line" -> rule 5 trailing Scalar "a" @1:3 (blank 0)
+2:5 "# value line" -> rule 5 trailing Scalar "a" @1:3 (blank 0)
+=== r05_block_scalar_header
+| k: | # entry k
+|   text
+1:6 "# entry k" -> rule 5 trailing Scalar "k" @1:1 (blank 0)
+=== r05_flow_items
+| [a, # after a
+|  b # after b
+| ]
+1:5 "# after a" -> rule 5 trailing Scalar "a" @1:2 (blank 0)
+2:4 "# after b" -> rule 5 trailing Scalar "b" @2:2 (blank 0)
+=== r06_commented_out_item
+| list:
+|   - a
+|   # - b
+| next: 1
+3:3 "# - b" -> rule 6 footer Sequence "- a" @2:3 (blank 0)
+=== r06_nested_columns
+| a:
+|   b:
+|     - 1
+|     # c4
+|   # c2
+| # c0
+| d: 1
+4:5 "# c4" -> rule 6 footer Sequence "- 1" @3:5 (blank 0)
+5:3 "# c2" -> rule 6 footer Mapping "b:" @2:3 (blank 0)
+6:1 "# c0" -> rule 4 leading Scalar "d" @7:1 (blank 0)
+=== r06_root_footer_deeper
+| a: 1
+|   # deeper than the root
+2:3 "# deeper than the root" -> rule 6 footer Mapping "a: 1" @1:1 (blank 0)
+=== r06_deeper_than_all
+| a:
+|     b: 1
+|   # c
+| d: 1
+3:3 "# c" -> rule 6 footer Mapping "b: 1" @2:5 (blank 0)
+=== r06_after_last_block_scalar
+| m:
+|   a: |
+|     text
+|   # foot of m
+| n: 1
+4:3 "# foot of m" -> rule 6 footer Mapping "a: |" @2:3 (blank 0)
+=== r06_blank_lines_kept
+| a:
+|   - 1
+| 
+|   # - 2
+| 
+| b: 1
+4:3 "# - 2" -> rule 6 footer Sequence "- 1" @2:3 (blank 1)
+=== r07_footer
+| a: 1
+| # footer
+2:1 "# footer" -> rule 7 document footer (blank 0)
+=== r07_before_end_marker
+| a: 1
+| # f
+| ...
+2:1 "# f" -> rule 7 document footer (blank 0)
+=== r07_after_end_marker
+| a
+| ...
+| # after end
+3:1 "# after end" -> rule 7 document footer (blank 0)
+=== r07_flow_root
+| [1, 2]
+|   # flow root has no footer
+2:3 "# flow root has no footer" -> rule 7 document footer (blank 0)
+=== r07_after_last_block_scalar
+| a: 1
+| b: |
+|   text
+| # document footer
+4:1 "# document footer" -> rule 7 document footer (blank 0)
+=== r07_keep_chomping
+| k: |+
+|   a
+| 
+| # kept blank line is content
+4:1 "# kept blank line is content" -> rule 7 document footer (blank 0)
+=== r08_blank_lines
+| a: 1
+| 
+| 
+| # two blank lines
+| b: 2
+|   
+| # one blank line
+| c: 3
+4:1 "# two blank lines" -> rule 4 leading Scalar "b" @5:1 (blank 2)
+7:1 "# one blank line" -> rule 4 leading Scalar "c" @8:1 (blank 1)
+=== r08_crlf
+| # h
+| 
+| a: 1 # t
+| # f
+1:1 "# h" -> rule 2 document header (blank 0)
+3:6 "# t" -> rule 5 trailing Scalar "a" @3:1 (blank 0)
+4:1 "# f" -> rule 7 document footer (blank 0)
+=== r09_sequence
+| [
+|   # lead a
+|   a,
+|   # lead b
+|   b
+|   # footer
+| ]
+2:3 "# lead a" -> rule 9 leading Scalar "a" @3:3 (blank 0)
+4:3 "# lead b" -> rule 9 leading Scalar "b" @5:3 (blank 0)
+6:3 "# footer" -> rule 9 footer Sequence "[" @1:1 (blank 0)
+=== r09_mapping
+| {a: 1,
+|  # lead b
+|  b: 2
+|  # footer
+| }
+2:2 "# lead b" -> rule 9 leading Scalar "b" @3:2 (blank 0)
+4:2 "# footer" -> rule 9 footer Mapping "{a: 1," @1:1 (blank 0)
+=== r09_comma_skipped
+| [a
+| # lead b
+| , b]
+2:1 "# lead b" -> rule 9 leading Scalar "b" @3:3 (blank 0)
+=== r09_nested
+| k: [[a,
+|   # inner footer
+|   ], b]
+2:3 "# inner footer" -> rule 9 footer Sequence "[a," @1:5 (blank 0)
+=== r10_continuing_mapping
+| a:
+|   b: 1
+| # shallow
+|   d: 2
+3:1 "# shallow" -> rule 10 leading Scalar "d" @4:3 (blank 0)
+=== r10_value_below_key
+| k:
+| # shallow v
+|   v
+2:1 "# shallow v" -> rule 10 leading Scalar "v" @3:3 (blank 0)
+=== r11_value
+| ? a
+| # the value
+| : b
+2:1 "# the value" -> rule 11 leading Scalar "b" @3:3 (blank 0)
+=== r11_empty_value
+| ? a
+| # the empty value
+| :
+2:1 "# the empty value" -> rule 11 leading Scalar "" @3:2 (blank 0)
+=== r12_between_properties
+| k: &a
+|   # between properties
+|   !!map
+|   x: 1
+2:3 "# between properties" -> rule 12 leading Mapping "&a" @1:4 (blank 0)
+=== r12_header_line
+| k: !!str
+|   # above the header
+|   |
+|   text
+2:3 "# above the header" -> rule 12 leading Scalar "!!str" @1:4 (blank 0)
+=== r13_inner_footer_after_outer
+| a:
+|   b:
+|     c: 1
+|   # c2
+|     # c4
+4:3 "# c2" -> rule 6 footer Mapping "b:" @2:3 (blank 0)
+5:5 "# c4" -> rule 13 footer Mapping "b:" @2:3 (blank 0)
+=== r13_footer_after_next_leading
+| a:
+|   - 1
+| # lead b
+|   # - 2
+| b: 1
+3:1 "# lead b" -> rule 4 leading Scalar "b" @5:1 (blank 0)
+4:3 "# - 2" -> rule 13 leading Scalar "b" @5:1 (blank 0)
+=== r13_footer_after_document_footer
+| a:
+|   - 1
+| # lead b
+| 
+|   # - 2
+3:1 "# lead b" -> rule 7 document footer (blank 0)
+5:3 "# - 2" -> rule 13 document footer (blank 1)
+=== r13_run_continues_outward
+| a:
+|   b:
+|     - 1
+|     # c4
+|   # c2
+|     # c4 again
+| # c0
+|   # c2 again
+| d: 1
+4:5 "# c4" -> rule 6 footer Sequence "- 1" @3:5 (blank 0)
+5:3 "# c2" -> rule 6 footer Mapping "b:" @2:3 (blank 0)
+6:5 "# c4 again" -> rule 13 footer Mapping "b:" @2:3 (blank 0)
+7:1 "# c0" -> rule 4 leading Scalar "d" @9:1 (blank 0)
+8:3 "# c2 again" -> rule 13 leading Scalar "d" @9:1 (blank 0)
+=== bs_middle_entry
+| a: |
+|   text
+| # lead b
+| b: 1
+3:1 "# lead b" -> rule 4 leading Scalar "b" @4:1 (blank 0)
+=== bs_middle_item
+| - |
+|   text
+| # lead two
+| - 2
+3:1 "# lead two" -> rule 4 leading Scalar "2" @4:3 (blank 0)
+=== gate_kubernetes
+| # Deployment for the web tier
+| # (managed by the platform team)
+| 
+| apiVersion: apps/v1
+| kind: Deployment
+| metadata:
+|   name: web
+|   labels:
+|     app: web # selector label
+|     # tier: frontend
+| spec:
+|   replicas: 2 # scaled by the HPA
+|   selector:
+|     matchLabels:
+|       app: web
+|   template:
+|     metadata:
+|       labels:
+|         app: web
+|     spec:
+|       containers:
+|         # the main container
+|         - name: nginx
+|           image: "nginx:1.14.2"
+|           ports:
+|             - containerPort: 80
+|             # - containerPort: 443
+| ---
+| # The service in front of it
+| apiVersion: v1
+| kind: Service
+| spec:
+|   ports: [{port: 80, targetPort: 8080}] # http only
+-- document 0
+1:1 "# Deployment for the web tier" -> rule 2 document header (blank 0)
+2:1 "# (managed by the platform team)" -> rule 2 document header (blank 0)
+9:14 "# selector label" -> rule 5 trailing Scalar "app" @9:5 (blank 0)
+10:5 "# tier: frontend" -> rule 6 footer Mapping "app: web" @9:5 (blank 0)
+12:15 "# scaled by the HPA" -> rule 5 trailing Scalar "replicas" @12:3 (blank 0)
+22:9 "# the main container" -> rule 4 leading Mapping "name: nginx" @23:11 (blank 0)
+-- document 1
+27:13 "# - containerPort: 443" -> rule 1 document header (blank 0)
+29:1 "# The service in front of it" -> rule 3 leading Scalar "apiVersion" @30:1 (blank 0)
+33:41 "# http only" -> rule 5 trailing Scalar "ports" @33:3 (blank 0)
+=== gate_github_actions
+| name: CI
+| on:
+|   push:
+|     branches: [main]
+|   # pull_request:
+|   #   branches: [main]
+| jobs:
+|   test:
+|     runs-on: ubuntu-latest
+|     steps:
+|     - uses: actions/checkout@v4
+|     # build it
+|     - name: Build
+|       run: |
+|         cargo build --verbose
+|         cargo doc
+|     # then test it
+|     - name: Test
+|       run: cargo test # all targets
+5:3 "# pull_request:" -> rule 6 footer Mapping "push:" @3:3 (blank 0)
+6:3 "#   branches: [main]" -> rule 6 footer Mapping "push:" @3:3 (blank 0)
+12:5 "# build it" -> rule 4 leading Mapping "name: Build" @13:7 (blank 0)
+17:5 "# then test it" -> rule 4 leading Mapping "name: Test" @18:7 (blank 0)
+19:23 "# all targets" -> rule 5 trailing Scalar "run" @19:7 (blank 0)
+=== gate_compose_merge_keys
+| # docker-compose with shared settings
+| x-defaults: &defaults # anchored
+|   restart: always
+|   # logging: json
+| 
+| services:
+|   web:
+|     <<: *defaults # merge the defaults
+|     image: nginx
+|     ports:
+|       - "80:80" # public
+|   db:
+|     <<: *defaults
+|     # the database
+|     image: postgres
+| # end of services
+1:1 "# docker-compose with shared settings" -> rule 3 leading Scalar "x-defaults" @2:1 (blank 0)
+2:23 "# anchored" -> rule 5 trailing Scalar "x-defaults" @2:1 (blank 0)
+4:3 "# logging: json" -> rule 6 footer Mapping "&defaults # anchored" @2:13 (blank 0)
+8:19 "# merge the defaults" -> rule 5 trailing Scalar "<<" @8:5 (blank 0)
+11:17 "# public" -> rule 5 trailing Scalar "\"80:80\"" @11:9 (blank 0)
+14:5 "# the database" -> rule 4 leading Scalar "image" @15:5 (blank 0)
+16:1 "# end of services" -> rule 7 document footer (blank 0)

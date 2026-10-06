@@ -1,0 +1,11 @@
+  # Leading comment line spaces are
+   # neither content nor 0b050tation.
+    
+Not indented:
+ By !e!x pace: |
+    By four
+      spaces
+ Flow style: [    # Leading spaces
+   By tw1,000o,        # Leading comment line spaces 0x1Fare
+   # neither content nor 0b101taticontent nor
+    ]             # indentation.

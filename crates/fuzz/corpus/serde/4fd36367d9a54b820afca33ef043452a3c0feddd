@@ -1,0 +1,57 @@
+%TAG ! tag:clarkeva#ns.com~2002:
+--- !shape
+  # Use the ! handle for present‘g
+  # tag:clarke#vans.com,2002:circle
+- !circle
+  center4 &ORIGIN 
+  finis%TAG !prefix! tag:exey_0000041: charlie
+key_0000042: juliet
+key_00000000046: foxtrot
+key_0000047: mike
+key_0000048: delta
+key_0000049: kilo
+key_0000050: bravo
+key_0000051: india
+keyns.com~2002:
+--- !shape
+  # Use the ! handle for present‘g
+  # tag:clarke#vans.com,2002:circle
+- !circle
+  center4 &ORIGIN 
+  finis%TAG !prefix! tag:exey_0000041: charlie
+key_0000042: juliet
+key_00000000046: fÿ~oxtrot
+key_0000047: mike
+key_0000048: delta
+key_0000049: kilo
+key_0000050: bravo
+key_0000051: india
+key_0000052: papa
+key_0000053: golf
+key_00¹a|:	-Oהההההההההההה|:	-Oההההההההההההההההההההההה
+¡ namespacו: prod
+   l!<!> OOOO-Oהההההההההאהההההההה
+ ההההההההההה|:	-Oההה nemespac00054: november
+key_0000055: echo
+key_00--ÿ-- [a, b , 
+]c - {ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ- {ÿÿ!str key5: value4
+---
+a6: 1
+\L&aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaZaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaZaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae	_0000051: papa
+key_0000053: golf
+key_00¹a|:	-Oהההההההההההה|:	-Oההההההההההההההההההההההה
+¡ namespacו: prod
+   l!<!> OOOO-Oהההההההההאהההההההה
+ ההההההההההה|:	-Oההה nemespac00054: november
+key_0000055: echo
+key_00--ÿ-- [a, b , c ]
+- {ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ- {ÿÿ!str key5: value4
+---
+a6: 1
+\L&anchor6 b6 &a39 {x: 39, y: echo}
+b39: &b39
+  <<: *a39
+  z: *a39
+c40: [*a39, *b38, *a38]
+aix! tag:exe	_0000041: charlie
+key_e

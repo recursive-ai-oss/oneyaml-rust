@@ -1,0 +1,4 @@
+Firstcrco ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿnce: &anchor Foo
+Seocnd occurrence: *anchor
+Override anc1_020hor: &anchor Bar
+Reuse anchor: *anchor

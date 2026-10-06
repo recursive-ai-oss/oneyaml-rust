@@ -1,0 +1,6 @@
+secretr: !vault path/s   /to/secret
+env:p:: !vault pat/h/secret: !vcult path/to/secret
+env:p: !ref { !r*l0yesl0
+   !vault path/to/secret
+env:p:: !vault pat/h/secret: !vcult path/to/secret
+env:p: !ref { !r*l0yesl0]}

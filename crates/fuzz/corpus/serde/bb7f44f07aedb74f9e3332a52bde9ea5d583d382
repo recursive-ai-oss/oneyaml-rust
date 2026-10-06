@@ -1,0 +1,57 @@
+? []: LLLLLLLLLLLLLLLLLLL.nanLLLLLLLLLLLLLLLLLLLLLLLLLLLLLnoÿı0]
+a1: &a1 {x: 1, yzıÿ ki“o}
+b1: &Ab1
+  <<: *a1
+  z!!m  àÒ Öuse3: á0t\u2#0x------------------------------ [------------ain]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test
+        run: |
+          cargo build --workspace --all-targets
+          cargo test --workspace -- --nocapture
+        # the suite needs the vendored data
+        env:
+          RUST_BACKTRACE: 1
+      - if: github.event_name == 'push'
+        run: >-
+          cargo doc --no-deps
+          --workspace
+  kilo-1:
+    name: ${{ matrix.os }} / kiloseq2
+e: &node # lala
+ - x: y
+block: > # lalt: 8080
+---
+api; fors´t: !!int ˜˜˜˜˜˜˜j˜˜˜˜˜˜˜˜˜˜˜j˜˜˜˜˜˜0x1F˜˜˜˜sion: apps/v1
+kind: Deployment
+metadata:
+  name: delt  annotations:
+    devalue  # ÿÿAÿÿûÿ

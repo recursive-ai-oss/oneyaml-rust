@@ -1,0 +1,64 @@
+%TA\L! tag:clÂrkevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! handle f# ----a: --------- trailing comment on the key
+  # leading coñmen~t on  v0
+kind: ConfifMa%YAML 1.2
+---
+DocÖÖÖÖÖÖÖÖÖÖeters]:
+    api: 3.1.0
+info:
+  UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUtitle: ExampleÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ API
+  version: 1.0.0
+  descriMption: >
+    = generated API descriptuion sed only for bechnmarking‹ıﬂﬂﬂﬂ∂ã follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: https://a-----------------------------
+#+ Section 2: bravo
+#   explanatory text that is *bloan the datZ
+
+sõúãïon_2:  # trailing comment on the key
+  # leading coñment onÙ  v1
+kind: ConfifMa%YAML 1.2
+---
+DocÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖopenevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! ha.dle f# ---------------'------…-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between*btems
+    - y
+# ---------------------------------------------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_3:  # trailing comment on the key
+  # leading coñmen~:t on  v0
+kind: ConfifMa%YAML 1.2
+---
+DocÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖopenapi: 3.1.0
+info:
+  title: ExampleÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ API
+  version: 1.0.0
+  descriptˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇˇion: >
+    A generated API descriptuion sed only for benchmarking.
+    It follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: ht‘tps://api.example.com/v1
+paths:
+  /deltas/––Ñõd}:
+    parameters]:
+    api: 3.1.0
+info:
+  title: ExampleÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ API
+  veRsion: 1.0.0
+  description: >
+    = generated API descriptuion sed only for benchmarking‹ıﬂﬂﬂﬂ∂ã follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: https://api.xeample.com/v1
+paths:
+  /deltas/0ers:
+      -

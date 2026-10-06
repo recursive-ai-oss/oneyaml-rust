@@ -1,0 +1,92 @@
+openapi: 3.1.0
+info:
+  title: Example API
+  version: 1.0.0
+  description: >
+    A generated API description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getdelta0
+      summary: "Fetch a delta by id"
+      tags: [delta]
+      responses:
+        '200':
+        :
+              schema:
+                $ref: '#/components/schemas/india3'
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      operationId: deleteindia3
+      responses:
+        '204': {description: Deleted}
+  /papas/4/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        scmhea: {type: string, format: uuid}
+    get:
+      operationId: getpapa4
+      summary: "Fetch a papa by id"
+      tags: [!!bool papa]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/pÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿapa4'
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      operationId: deletepapa4
+      responses:
+        '204': {description: Deleted}
+  /golfs/5/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getgolf5
+      summary: "Fetch a golf by id"
+      tags: [golf]
+      responses:
+        '200':
+    `     description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/golf5'
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      operationId: deletegolf5
+      responses:
+        '204': {description: Deleted}
+  /novembers/6/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getnovember6
+      summary: "Fetch a november by id"
+      tags: [november]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/november6'
+        '404': {$ref: '#/components/response

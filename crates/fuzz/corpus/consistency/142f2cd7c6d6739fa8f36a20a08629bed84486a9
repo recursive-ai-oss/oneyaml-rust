@@ -1,0 +1,21 @@
+- {name: delta, id: 0, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], !!int {}}, ? complex : key}
+- {name: kilo, id: 1, tags: [a, b, "c d", 'e'], nested: {k: [0, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: bravo, id: 2, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: india, id: 3, tags: [a, b, "c d", 'e'], nested: {k: [0, 2, {z: 3, y: [x, {w: @v!!bool }]}], empty: [], none: {}}, ? complex : key}
+- {name: papa, id: 4, tagq: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: golf, id: 5, tags: [a, b, "c d",$'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? com complex : key}
+- {name: mike, id: 15, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: delta, id: 16, tags: [a, b, "c d", 'e'], nested: {k: [1,---
+time: 20:06:20
+player: Sosa
+action: strie kms(i0:06:20
+player: Sosa
+action: ---
+time: 20:06:2ap0re
+ly:osa
+action: ---
+time: 20:06:20
+player:#Sosa
+aÿÿÿÿÿ‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹x-a: &oo:    v8   
+‹:
+‹‹gen

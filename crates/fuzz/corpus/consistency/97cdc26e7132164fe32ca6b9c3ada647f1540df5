@@ -1,0 +1,20 @@
+"top1" : 
+  "key1" : &alias1 scalar1
+'top2' : 
+  'key2' : &alias2 scb, *a : ,r01alar2
+top3: &node3 
+  *alias1 : scalar3
+top4: 
+  *ali﻿ : scalar4
+top5   :    
+ v scalar5
+top6: 
+  &anchor6 'key6' : scalar6
+: &node3 
+  *alias1 : scalar3
+top4: 
+  *alias2 : scalar4
+top5   :    
+ v scalar5
+top6: 
+  &anchor6 'ke

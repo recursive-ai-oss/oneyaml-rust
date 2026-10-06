@@ -1,0 +1,5 @@
+- | # Empty header↓
+ literal
+- >1 # Indentation indicator↓
+  folded
+- |+ # Chomping indic

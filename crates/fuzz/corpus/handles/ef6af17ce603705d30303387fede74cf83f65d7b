@@ -1,0 +1,40 @@
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 1: kilo
+#   explanatory text that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: kilo # two
+  #   indented c-----------------------------------
+# Section 5: papa
+#   explanato rxetyt that is longer than the data
+
+section_4:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 2   # one
+  b: papa # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ------------------------------------------------------------
+# Section 5: papa
+#   explanato rxetyt that is longer than the data
+
+section_4:  # trailing comment o1   # one
+  bº november # two

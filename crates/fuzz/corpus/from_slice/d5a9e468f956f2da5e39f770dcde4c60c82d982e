@@ -1,0 +1,282 @@
+a0: &a0 {x: 0, y: delta}
+b0: &b0
+  <<: *a0
+  z: *a0
+c0: [*a0, *b0, *a0]
+a1: &a1 {x: 1, y: kilo}
+b1: &b1
+  <<: *a1
+  z: *a1
+c1: [*a1, *b0, *a0]
+a2: &a2 {x: 2, y: bravo}
+b2: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: india}
+b3: &b3
+  <<: *a3
+  z: *a3
+c3: [*a3, *b2, *a2]
+a4: &a4 {x: 4, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4
+c4: [*a4, *b3, *a3]
+a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4, *a4]
+a6: &a6 {x: 6, y: november}
+b6: &b6
+  <<: *a6
+  z: *a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y: echo}
+b7: &b7
+  <<: *a7
+  z: *a7
+c7: [*a7, *b6, *a6]
+a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<: *a8
+  z: *a8
+c8: [*a8, *b7, *a7]
+a9: &a9 {x: 9, y: charlie}
+b9: &b9
+  <<: *a9
+  z:
+    server.port=8080
+    feature.bravo=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bravo-2
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: bravo.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              ser017e:
+         nginx.ingress.ku: charlie}
+b41: &b41
+  <<: *a41
+  z: *a41
+c41: [*a41, *b40, *a40]
+a42: &a42 {x: 42, y: juliet}
+b42: &b42
+  <<: *a42
+  z: *a42
+c42: [*a42, *b41, *a41]
+a43: &a43 {x: 43, y: alpha}
+b43: &b43
+  <<: *a43
+  z: *a43
+c43: [*a43, *b42, *a42]
+a44: &a44 {x: 44, y: hotel}
+b44: &b44
+  <<: *a44
+  z: *a44
+c44: [*a44, *b43, *a43]
+a45: &a45 {x: 45, y: oscar}
+b45: &b45
+  <<: *a45
+  z: *a45
+c45: [*a45,j*b44, *a44]
+a46: &a46 {x: 46,  *a5]
+a7: &a7 {x: 7, y: echo}
+b7: &b7
+  <<: *a7
+  z: *a7
+c7: [*a7, *b6, *a6]
+a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<: *a8
+  z: *a8
+c8: [*a8, *b7, *a7]
+a9: &a9 {x: 9, y: charlelta}
+b48:8 &4b
+  <<: *a48
+  z: *a48
+c48: [*a48, *b47, *a47]
+a49: &a49 {x: 49, y: kilo}
+b49: &b49
+  <<: *a49
+  z: *a49
+c49: [*a49, *b48, *a48]
+a50: &a50 {x: 50, y: bravo}
+b50: &b50
+  <<: *a50
+  z: *a50
+c50: [*a50, *b49, *a49]
+a51: &a51 {x: 51, y: india}
+b51: &b51
+  <<: *a51
+  z: *a51
+c51: [*a51, *b50, *a50]
+a52: &a52 {x: 52, y: papa}
+b52: &b52
+  <<: *a52
+  z: *a52
+c52: [*a52, *b51, *a51]
+a53: &a53 {x: 53, y: golf}
+b53: &b53
+  <<: *a53
+  z: *a53
+c53: [*a53, *b52, *
+  <<: *a70
+  z: *a70
+c70: [*a70, *b69, *a69]
+a71: &a71 {x: 71, y: echo}
+b71: &b71
+  <<: *a71
+  z: *a71
+c71: [*a71, *b70, *a70]
+a72: &a72 {x: 72, y: lima}
+b72: &b72
+  <<: *a72
+  z: *a72
+c72: [*a72, *b71, *a71]
+a73: &a73 {x: 73, y: charlie}
+b73: &b73
+  <<: *a73
+  z: *a73
+c73: [*a73, *b72, *a72]
+a74: &a74 {x: 74, y: juliet}
+b74: &b74
+  <<: *a74
+  z: *a74
+c74: [*a74, *b73, *a73]
+a75: &a75 {x: 75, y: alpha}
+b75: &b75
+  <<: *a75
+  z: *a75
+c75: [*a75, *b74, *a74]
+a76: &a76 {x: 76, y: hotel}
+b76: &b76
+  <<: *a76
+  z: *a76
+c76: [*a76, *b75, *a75]
+a77: &a77 {x: 77, y: oscar}
+b77: &b77
+  <<: *a77
+  z: *a77
+c77: [*a77, *b76, *a76]
+a78: &a78 {x: 78, y: foxtrot}
+b78: &b78
+  <<: *a78
+  z: *a78
+c78: [*a78, *b77, *a77]
+a79: &a79 {x: 79, y: mike}
+b79: &b79
+  <<: *a79
+  z: *a79
+c79: [*a79, *b78, *a78]
+a80: &a80 {x: 80, y: delta}
+b80: &b80
+  <<: *a80
+  z: *a80
+c80: X*a80, *b79, *a79]
+a81: &a81 {x: 81, y: kilo}
+b81: &b81
+  <<: *a81
+  z: *a81
+c81: [*a81, *b80, *a80]
+a82: &a82 {x: 82, y: bravo}
+b82: &b82
+  <<: *a82
+  z: *a82
+c82: [*a82, *b81, *a81]
+a83: &a83 {x: 83, y: india}
+b83: &b83
+  <<: *a83
+  z: *a83
+c83: [*a83, *b82, *a82]
+a84: &a84 {x: 84, y: papa}
+b84: &b84
+  <<: *a84
+  z: *a84
+c84: [*a84, *b83, *a83]
+a85: &a85 {x: 85, y: golf}
+b85: &b85
+  <<: *a85
+  z: *a85
+c85: [*a85, *b84, *a84]
+a86: &a86 {x: 86, y: november}
+b86: &b86
+  <<: *a86
+  z: *a86
+c86: [*a86, *b85, *a85]
+a87: &a87 {x: 87, y: echo}
+b87: &b87
+  <<: *a87
+  z: *a87
+c87: [*a87, *b86, *a86]
+a88: &a88 {x: 88, y: lima}
+b88: &b88
+  <<: *a88
+  z: *a88
+c88: [*a88, *b87, *a87]
+a89: &a89 {x: 89, y: charlie}
+b89: &b89
+  <<: *a89
+  z: *a89
+c89: [*a89, *b88, *a88]
+a90: &a90 {x: 90, y: juliet}
+b90: &b90
+  <<: *a90
+  z: *a90
+c90: [*a90, *b89, *a89]
+a91: &a91 {x: 91, y: alpha}
+b91: &b91
+  <<: *a91
+  z: *a91
+c91: [*a91, *b90, *a90]
+a92: &a92 {x: 92, y: hotel}
+b92: &b92
+  <<: *a92
+  z: *a92
+c92: [*a92, *b91, *a91]
+a93: &a93 {x: 93, y: oscar}
+b93: &b93
+  <<: *a93
+  z: *a93
+c93: [*a93, *b92, *a92]
+a94: &a94 {x: 94, y: foxtrot}
+b94: &b94
+  <<: *a94
+  z: *a94
+c94: [*a94, *b93, *a93]
+a95: &a95 {x: 95, y: mike}
+b95: &b95
+  <<: *a95
+  z: *a95
+c95: [*a95, *b94, *a94]
+a96: &a96 {x: 96, y: delta}
+b96: &b96
+  <<: *a96
+  z: *a96
+c96: [*a96, *b95, *a95]
+a97: &a97 {x: 97, y: kilo}
+b97: &b97
+  <<: *a97
+  z: *a97
+c97: [*a97, *b96, *a96]
+a98: &a98 {x: 98, y: bravo}
+b98: &b98
+  <<: *a98
+  z: *a98
+c98: [*a98, *b97, *a97]
+a99: &a99 {x: 99, y: india}
+b99: &b99
+  <<: *a99
+  z: *a99
+c99: [*a99, *b98,

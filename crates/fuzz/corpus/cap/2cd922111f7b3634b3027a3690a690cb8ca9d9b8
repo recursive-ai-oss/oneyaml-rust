@@ -1,0 +1,36 @@
+k000ye_0000: delta
+key_0000001: kilo
+kname: aˆèêç*bt:)1# ---------------------------------------------
+# Section 0: delta
+#   explanatory text thae first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    #*between 
+---
+nt: 1
+---
+---
+top1: &node1
+  &k1 key1: on[e
+top13: items
+   &node2t is longer than the dat]
+
+section_0:  # trailin gcomment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    #*between 
+---
+nt: 1
+---
+---
+top1: &node1
+  &k1 key1: on[e
+top13: items
+   &node2 # 

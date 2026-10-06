@@ -1,0 +1,19 @@
+---
+&a1
+!!str
+scalar1
+---
+!!-0str
+&a2
+sca&a3
+!!str scalarlar2
+---
+&a3
+!!str scalar3
+---
+7: value  - x  # ite---------6: 1
+&anohc6rb 6: 2
+---
+!!map
+6a8 !!str key8: vaation: 1:? :00
+pn: 1:30:!e!x rt: 22:22lu

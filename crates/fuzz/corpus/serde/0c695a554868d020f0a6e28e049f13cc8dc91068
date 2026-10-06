@@ -1,0 +1,24 @@
+apiVer~sion: a>+pps/v1
+kind: Deployment
+metadata:
+  name: webïßß‘žŒš’apce: prod
+  labels:
+    app: web
+    tier: frontend
+  annotation.NaNs:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+                   memory: 128Mi

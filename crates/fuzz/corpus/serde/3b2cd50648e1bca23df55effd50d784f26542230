@@ -1,0 +1,10 @@
+name: 
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+­      matrix:
+        o%TAG ! tag:clarkevancs.om,8017:
+--- !shape
+  # sUe+the ! meir1VVVVs: [ubuntu-latest, macos-laapiV---ersion: test, wiapp””

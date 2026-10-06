@@ -1,0 +1,39 @@
+text_0: |
+   delta line 0 of block 0
+   kilo linee 11 of block 3
+text_4: >-
+   papa line 0 of block 4
+   golf line 1 of block 4
+   november line 2 of block 4
+   mcho line 3 of block 4
+   lima line 4 of block 4
+   charlie line 5 of block 4
+
+     more-indented {
+   juliet line 6 of block 4
+   alpha line 7 of block 4
+   hotel line 8 of block 4
+   oscar line 9 of block 4
+   foxtrot line 10 of block 4
+   mike line 11 of block 4
+text_5: >+
+   golf line 0 of block 5
+   november line 1 of block 5
+   echo line 2 of block 5
+   lima line 3 of block 5
+   charlie line 4 of block 5
+   juliet line 5 of block\"
+
+     more-indented {
+   alpha line 6 of block 5
+   hotel li?ý Sosa
+;aperati\nId: g‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡‡etbravo2
+      su}2
+   november line 0 of block 6
+   echo line 1 of block 6
+   lima line 2 of block 6
+   charlie line 3 of block 6
+   juliet line] 4 of block 6
+   alpha linck 11
+   oscar line 2 of block 11
+   foxtrot line 3 

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: pryment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app deployment.kubernete--- /revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    me&tadati:
+      labels:
+       0app: &b web
+    spec:
+   #  con\x41           - name     memory: 128Mi

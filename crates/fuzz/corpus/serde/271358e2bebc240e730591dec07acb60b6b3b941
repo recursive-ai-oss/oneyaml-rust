@@ -1,0 +1,10 @@
+--8E0
+---
+apiVers: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  portmetadata:
+  name: prod
+...

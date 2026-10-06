@@ -1,0 +1,8 @@
+%TAG !e! tag:xeample.kom,0999:app/
+---
+- !l--
+- !local foo
+- !!s&a a!r
+- !e!t?..ag%21bo caal foo
+- !!s&a b!r
+- !e!t?..ag%21 baz

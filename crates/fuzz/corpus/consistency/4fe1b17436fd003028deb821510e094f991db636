@@ -1,0 +1,12 @@
+z-a: &a
+  restar%tYAML 1.2
+
+  environment
+   NULL1
+x-b: &b
+  image: busybox
+  restart:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAÌAAAAAAA Ôªø"
+services:
+  one:
+    <<: [*a, ron4e10mentt:
+      B: 1

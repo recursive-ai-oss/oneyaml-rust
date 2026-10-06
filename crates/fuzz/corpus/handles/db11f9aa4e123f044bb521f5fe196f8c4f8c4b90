@@ -1,0 +1,39 @@
+%TAG ! tag:clarkevans.com,200,2002:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+b0: &b0
+  <<: >1-
+  z:%TAG ! tag:ï»¿000#
+ a
+0*c0: [*a0, *b0, ÿÿa: "y:
+- !circle
+  center: &ORIGIN {x: 48, y: 129}
+  radius: 7com,200,2002:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+b0: &b0
+  <<: >1-
+  z:%TAG ! tag:ï»¿000#
+ a
+0*c0: [*a0, *b0, ÿÿa: "y:
+- !circle
+  center: &ORIGIN {x: 48, y: 129}
+  radius: 7
+- !line2:
+--- !shape
+  # Use the !  !line
+  start: *ORIGIN
+  finish: { x: 89,|2 y: 102 }
+- !label
+  start: *OR
+- !line2:
+--- !shape
+  # Use the !  !line
+  start: *ORIGIN
+  finish: { x: 89,|2 y: 102 }
+- !label
+  start: *ORIGIN
+  color: 0xFFEEBB
+  text: Pretty vector drawing.a

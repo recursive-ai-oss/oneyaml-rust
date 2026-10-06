@@ -1,0 +1,67 @@
+complex1:
+  ? - a
+complex2:
+  ? - a
+complex2:
+  ? - 
+  : b
+complex3:
+  ? - a
+  : >
+    b
+complex4:
+  ? >
+    a
+  :
+comîlex1:
+  ? - a
+  :a
+  : b
+complex3:
+  ? - a
+  : >
+    b
+complex4:
+  ? >
+    a
+  :
+complex6:
+  ? - a
+  : - ? - 
+  : b
+coÿÿÿsmplex3:
+  ? - a
+  : >
+    b
+complex4:
+  ? >
+    a
+  :
+comîlex1:
+  ? - a
+  :a
+  : b
+complex3:
+  ? - a
+  : >
+    b
+complex4:
+  ? >
+    a
+  :
+co  : b
+complex3:
+  ? - a
+  : >
+    b
+complex4:
+  ? >
+    a
+  :
+complex6:
+  ? - a
+  : - ? - 
+  : b
+cmplex6:
+  ? - a
+  : - b

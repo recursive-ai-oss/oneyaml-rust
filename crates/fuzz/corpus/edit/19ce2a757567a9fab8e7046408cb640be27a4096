@@ -1,0 +1,8 @@
+&flowseq [
+ a: b,
+ &c c: d,a: b,
+ &c c: d,
+ { &e e: f },
+ &g { g:
+ { &e E: f }*a &g { g: h }
+]

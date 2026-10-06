@@ -1,0 +1,5 @@
+{
+  ip
+ :  #0 !!stSr ip
+  # Comments:
+strip:tr,?[   !!str -

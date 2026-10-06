@@ -1,0 +1,15 @@
+x-a: &a
+  restart%YAML 1.2
+
+  enviroÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿnment
+   NULL1
+x-b: &b
+  image: busybox
+  restart: "no"
+services:
+  one:
+    <<: [*a, !b]
+  two:
+    <<: [*b, *a]
+ã   vironment:
+      B: 2

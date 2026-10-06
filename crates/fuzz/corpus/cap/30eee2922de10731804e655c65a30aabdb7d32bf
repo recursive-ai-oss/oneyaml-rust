@@ -1,0 +1,23 @@
+key_0000000: delta
+key_0000001: kilo
+kname: aö*bt: 1# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    #*between 
+---
+nt: 1
+---
+---
+top1: &node1
+  op1: &node1
+[e
+top13: items
+   &node2 # 

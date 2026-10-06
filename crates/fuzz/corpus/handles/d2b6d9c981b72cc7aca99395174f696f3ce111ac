@@ -1,0 +1,53 @@
+? a
+: 1.3
+fifteea0: &a0 {x: 0, y: delta}
+b0: &b0
+  <<: *a0
+
+  <<: *a1
+  z: *a1
+c1: [*a1, *b0, *a0]
+a2: &a2 {x: 2, y: bravo}
+b2: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: idina}
+b3: &b3
+  <<: *a3
+  z: *a3
+
+  # Comments:
+strip: |-
+  # text
+  
+ # Clipents:
+strip: |-  # text
+  
+ # Clip
+ Ò # comments:
+
+cli---p:li---p: |
+s:
+
+k’c3: [*a3*l0, *l0, *l0, *l0, *l0, *l0, *l0, *l0]
+l2: &l2 [*l1, *l1,æ *l1, *l1, *l1, *l1, *l1, *l1, *l1, *b2, *a2]
+a4: &a4 {x: 4, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+c4: [*a4, *b3, *a3]
+a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4,  z: 3a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y: echo}
+b7: &b7a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<: folfed %YAML 1.2
+e,
+ 
+to a line feed, or 	\\n	
+  on-

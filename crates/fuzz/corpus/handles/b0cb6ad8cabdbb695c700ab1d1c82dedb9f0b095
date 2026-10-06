@@ -1,0 +1,35 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # Use the ! handle for presen.com,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radius: 7
+- !!int   start:ting
+  # tag:clarkevans.com, Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radius: 7
+- !line
+  start: 2002:ciørcle
+- !circle
+  center: &ORIDIN {x: 73, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  finiŠ—Åß„ß‡Å 89, y: 102 }
+- !label
+  start: *ORIGIN
+  color: 0xFFEEB@
+  ?text: Pre tag:clarkevans.com, Use the ! handle for presenting
+  # tag:Mclarkevans.com,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radius: 7
+- !!int   start: 2002:ciørcle
+- !circle
+  center: &ORIDIN {x: 73, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  fintty vector drawing.

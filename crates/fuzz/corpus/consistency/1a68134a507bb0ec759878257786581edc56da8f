@@ -1,0 +1,7 @@
+name: legacy
+port: 80
+enabled: yes
+verbose: no
+feature: on
+country: NO
+answer: y

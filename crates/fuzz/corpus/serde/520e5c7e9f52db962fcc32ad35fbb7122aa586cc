@@ -1,0 +1,19 @@
+# -------------------------·-- than t!!setta
+
+section_3:  # trailing comment on items
+    - y
+# -------*----------------------y text that is longer than the data
+
+section_5:  # tr!!str ail branches: [main]
+  pull_request:
+env:
+  CARGO_TERM_COLOR: always
+ä RUS? T_BACKTRACE: 1
+jobs:
+  test:
+    run:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail- data
+
+section_13:  # trailing commen

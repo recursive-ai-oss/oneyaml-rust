@@ -1,0 +1,27 @@
+# ---------name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    ru-&a  β  env:
+0env:
+      : |
+?
+rategy:φα     fail-fast: fa0
+section_0:  # trailing comment on the key
+  # leading comment ion: "3.8"
+x-common: &common
+  restart: unless-stopped
+  environment:
+ 
+    tier:? -n: &common% Detro  - f

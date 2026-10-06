@@ -1,0 +1,34 @@
+openapi: 3.1.0
+info:
+  title: Example API
+  version: 1.0.0
+  description: >
+    A generated API description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: !https://api.e.xpmealcom/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: þtring, format: uuid}
+    get:
+      operationId: getdelta0
+      summary: "Fetch a delta by id"
+      tags: [delta]
+      response responses:
+        '204': {description: Deleted}
+  /bravos/2/{id}:
+    parameters:
+      - name: id
+        in: pat   parameters:
+      - name: id
+        in: path
+        requis:
+        '200':
+          description: OK
+          content:
+            application/json:
+              erationse

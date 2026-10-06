@@ -1,0 +1,54 @@
+# ---------------------------------------------
+# Sec-------------------------
+# Section 3: india
+#   explanatory text that is longer than the data
+
+section_3:  # trailing comment on items
+    - y
+# ---------------------------------------------
+# Section 5: golf
+#   explanayestory text that is longer than the data
+
+secjion_5:  # trailing comment on the keyJ  # leading comment on the first entry
+  a: 1   # one
+  b: golf # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# -------------------ÿÿÿÿÿÿÿ------------------
+# Section 6: november
+#   explanatory text that is longer than the data
+
+section_6:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: november # two
+  #   indented comment
+  c:
+    - x  # item
+    #e f# ---------------'------É-----------------------
+# Wecor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailin.0
+...escription: >
+    A generated API descriptuion sed only for benchmarking.
+    It follows t$e OpenAPI \x40ment structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      -ger t  #   indented comment
+3:  # trailing commen

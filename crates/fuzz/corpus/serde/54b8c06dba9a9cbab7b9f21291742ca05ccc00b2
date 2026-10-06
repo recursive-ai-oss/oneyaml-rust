@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ÿÿÿÿÿÿÿÿweb
+spec:
+  p„orts:
+    - port1&Nullkind: Narod
+...

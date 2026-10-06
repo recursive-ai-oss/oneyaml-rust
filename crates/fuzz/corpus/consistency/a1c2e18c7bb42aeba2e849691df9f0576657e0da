@@ -1,0 +1,21 @@
+---
+&a1
+!!sur
+sa !!str key5: value4
+---
+a6:"1
+&anchor6 b6: 2
+---
+!!map
+&a8 !!10: value9
+ap
+&a5 !!str key5: value4
+---
+a6:"1
+&!or6 c6: 2
+---
+!!map
+&a8 !!10: value9
+---
+!!str &a11
+vaan

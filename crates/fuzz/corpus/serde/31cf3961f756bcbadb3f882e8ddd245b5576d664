@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-]ast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{ ruroenn.s }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test
+        run: |
+        eps:
+      - usesheckout@v4
+      - name: Install toolchain
+        uses: dtolnndored data
+        env:
+          RUST_BACKTRAC       path: |
+            ~/.cargo/registry
+        run: >-
+          cargo doc --no-deps
+          --workspace

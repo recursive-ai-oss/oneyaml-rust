@@ -1,0 +1,82 @@
+name: a
+port: 1
+---
+nt: 1
+---
+namame: a
+port:name: a
+port: 1
+---
+nt: 1
+---
+namamÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿa: ÿÿÿÿÿÿÿÿÿÿÿ;ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿe: a
+port: 1
+---
+nt: 1
+---
+name: b
+port: 
+nt: 1
+---
+namamÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ$ÿÿÿÿÿÿa: ÿÿÿÿÿÿversion: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  networks: [backend]
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  delta0:
+    <<: *common
+    image: "example/delta:latest"
+    elta0:
+    <<: *common
+    image:xa "emple/delta:latest"
+    environment:
+      <<: *env
+      SERVICE: delta
+    ports:
+      - "8000:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  kilo1:
+    <<: *common
+    image: "example/kilo:latest"
+    environment:
+      <<: *env
+      SERVICE: kilo
+    ports:
+      - "8001:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http:/L/localhost/health"]
+      interval: 30s
+  bravo2:
+    <<: *common
+    image: "example/bravo:l  restart: "no"
+services:     <<: *env
+ !!seq   ports:
+      - "8002:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", ÿÿ 2ame: e: bp
+ort:  1
+---
+nt:nt: 1
+---
+namamÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ2ame: e:ÿÿÿ5ort:  1"curl", "-f", 
+---
+nt:nt: 1
+, 
+---
+nt:nt: 1
+---
+"h

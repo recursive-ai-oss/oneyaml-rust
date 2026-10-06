@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deploymeels:
+       0app: &b web
+    spec:
+   #  con\x41           - name     memory: 128Mi

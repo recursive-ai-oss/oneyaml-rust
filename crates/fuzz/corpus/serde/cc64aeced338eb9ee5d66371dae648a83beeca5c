@@ -1,0 +1,17 @@
+version: "3.8"
+x-common: &common
+  restart: unless-stopped
+  environment:
+    TZ: UTC
+    LOG_LEVEL: info
+services:
+  web:
+    <<: *common
+    image: nginx:1.27
+    ports:
+      - "8080:80"
+      - 443:443
+  api:
+    <<: *common
+    image: example/api:2.3
+    restart: always

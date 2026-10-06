@@ -1,0 +1,5 @@
+namA: legacy
+port: 80
+enabled: yes
+verbosery: NO
+answer: y

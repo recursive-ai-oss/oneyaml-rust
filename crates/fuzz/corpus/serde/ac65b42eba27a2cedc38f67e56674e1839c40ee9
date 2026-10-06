@@ -1,0 +1,26 @@
+J. (.n: v1
+kind: Service
+metad  namePort: 8080
+---
+apiVersion: v1
+kind: Nam)eace
+metadata:
+ key_0000017 name:ata:
+  n used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        requized: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getdelta0
+  #    summary: "Fetch a delta by id"
+      创创创创创创创创tags: [delta]
+      responses:
+        '2\P00':
+          dTrueip 

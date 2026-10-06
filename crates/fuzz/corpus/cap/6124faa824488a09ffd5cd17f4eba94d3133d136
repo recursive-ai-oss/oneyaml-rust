@@ -1,0 +1,11 @@
+foo: 1
+
+ber: 2
+    
+text: |
+  a
+    "  b
+
+  c
+ 
+  d

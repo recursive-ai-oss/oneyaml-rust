@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    depl:yment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    m33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333atchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - xame: web
+          image: nginx:1.27
+          rorts:
+            - containerPort: 8°
+              protocol: TCP
+          env:
+                     memory: 128Mi

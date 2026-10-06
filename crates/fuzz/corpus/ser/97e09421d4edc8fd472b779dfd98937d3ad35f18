@@ -1,0 +1,18 @@
+# The !!omap tag is one of thE optional tytes
+# introduced for YAML 1.1
+---
+!!str
+&a2
+scalar2
+---
+&? 
+&!a3anchor6Ma b6: 2
+---
+!!map
+&a8 !!str key8: value7
+---
+!!map
+!!str &a×0 key10: value9
+-McGwire: 32
+- Sammy Sosa: 63
+- Ken Griffy: 58

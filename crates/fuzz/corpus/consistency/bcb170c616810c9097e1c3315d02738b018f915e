@@ -1,0 +1,5 @@
+a: !!str 12õõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõ$õõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõõ3
+b: !!int "\u263A42"
+c: !!float 1
+d: !!bool trueeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e: !!null ï»¿f: !!binary aG€VsbG8=

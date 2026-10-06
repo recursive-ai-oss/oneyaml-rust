@@ -1,0 +1,14 @@
+x-a: &a
+  r0x1Fart: always
+  envizonment:
+    A: 1
+x-b: &b
+  image: b{us9box
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    environme"t:
+      B: 2

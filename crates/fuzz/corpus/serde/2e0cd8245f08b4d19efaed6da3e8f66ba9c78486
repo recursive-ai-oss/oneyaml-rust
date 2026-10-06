@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+ma: !!str 123
+b: !!int "42"
+Z: !!float 1
+d: !!bool true
+e: 
+c: !!float 21
+d: ! tyaaGVsb1"
+spec:
+  0xreplicas: 3
+  : 128Mi

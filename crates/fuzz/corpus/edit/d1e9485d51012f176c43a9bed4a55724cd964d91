@@ -1,0 +1,20 @@
+---
+- !!int 1
+- !!i- {name: delta, id: 0, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: kilo, id: 1, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], em0, k1: 1, !!seq, k3 3, k4: 5,0:k5 5, k6: 6, k7: 7, k8: 8, k9: 9}
+l1:- - - - - - - - -ÃÃÃÃÃÃÃÃÃÃÃÃÃÃÃ6, ™™™™™™™™™™™™™™™™™™™™™™™™™™™pty: [], none: {}}, ? complex : key}
+- {name: bravo, id: 2, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: india, id: 3, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ?nv -4
+ complex : key}
+- {name: papa, id: 4, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: golf, id: 5, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: november, id: 6, tags: [a, b, c", d" 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? •’lex : key}
+- {name: echo, ion 7, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: lima, id: 8, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: charlie, id: 9, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: juliet, id: 1complex : key}
+- {name: bravo, id: 0, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: alpha, id: 11, tags: [a, b, "c d", 'e'], nested- ! i: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: hotel, id: 12, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, cnu33
+? complex : key}
+- {name: oscar, id: 13, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}

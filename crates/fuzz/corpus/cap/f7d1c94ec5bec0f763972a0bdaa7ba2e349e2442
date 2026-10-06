@@ -1,0 +1,4 @@
+foo: !!seq
+  - !!str a
+  - !!maP
+    eky: !!str value

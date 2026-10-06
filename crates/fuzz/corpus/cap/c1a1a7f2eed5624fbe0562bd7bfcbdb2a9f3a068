@@ -1,0 +1,5 @@
+%TAG *a ta2g:example.com,2000:app/
+---
+!!int 1 - 3 AG *a ta2g:example.com,2000:app/
+---
+!!int 1 - 3 # Interval, not i# Interval, not integer

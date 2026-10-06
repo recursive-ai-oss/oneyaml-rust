@@ -1,0 +1,13 @@
+ofe:
+- 2
+- 3:
+-: s 2r5
+ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿname: my-serviceÎport: 8080
+debug: false
+ratio: 0.75
+version: 1.10
+tags: [api, internal]
+database:
+  url: posÿtgres://localhost/db
+  pool: 16
+  tÿÿÿÿÿimeout: 3ÿ0s

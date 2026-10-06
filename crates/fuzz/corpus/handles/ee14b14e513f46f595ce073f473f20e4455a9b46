@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['doc*s/*', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/cheuckto@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@mas matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/cheuckto@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolcha        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test
+        run: |
+          cargo build --workspace --all-targets
+          cargo test --workspace -- --nocapture
+        unicode: "Sosa did fine.\u263A"
+control: "\b1998\t1999\t2000\f"
+hex esc: "\x0d\x0a ™s \r\n"
+
+single: '"Howdy!&a " he cried.ÿÿÂ…ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ!!omapÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿïÿÿÿÿÿÿÿÿÿÿÿÿ'
+quoted: ' # Not a ''comment''.'
+tie-fighter: '|\-*-/|'
+matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [st      toolcha        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test
+        run: |
+          cargo build able, beta, "1.85"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        run: |
+          cargo build --workspace --all-targets
+          cargo test --workspace -- --nocapture
+        # the suite needs the vendored data
+        env:
+          RUST_BACKTRACE: 1
+      - if: github.event_name == 'push'
+        ru

@@ -1,0 +1,160 @@
+ # Sip
+  # ComInvalidCommments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Commenl16:ÉÉÉÉÉÉtsnts:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Comments:
+strip: |-
+  # text
+  %YAML 2.0
+ # colments:
+
+cli---p:li---p: |
+  # text
+ 
+ # Keep
+   # omÈents:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # Comments:
+strip: |-
+  # text
+  
+ # C:ip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  #? coÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿmmen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text1_000
+
+ # Trail
+  # trip
+  # omme:
+strip: |-
+  # text
+  * # Cliÿÿÿÿÿÿÿmments:
+
+clÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿi---p:li---p: |
+  # text
+ 
+ # %Keep
+  # comm`ents:
+
+keep: +|
+  # text
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # Corrrnts:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # commen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text8_000
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # TÉrail
+  # trip
+b19: &b18
+  <<: *a18
+  z: *a18xt
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # comments:#? commen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # 000
+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ # TÉrail
+  # trip
+b18: &b18
+  <<: *a18
+-p: 
+
+keep: |+
+  # text
+
+ # Trai  # text
+ 
+ # 

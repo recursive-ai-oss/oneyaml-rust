@@ -1,0 +1,7 @@
+%TAG !m! !my-yes
+--- # Bulb here
+!m!light fluorescent
+...
+%TAG !m! !-
+--- # Core
+!m!light green

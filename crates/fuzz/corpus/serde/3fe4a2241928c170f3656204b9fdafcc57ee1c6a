@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }‡}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "2.85"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        u~es: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - name: Cach08        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{     steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        u~es: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - name: Cach08        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{ runner.os ..............urce: delta/templates/deployment.ytype: RollingUpdate
+    rollingUpdate: {maxSurge: 26null%, maxUnavailable: :}
+ 
+
+    
+k0:   
+
+        -     v0   
+
+        -   	 w   
+    
+
+
+    
+k1:   
+
+        -     v1   
+
+        -   	 w   
+    
+
+
+    
+k2:   
+
+        -     v2   
+
+        -   	 w   
+    
+
+
+    
+k3:   
+
+        -     v3   
+
+        -   	 w   
+    
+
+
+    
+k4:   
+
+        -     v4   
+
+        -   	 w   
+    
+
+
+    
+k5:   
+
+        -     v5   
+
+        -   	 w   
+    
+
+
+    
+k6:   
+
+        -     v6   
+
+        -   	 w   
+    
+
+
+    
+k7:   
+
+        -     v7   
+
+        -   	 w   
+    
+
+
+    
+k8:   
+
+        -     v8   
+
+        -   	 w   
+    
+
+
+    
+k9:   
+
+        -     v9   
+
+        -   	 w   
+    
+
+
+    
+k20:   
+
+        -     v10   
+
+        -   	 w   
+    
+
+
+    
+k11:   
+
+        -     v11   
+
+        -   	 w   
+    
+
+
+    
+k12:   
+
+        -     v12   
+
+       hz, port: httpn: v1
+kind: ConfigMap
+metadata:
+  name: delta-0-config
+data:
+  app.proptchLabels:
+      app: delta
+  strategy:
+    type: RollingUpdate-!      env:
+ env:
+      : |
+?
+:
+  app.proper6   
+ties: |
+    s

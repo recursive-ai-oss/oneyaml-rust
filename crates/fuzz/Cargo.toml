@@ -1,0 +1,124 @@
+[package]
+name = "fuzz"
+description = "Coverage-guided fuzz targets for oneyaml (libFuzzer on stable rustc), corpus replay smoke test (unpublished)."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# The workspace lints, except `unsafe_code` is `deny` rather than `forbid`:
+# `libfuzzer_sys::fuzz_target!` expands to an `#[unsafe(no_mangle)]` entry point
+# in each fuzz binary, and `forbid` cannot be lifted there. The library (every
+# target body) is `#![forbid(unsafe_code)]` in src/lib.rs; only the one-line
+# binaries in fuzz_targets/ allow it (no `unsafe` in the code the targets
+# exercise).
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+panic = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+
+[lib]
+# The oracles are the existing deterministic fuzzes, included by path
+# (src/reuse.rs); their `#[test]` functions must not run twice. The corpus
+# replay lives in tests/replay.rs.
+test = false
+doctest = false
+
+[features]
+# The libFuzzer driver (C++ runtime, FFI). Off by default: the workspace
+# gates build and test this crate without it (`cargo test -p fuzz` replays
+# the committed corpora). `fuzz.sh` turns it on.
+libfuzzer = ["dep:libfuzzer-sys"]
+
+[dependencies]
+oneyaml-core = { path = "../oneyaml-core" }
+oneyaml-syntax = { path = "../oneyaml-syntax" }
+oneyaml = { path = "../oneyaml", features = ["serde_json", "__internal-checks"] }
+# The deterministic fuzzes reused as oracles read the corpora and models
+# through these (they are what bench/tests use).
+bench = { path = "../bench" }
+test-suite = { path = "../test-suite" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+libfuzzer-sys = { version = "0.4.13", optional = true }
+
+[[bin]]
+name = "fuzz-seed"
+path = "src/bin/seed.rs"
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "consistency"
+path = "fuzz_targets/consistency.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "from_slice"
+path = "fuzz_targets/from_slice.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "serde"
+path = "fuzz_targets/serde.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "edit"
+path = "fuzz_targets/edit.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "render"
+path = "fuzz_targets/render.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "ser"
+path = "fuzz_targets/ser.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "tree_edit"
+path = "fuzz_targets/tree_edit.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "cap"
+path = "fuzz_targets/cap.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false
+
+[[bin]]
+name = "handles"
+path = "fuzz_targets/handles.rs"
+required-features = ["libfuzzer"]
+test = false
+doc = false

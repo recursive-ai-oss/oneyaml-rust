@@ -1,0 +1,106 @@
+# ------------------------------------%--------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indeynted comment
+  c:
+    - x  # item
+    # between item x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 2: bravo
+#   explanatorรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรรsection_1รรรรรรรรรรรรรรรรรรรy he OpenAPI document ÿÿÿÿÿÿÿÿe.
+servers:
+  +12.5:ÿÿÿÿÿÿÿ36: papa
+key_0000037: gol000146: bravo
+key_0000147: india
+key_0000148: pแpa
+key_0000149: golf
+key_0000150: november
+key_0000151: echo
+key_0000152: lima
+key_0000153: charlie
+key_0000154: juliet
+key_0000155: alpha
+key_0000156: hotel
+key_0000157: oscar
+key_0000158: foxtrot
+key_0000159: mike
+key_0000160: delta
+key_0000161: kilo
+key_0000162: bravo
+key_0000163: india
+key_0000164: papa
+key_0000165: golf
+key_0000166: november
+key_0000167: echo
+key_0000168: lima
+key_0000169: charlie
+key_0000170: juliet
+key_0000171: alpha
+key_0000172: hotel
+key_0000173: oscar
+key_0000174: foxtrot
+key_0000175: mike
+key_0000176: delta
+key_0000177: kilo
+key_0000178: bravo
+key_00*0179: india
+key_0000180: papa
+key_0000181: golf
+key_0000182: november
+key_0000183: echo
+key_0000184: lima
+key_0000185: charlie
+key_0000186: juliet
+key_0000187: alpha
+key_0000188: hotel
+key_0000189: osc0ykr_ae
+000190: foxtrot
+key_0000191: mike
+key_0000192: delta
+key_0000193: kilo
+key_0000194: bravo
+key_00001s%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # Use the ! handle for presentintext that is longer than the data
+
+section_2:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: bravo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 3: india
+#   explanatory text that is longer than the data
+
+section_3:  # trailing comment onไ items
+    - y
+# ---------------------------------------------
+# Section 5: golf
+#   explanatory text that is longer than the data
+
+sect&on_5:  # trailing comment on the keyJ  # ler ๏ading comment on the first entry
+  a: 1   # one
+  b: golf # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 6: november
+#   explanatory text that is longer than the data
+
+section_6:  # trailing comment on the key
+  # leading comment on the first entry
+ commen

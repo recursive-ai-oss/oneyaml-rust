@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deploymbnv:
+ key an=d4value
+:
+---
+# empty key and value 1.1
+s        resources:
+   5 !      env:
+nv:
+!   : |   ﻿cpt: 500m
+1_000    rustfmt
+      - : 128Mi

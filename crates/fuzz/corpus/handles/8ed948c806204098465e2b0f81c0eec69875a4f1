@@ -1,0 +1,8 @@
+x-a: #&a
+  restart: ﻿ays
+  environment:
+    A: 1
+x-b: &b
+  ima-e: busybox
+  restart: "no"
+seestart: ﻿ay: 1 

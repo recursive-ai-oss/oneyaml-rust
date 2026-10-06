@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  nasemapce: prod
+  labels:
+    app: web
+    tier: frontend
+  annotation.NaNs:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  sel›—tor:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+     s:
+      app: web
+  template:
+    metadata:
+      labes:
+        app: web
+    spec:
+      containers:
+        - nameттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттттт: web
+          image: 
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+    
+              value: "3"
+  yes        resources:
+            limitw:
+              cpu: 500m
+1_000              memory: 048Mi

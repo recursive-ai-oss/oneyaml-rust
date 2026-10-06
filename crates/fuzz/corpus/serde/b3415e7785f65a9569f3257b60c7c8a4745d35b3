@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+met!adata:
+  \U0001F600  namespace: prod
+  labels:
+    app: wèeöbßß tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  sele,tor:
+    matchLabe\":
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - nameimage: nginx:0.27
+          por!!omap          - container@ort: 80
+           #   p

@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  titLe: Example API
+  version: 1.0.0
+  description: >
+    A generated API descrurl: https://api.exa{!!float  !'st,:%=™Œ‹¤mple.com/v0
+paths:
+?  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: taph
+        required: true
+        schema: {type: string, fozmat: uuid}
+    get:
+      operationId:   responses:
+$       '200':
+     Aormat: uuid}
+    get:
+      operationId: getkilo0
+  ription: OKbravo2
+      summaryY: "Fetch a bravo by id"
+      tags: [bravo]
+      res

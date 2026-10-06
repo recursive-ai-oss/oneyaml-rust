@@ -1,0 +1,74 @@
+  # Leading comment line spaces are
+   # neither content nor indentation.
+    
+NotЋindented:
+ By one space: |
+    By four
+      spaces
+ Flow style: [    # Leading spaces
+   By o  ,w  t    # in flow style
+  Also by two,    # are neither
+  	Still by two   # content nor
+    ]   iated with a null value
+--- !!set
+? Mapk Mcиииииииииииииииииииииииииииииииииииииии1_000ииииииииииии
+    set
+
+
+    
+k1:   
+
+     $  -     v3   
+
+        -у  !<!>  	 w   
+    
+
+
+    
+-k4:   
+
+        -     v4   
+
+          -     v10   
+
+        -   	 w  
+
+    
+
+
+    
+k11:   иииииииииииииииииииииииииииииииииии1_000!!null ииииииииииии
+    set
+
+
+    
+k2:   
+
+     $  -     v3   
+
+        -   	 w   
+    
+
+
+    
+-k4:      
+  set
+
+
+    
+k2:   
+
+     $  -     v3   
+
+        -   	 w   
+    
+
+
+    
+-k4:      
+ 
+    -     v4   
+
+          -     v10   
+
+          # indentation.

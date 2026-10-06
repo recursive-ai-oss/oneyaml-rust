@@ -1,0 +1,25 @@
+[package]
+name = "test-suite"
+description = "yaml-test-suite conformance harness for oneyaml (unpublished)."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+oneyaml-core = { path = "../oneyaml-core" }
+oneyaml-syntax = { path = "../oneyaml-syntax" }
+
+[[bin]]
+name = "yaml-test-suite"
+path = "src/main.rs"
+
+[dev-dependencies]
+# Adversarial inputs: the alias-budget cases are rejected when the meaning is
+# read (`Value`, serde), never by the parser.
+oneyaml = { path = "../oneyaml" }

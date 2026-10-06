@@ -1,0 +1,24 @@
+x-`a: &a
+  r e6tart: always
+  environment:
+   
+  r e6tart: always
+  environment:
+    A: 1
+x-b: &b
+  image: b{usybox
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    A: 1
+x-b: &b
+  image: b{usybox
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<:nme;nt:
+      B:? 2

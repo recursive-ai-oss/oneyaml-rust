@@ -1,0 +1,4 @@
+---
+&mapping
+&key [ &item a, b, c ]: &mapping
+&key [ &keyitem ‹a, b a, b, c ]: &aluey

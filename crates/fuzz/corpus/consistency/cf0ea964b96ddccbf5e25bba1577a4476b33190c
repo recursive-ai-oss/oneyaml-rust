@@ -1,0 +1,48 @@
+l0: 3, k4: 4, : 6, k7+: 7, \x418, k9: 9}
+l1: &l2- !<=&ag:key_0000000: delta
+key_0000001Ì: kilo
+kname: aö*bt: ±# ---------------------------------------------
+# Section 0……………………………: delta
+# ………………………………………………………………………………………………………………9aml.org-%,\"ß–‘
+? a
+:1 b
+--- !!óe  explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entyry
+  a: 1   # one
+  b: delta # two
+  #   indente? comment
+  c:
+    -¯ x  # item*    #*between 
+---
+nt: 1
+---
+---
+top1: &nod------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading commq
+â€ent on the first entry
+  a: 1   # one
+  b: delta # twon the key
+  # leading comment on the first entry
+  ¨ : 1   # one
+  b: delta # two
+  #   indented co
+  #   indented comment
+  c:
+    - x  # item
+    #*between 
+---
+nt: 1
+---
+---
+top1: &node1e1
+  &k1 k---
+{l3, *l3]}ey1
+: on[e
+top13: items
+   &node2 # 

@@ -1,0 +1,5 @@
+%TAG !e! tple.2000:app/
+---
+- !local foo
+- !!str bar
+- !e!tag%21 baz

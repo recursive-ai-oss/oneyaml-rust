@@ -1,0 +1,6 @@
+# PyYAML 6.0.3 SafeLoader; name\tjson(input)\tjson(loaded, sorted keys)
+merge-single	"base: &b {a: 1, b: 2}\nderived:\n  <<: *b\n  b: 3\n  c: 4\n"	{"base": {"a": 1, "b": 2}, "derived": {"a": 1, "b": 3, "c": 4}}
+merge-list	"x: &x {a: 1, b: 1}\ny: &y {b: 2, c: 2}\nz:\n  <<: [*x, *y]\n  c: 3\n"	{"x": {"a": 1, "b": 1}, "y": {"b": 2, "c": 2}, "z": {"a": 1, "b": 1, "c": 3}}
+merge-nested	"a: &a {k: 1}\nb: &b {<<: *a, l: 2}\nc: {<<: *b, m: 3}\n"	{"a": {"k": 1}, "b": {"k": 1, "l": 2}, "c": {"k": 1, "l": 2, "m": 3}}
+compose	"x-common: &common\n  restart: unless-stopped\n  environment:\n    TZ: UTC\nservices:\n  web:\n    <<: *common\n    image: nginx\n  api:\n    <<: *common\n    restart: always\n"	{"services": {"api": {"environment": {"TZ": "UTC"}, "restart": "always"}, "web": {"environment": {"TZ": "UTC"}, "image": "nginx", "restart": "unless-stopped"}}, "x-common": {"environment": {"TZ": "UTC"}, "restart": "unless-stopped"}}
+config	"enabled: yes\nverbose: off\nmode: 0644\ntime: 12:30\nsize: 1_000\nmask: 0b1010\n"	{"enabled": true, "mask": 10, "mode": 420, "size": 1000, "time": 750, "verbose": false}

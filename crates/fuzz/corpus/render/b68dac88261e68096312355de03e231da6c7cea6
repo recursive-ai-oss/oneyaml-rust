@@ -1,0 +1,52 @@
+%TAG ! tag:yaml.org,2002:	
+--- !shape
+  # Use
+[!#
+[!!boo-
+[!!-,
+[!!bo[!
+[!!boo-
+[!!--
+[!!bo?-shape
+  # Use
+[!#
+[!!boo-
+[!!-,!!int 
+[!!bo[!
+[!!boo-
+[!!--
+[!!bo/-
+[!True
+  # Use
+[!#
+[!!booFALSE-
+[!!-,
+[!!bo[!
+[!!boo-
+[!!boo-
+[!!--
+[!!bo/-
+[!True
+  # Use
+[!#
+[!!boo-
+[!!-,
+[!!bo[!
+
+[!True
+  # Use
+[!#
+[!!boo-
+[!!-,
+![!bo[!
+_!!boo-
+[!!ôêê“
+[!!--
+[!bo/-
+[!True
+  # Use
+[!#
+[!!boo-
+[!!-,
+[101!!bo[!
+[!!booˇˇˇˇˇˇˇˇy0,m

@@ -1,0 +1,92 @@
+key_0000000: delta
+kïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-te    ! env:
+ env:
+     !: |
+?
+:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rşşşşşşşşşşşşşşşşşş #:  Vll>-ll:llllllllc41: [*a41,ÿey_0000001: kilo
+key_0000002: bravo
+k¡† ÏÏÏÏÏ03: iversion: "3.8"
+x-0xcommon: &common
+  restart: un&a less-stopped
+  environment:
+    TZ: £«C
+!!binary EVLL: info
+services:
+ ïïïïïïï#ïïïïïïïïïïïïïïïïïïïïïïïïïïa!-te    ! env:
+ env:
+     !: |
+?
+:
+  app.properties: |
+    server.rpto=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rşşşşşşşşşşşşşşşşşş #:  Vll>-ll:llllllllc41: [*a41,ÿe001: kilo
+key_0000002: bravo
+key_0000003: iversion: "3.8"
+x-common: &common
+  restart: un&a less-stopped
+  environment:
+    TZ: UTC
+    LOG_LEVLL: info
+services:
+ ïïïïïïï#ïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-tekey_0ï¿½000 env:
+      : |
+?
+:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k6s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rşşşşşşşşşşşşşşşşşş #:  Vllllll:llllllllc41: [*a41,ÿÿÿÿÿovember
+key_0000007: echo
+key_0000008: lima
+key_0000009: charlie
+key_0000010: juliet
+key_0000011: alpha
+key_0Â00012: hotel
+key_000001ÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-tekey_0ï¿½000 env:
+      : |
+?
+:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k6s.i‘Ğ‰Îõ”–d: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rşşşşşşşşşşşşşşşşşş #:  Vllllll:llllllllc41: [*a41,ÿÿÿÿÿovember
+key_0000007: echo
+key_0000008: lima
+key_0000009: charlie
+key_0000010: juliet
+key_0000011: alpha
+key_0Â00012: hotel
+key_000001ÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇÇ3: oscar
+key_0000028: foxtrorsiotn:

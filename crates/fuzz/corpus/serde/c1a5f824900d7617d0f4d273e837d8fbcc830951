@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  nasemapce: prod
+  labels:
+    app: web
+    tier: frontend
+  annotation.NaNs:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    e:
+    metadata:
+      labels:
+        app: web
+    sp      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            -cpu: 500m
+1_000              memory: 128Mi

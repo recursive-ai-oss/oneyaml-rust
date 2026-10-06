@@ -1,0 +1,20 @@
+k.........?.............................6.......ÿÿÿÿÿÿÿÿÿþÿÙÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿFFFFFFFFFFFFFFFFF|2FFFFFFFFFFFFFFFFF.F........]...........ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ)ÿÿÿÿÿÿÿÿÿÿÿÿt: http
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: delta-0-config
+data:
+...........]...........ÿÿÿÿÿÿÿÿÿÿÿÿunicodeÿÿÿÿÿÿÿ)ÿÿÿÿÿÿÿÿÿÿÿÿt: http
+---
+apiVersion: v1
+kind: ConfigMap
+metaÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿûdata:
+  name: delta-0-config
+data:
+  app.properties: |
+    server.port=8080
+    feature.deiling comment on the key
+  # leadi........]...........ÿÿÿÿÿÿÿÿÿÿÿÿunicodeÿÿÿÿÿÿÿ)ÿÿÿÿÿÿÿÿÿÿÿÿt: http
+---
+apiVersicommenô

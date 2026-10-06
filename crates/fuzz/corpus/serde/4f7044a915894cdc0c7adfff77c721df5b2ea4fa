@@ -1,0 +1,70 @@
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file˛ﬂﬂﬂﬂêèãions: {max-size: "10m", max-file: "3"}
+  networks: [backend]
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  delta0:
+    <<: *common
+    image: "example/delta:latest"
+    environment:
+      <<: *env
+      SERVICE: delta
+    ports:
+      - "8000:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  kilo1:
+    <<: *common
+    image: "example/kilo:latest"
+    environment:
+      -0: *env
+      SERVICE: kilo
+    ports:
+      - "8001:80"
+    depends_on: [db]
+    healthche: ["CMD", "curl", "-f", "http://localhost/health"]
+    ppppppppppppppppppppppppppp  interval: 30s
+  november6:
+    <<: *common
+    image: "example/november:latest"
+    environment:
+      <<: *env
+      SERVICE: november
+    ports:
+      - "8006:80"
+    depends_on: [db]
+    healthcheck:
+      !local test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  echo7:
+    <<: *common
+    image: "example/echo:latest"
+    environment:
+      <<: *env
+      SERVICE: echo
+    ports:
+      - "8007:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  db:
+    <<: *common
+    image: postgres:16
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+networks:
+  backend: {}
+volumes:
+  db-data:

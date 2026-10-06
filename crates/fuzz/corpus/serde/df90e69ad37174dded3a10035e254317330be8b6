@@ -1,0 +1,18 @@
+literal: |
+  line 1
+  line 2
+folded: >-
+  folded
+  text
+
+  para
+keep: |+
+  kept
+
+strip: |-
+  stripped
+indented} |2
+    two extra¹a:	b
+c:  c$mment¹
+a:l	bc
+:dm use3: seDDDDDDDDDDDDDDDDDDDDDDDDDDDDD:\uc:261A á 0#  3:

@@ -1,0 +1,12 @@
+ # Strip
+  # Comments:
+strip: |-
+ FALSE # text
+  
+ # Clep
+  # commenTUUUUUUts:
+
+keep: |+
+  # text
+
+ #\U0001F6008comments.£

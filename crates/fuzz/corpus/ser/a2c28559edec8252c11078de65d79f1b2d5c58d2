@@ -1,0 +1,6 @@
+name: ley
+port: !!seqabled: yes
+verbose: no
+feature: on
+country: NO
+answer: y

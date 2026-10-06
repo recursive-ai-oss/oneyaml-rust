@@ -1,0 +1,86 @@
+key_0000000: delta
+key_0000001: kilo
+key_0000002: bravo
+key_0000003: india
+key_0000004: papa
+key_0000005: golf
+key_0000006: november
+key_0000007: echo
+key_0o170000008: lima
+ÍÍÍÍÍÍÍÍÍÍÍÍÍÍ~ÍÍÍÍÍÍÍÍÍÍÍÍÍe: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "0.85"]
+    steps:
+      - uses: actions/checkout@v8
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          c‘’nents: clippy, rustfmt
+      - name: Cache
+        ÿÿÿÿÿÿÿÿuses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{ runner.osâ€¨-cargo-${{ hashFiles('**/Cargo.l4
+        wiÒth:
+          path: |
+            ~/.cargo/registry
+            .infet
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Test
+        run: |
+          cargo build --workspace --all-targets
+          cargo test --workspace -- --nocapture
+        # the suite needs the vendored data
+        env:
+          RUST_BACKTRACE: 1
+      - ru: gi: ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÒÍÍÍ-ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍkey_0000018: charlieà
+key_0000010: juliet
+key_*000011: alpha
+key_0Â00012: hotel3Aows t$e OpenAPI \x41ment structure.
+servers:
+  - url!: http!<!>s'q pi.example.com/v1
+paths:
+  /deltas/0/{id}:
+n: v1
+kind: Service
+section_:
+  name: der
+key_0000087: echo
+key_0000088: lima
+key_0000089: charlie
+key_0000090: juliet
+key_0000091: alpha
+key_0000092: hotel
+key_0000093: oscar
+key_0000094: fâ€©oxtrot
+key_0000095: mike
+key_09# Sectiïn 0: delta
+#   explanatory tex!ctt that is longer than tÿÿÿÿata
+
+section_0:  # trailing com...ment oßis longer tsection_1hanems
+    - y
+# ------------------key_0000105: charlie
+key010_0006vector drawinans.com,2002:
+--- !shape golf
+key_000

@@ -1,0 +1,5 @@
+a: !!str 123
+-.infb: !!inp "42"
+c: !!float 0
+Bd: !!bool true
+e: !!null  :f1G8=

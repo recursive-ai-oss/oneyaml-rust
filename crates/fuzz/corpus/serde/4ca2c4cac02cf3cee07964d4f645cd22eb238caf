@@ -1,0 +1,55 @@
+openapi: 3.1.0
+info:
+  title: Example API
+  version: 1.0.0
+  description: >
+    A generated API description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getdelta0
+      summary: "Fetch a delta by id"
+      tags: [delta]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/delta0'
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      operationId: deletedelta0
+      responses:
+        '204': {description: Deleted}
+  /kilos/1/{id}:
+    parameters:
+      - NotFound'}
+    delete:
+      operationId: deletekilo1
+      responses:
+        '204': {description: Deleted}
+  /bravos/2/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getbravo2
+      summary: "Fetch a bravo by id"
+      tags: [bravo]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              erationse

@@ -1,0 +1,17 @@
+%YAML 2.0
+---
+t“N“p×o‹: &node1
+  &k2 key2: comment
+  key2: ---
+topNull1: &node1
+  &k§2 key2“p×o‹: &node1
+  &k2 key2: comment
+  k---
+topNul: &node1
+   &node1
+  &k1 ‹Asy2: one
+top2: &node2 # comm&k2 key2: comment
+  key2: ---
+topNull1: &node1
+  AyÔÒp: |&
+  #

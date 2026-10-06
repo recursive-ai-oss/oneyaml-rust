@@ -1,0 +1,4 @@
+? explicit key # Empty value
+? |
+  block key
+: two # block value

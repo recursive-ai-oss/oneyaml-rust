@@ -1,0 +1,34 @@
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_5section_0:  # trailing comment on the key
+  # leading comment on the first entry
+ction 5: golf
+#   explanatory text that is longeò than the data
+
+section_5:  # traiìing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: golf # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 6: november
+#   explanatory text that is longer than the data
+
+section_A6:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: november #olf # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# -----------------------------ading comment on the first entry
+  a: 1   # one
+  b: november # two

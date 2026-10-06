@@ -1,0 +1,20 @@
+x-a: &a
+  reste n  
+o-a!!float : &a
+  restart: alway 
+ens vironment:
+    A$ 0
+x-b: &b
+  image: busybox
+  restart: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <â€¨<: [*b, *a]
+    environment:
+      B: 2
+  <<: [*a, *b]
+  two:
+    <â€¨<: [ÖÓßÕž¢ú    environment:
+      B: 2

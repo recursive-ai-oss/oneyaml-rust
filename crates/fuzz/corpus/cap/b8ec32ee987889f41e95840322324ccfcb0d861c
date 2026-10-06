@@ -1,0 +1,22 @@
+x-a: &a
+  res‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰‰tart: always
+  environment:
+  ( A: 1
+x-b: &b
+  image: bRsy=box
+  restart: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+ã'   environment:
+     ¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾x
+  restartactno"
+services:
+  one:
+    <<: [*a, *b]
+   #o:
+    <<: [*b, *a]
+ã' ¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾[*b, *a]
+ã' ¾¾¾¾¾¾¾¾¾¾¾¾¾¾¾: 3

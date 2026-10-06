@@ -1,0 +1,396 @@
+# oneyaml rendered diagnostics. Approved baseline (2026-09-30).
+# Each case: `=== name`, `# input` (Rust-escaped), `# utf16 line:col`, the snippet.
+=== backlog_glued_colon
+# input "a: 1\nb:2\n"
+# utf16 1:0
+error[Y0018]: a mapping key needs `:`
+ --> 2:1
+  |
+2 | b:2
+  | ^^^
+  |  - no space after this `:`
+  |
+  = help: a `:` separates a key from its value only when a space or the end of the line follows it, so this line is one plain scalar, not `key: value`
+  = suggestion (may be incorrect): add a space after the `:`: insert ` ` at 2:3
+=== backlog_single_quote_inside
+# input "key: 'it's'\n"
+# utf16 0:9
+error[Y0017]: unexpected content after a node
+ --> 1:10
+  |
+1 | key: 'it's'
+  |         - the quoted scalar ends here
+  |          ^^
+  |
+  = help: inside single quotes, write `''` for a literal `'`
+  = suggestion: double the inner `'`: replace `'it's'` with `'it''s'`
+=== backlog_double_quote_inside
+# input "say: \"a \"b\" c\"\n"
+# utf16 0:9
+error[Y0017]: unexpected content after a node
+ --> 1:10
+  |
+1 | say: "a "b" c"
+  |         - the quoted scalar ends here
+  |          ^^^^^
+  |
+  = help: inside double quotes, write `\"` for a literal `"`
+  = suggestion: escape the inner `"`: replace `"a "b" c"` with `"a \"b\" c"`
+=== backlog_comment_glued
+# input "key: \"value\"# note\n"
+# utf16 0:12
+error[Y0017]: unexpected content after a node
+ --> 1:13
+  |
+1 | key: "value"# note
+  |            - the quoted scalar ends here
+  |             ^^^^^^
+  |
+  = help: a comment needs white space before its `#` (§6.6)
+  = suggestion: separate the comment from the value: insert ` ` at 1:13
+=== backlog_windows_path
+# input "path: \"C:\\path\"\n"
+# utf16 0:6
+error[Y0010]: invalid escape sequence
+ --> 1:7
+  |
+1 | path: "C:\path"
+  |       ^^^^^^^^^
+  |          -- `\p` is not an escape
+  |
+  = help: in double quotes, `\` starts an escape such as `\n`, `\t`, `\"` or `\\`; write `\\` for a literal backslash, or use single quotes, where `\` has no special meaning
+  = suggestion: make the backslashes literal: insert `\` at 1:10
+  = suggestion (may be incorrect): use single quotes, where `\` is literal: replace `"C:\path"` with `'C:\path'`
+=== backlog_windows_path_valid_escape
+# input "path: \"C:\\data\\new\"\n"
+# utf16 0:6
+error[Y0010]: invalid escape sequence
+ --> 1:7
+  |
+1 | path: "C:\data\new"
+  |       ^^^^^^^^^^^^^
+  |          -- `\d` is not an escape
+  |
+  = help: in double quotes, `\` starts an escape such as `\n`, `\t`, `\"` or `\\`; write `\\` for a literal backslash, or use single quotes, where `\` has no special meaning
+  = suggestion (may be incorrect): make the backslashes literal: insert `\` at 1:10
+=== backlog_escaped_apostrophe
+# input "q: \"it\\'s\"\n"
+# utf16 0:3
+error[Y0010]: invalid escape sequence
+ --> 1:4
+  |
+1 | q: "it\'s"
+  |    ^^^^^^^
+  |       -- `\'` is not an escape
+  |
+  = help: a `'` needs no escape inside double quotes; remove the `\`
+  = suggestion: make the backslashes literal: remove `\`
+=== backlog_reserved_at
+# input "user: @admin\n"
+# utf16 0:6
+error[Y0008]: this character cannot start a node
+ --> 1:7
+  |
+1 | user: @admin
+  |       ^^^^^^
+  |       - `@` is reserved
+  |
+  = help: `@` and `` ` `` are reserved indicators (YAML 1.2 §5.3): a plain scalar cannot start with them, so quote the value
+  = suggestion: quote the value: replace `@admin` with `'@admin'`
+=== backlog_reserved_backtick
+# input "run: `make` # build\n"
+# utf16 0:5
+error[Y0008]: this character cannot start a node
+ --> 1:6
+  |
+1 | run: `make` # build
+  |      ^^^^^^^^^^^^^^
+  |      - `` ` `` is reserved
+  |
+  = help: `@` and `` ` `` are reserved indicators (YAML 1.2 §5.3): a plain scalar cannot start with them, so quote the value
+  = suggestion: quote the value: replace ``make`` with `'`make`'`
+=== backlog_reserved_key
+# input "@type: x\n"
+# utf16 0:0
+error[Y0008]: this character cannot start a node
+ --> 1:1
+  |
+1 | @type: x
+  | ^^^^^^^^
+  | - `@` is reserved
+  |
+  = help: `@` and `` ` `` are reserved indicators (YAML 1.2 §5.3): a plain scalar cannot start with them, so quote the value
+  = suggestion: quote the value: replace `@type` with `'@type'`
+=== backlog_unclosed_bracket_eof
+# input "a: [1, 2\n"
+# utf16 1:0
+error[Y0022]: flow collection is not closed
+ --> 2:1
+  |
+1 | a: [1, 2
+  |    - this `[` is never closed
+2 |
+  | ^
+  |
+  = help: close every `[` with `]` and every `{` with `}`
+  = suggestion: close the collection: insert `]` at 1:9
+=== backlog_unclosed_nested_eof
+# input "a: [1, {b: 2\n"
+# utf16 1:0
+error[Y0022]: flow collection is not closed
+ --> 2:1
+  |
+1 | a: [1, {b: 2
+  |        - this `{` is never closed
+2 |
+  | ^
+  |
+  = help: close every `[` with `]` and every `{` with `}`
+  = suggestion: close the collection: insert `}]` at 1:13
+=== backlog_unclosed_bracket_dedent
+# input "a: [1, 2\nb: 3\n"
+# utf16 1:0
+error[Y0005]: flow content must be indented more than its block parent
+ --> 2:1
+  |
+1 | a: [1, 2
+  |    - the flow sequence opened here is still open
+2 | b: 3
+  | ^^^^
+  |
+  = help: the lines of a flow collection must be indented more than its parent; if the collection should end before this line, close it there
+  = suggestion (may be incorrect): close the collection: insert `]` at 1:9
+=== backlog_inline_colon
+# input "title: The farm: a story\n"
+# utf16 0:7
+error[Y0027]: `: ` inside an unquoted value starts a nested mapping, which cannot begin on this line
+ --> 1:8
+  |
+1 | title: The farm: a story
+  |        ^^^^^^^^^^^^^^^^^
+  |                - this `: ` starts a mapping
+  |
+  = help: to keep the `: ` as text, quote the whole value; a nested mapping must start on its own, more indented line (Settings::lenient_inline_colons accepts such values with a warning)
+  = suggestion: quote the value: replace `The farm: a story` with `'The farm: a story'`
+=== backlog_flow_windows_path
+# input "k: [\"C:\\path\", b]\n"
+# utf16 0:4
+error[Y0010]: invalid escape sequence
+ --> 1:5
+  |
+1 | k: ["C:\path", b]
+  |     ^^^^^^^^^^^^^
+  |        -- `\p` is not an escape
+  |
+  = help: in double quotes, `\` starts an escape such as `\n`, `\t`, `\"` or `\\`; write `\\` for a literal backslash, or use single quotes, where `\` has no special meaning
+  = suggestion: make the backslashes literal: insert `\` at 1:8
+  = suggestion (may be incorrect): use single quotes, where `\` is literal: replace `"C:\path"` with `'C:\path'`
+=== backlog_flow_reserved
+# input "{a: @x, b: y}\n"
+# utf16 0:4
+error[Y0008]: this character cannot start a node
+ --> 1:5
+  |
+1 | {a: @x, b: y}
+  |     ^^^^^^^^^
+  |     - `@` is reserved
+  |
+  = help: `@` and `` ` `` are reserved indicators (YAML 1.2 §5.3): a plain scalar cannot start with them, so quote the value
+  = suggestion: quote the value: replace `@x` with `'@x'`
+=== backlog_tab_indent
+# input "a:\n\t- b\n"
+# utf16 1:1
+error[Y0016]: tabs cannot be used for block indentation
+ --> 2:2
+  |
+2 |     - b
+  |     ^^^
+  |
+  = help: YAML indents with spaces only; replace the tabs used for indentation here with spaces
+=== backlog_unterminated_quote
+# input "a: \"abc\nb: 1\n"
+# utf16 0:3
+error[Y0011]: quoted scalar continuation line is not indented enough
+ --> 1:4
+  |
+1 | a: "abc
+  |    ^^^^
+  |    - the quoted scalar starts here
+  |
+  = help: a quoted scalar goes on until its closing quote, and its continuation lines must be indented more than its parent; if it should end on its first line, add the closing quote there
+  = suggestion (may be incorrect): close the quote on this line: insert `"` at 1:8
+=== range_schema_duplicate_key
+# input "a: 1\nb: 2\nc: 3\na: 4\n"
+# utf16 3:0
+error[Y1013]: duplicate key `a`
+ --> 4:1
+  |
+1 | a: 1
+  | - first defined here
+ ...
+4 | a: 4
+  | ^
+  |
+  = help: remove one of the entries, or use DuplicateKeys::LastWins (Compat::serde_yaml()) to keep the last value
+=== range_schema_warning
+# input "%YAML 1.1\n---\na: yes\n"
+# utf16 0:9
+warning[Y1000]: %YAML 1.1 document parsed as YAML 1.2
+ --> 1:10
+  |
+1 | %YAML 1.1
+  |          ^
+=== range_limits_depth
+# input "a:\n  b:\n    c: 1\n"
+# utf16 2:4
+error[Y2000]: collections are nested too deeply
+ --> 3:5
+  |
+3 |     c: 1
+  |     ^^^^
+  |
+  = help: raise Limits::max_depth (currently 2)
+=== range_serde_path
+# input "ports:\n  - port: 80\n  - port: 99999\n"
+# utf16 2:10
+error[Y3001]: integer 99999 is out of range for u16
+ --> 3:11
+  |
+3 |   - port: 99999
+  |           ^^^^^
+  |
+  = path: ports[1].port
+=== range_serde_syntax_error
+# input "a: [1, 2\n"
+# utf16 1:0
+error[Y0022]: flow collection is not closed
+ --> 2:1
+  |
+1 | a: [1, 2
+  |    - this `[` is never closed
+2 |
+  | ^
+  |
+  = help: close every `[` with `]` and every `{` with `}`
+  = path: a[2]
+  = suggestion: close the collection: insert `]` at 1:9
+=== crlf
+# input "a: 1\r\nb:2\r\nc: 3\r\n"
+# utf16 1:0
+error[Y0018]: a mapping key needs `:`
+ --> 2:1
+  |
+2 | b:2
+  | ^^^
+  |  - no space after this `:`
+  |
+  = help: a `:` separates a key from its value only when a space or the end of the line follows it, so this line is one plain scalar, not `key: value`
+  = suggestion (may be incorrect): add a space after the `:`: insert ` ` at 2:3
+=== cr_only
+# input "a: 1\rb: [1\r"
+# utf16 2:0
+error[Y0022]: flow collection is not closed
+ --> 3:1
+  |
+2 | b: [1
+  |    - this `[` is never closed
+3 |
+  | ^
+  |
+  = help: close every `[` with `]` and every `{` with `}`
+  = suggestion: close the collection: insert `]` at 2:6
+=== wide_characters
+# input "名前: 中文😀: x\n"
+# utf16 0:4
+error[Y0027]: `: ` inside an unquoted value starts a nested mapping, which cannot begin on this line
+ --> 1:5
+  |
+1 | 名前: 中文😀: x
+  |       ^^^^^^^^^
+  |             - this `: ` starts a mapping
+  |
+  = help: to keep the `: ` as text, quote the whole value; a nested mapping must start on its own, more indented line (Settings::lenient_inline_colons accepts such values with a warning)
+  = suggestion: quote the value: replace `中文😀: x` with `'中文😀: x'`
+=== combining_marks
+# input "cafe\u{301}: e\u{301}: x\n"
+# utf16 0:7
+error[Y0027]: `: ` inside an unquoted value starts a nested mapping, which cannot begin on this line
+ --> 1:8
+  |
+1 | café: é: x
+  |       ^^^^
+  |        - this `: ` starts a mapping
+  |
+  = help: to keep the `: ` as text, quote the whole value; a nested mapping must start on its own, more indented line (Settings::lenient_inline_colons accepts such values with a warning)
+  = suggestion: quote the value: replace `é: x` with `'é: x'`
+=== tab_before_span
+# input "k:\t\"C:\\p\"\n"
+# utf16 0:3
+error[Y0010]: invalid escape sequence
+ --> 1:4
+  |
+1 | k:    "C:\p"
+  |       ^^^^^^
+  |          -- `\p` is not an escape
+  |
+  = help: in double quotes, `\` starts an escape such as `\n`, `\t`, `\"` or `\\`; write `\\` for a literal backslash, or use single quotes, where `\` has no special meaning
+  = suggestion: make the backslashes literal: insert `\` at 1:7
+  = suggestion (may be incorrect): use single quotes, where `\` is literal: replace `"C:\p"` with `'C:\p'`
+=== bidi_override
+# input "k: \u{202e}abc: x\n"
+# utf16 0:3
+error[Y0027]: `: ` inside an unquoted value starts a nested mapping, which cannot begin on this line
+ --> 1:4
+  |
+1 | k: �abc: x
+  |    ^^^^^^^
+  |        - this `: ` starts a mapping
+  |
+  = help: to keep the `: ` as text, quote the whole value; a nested mapping must start on its own, more indented line (Settings::lenient_inline_colons accepts such values with a warning)
+  = suggestion: quote the value: replace `�abc: x` with `'�abc: x'`
+=== utf16_input
+# input "k: [é, 😀\n"
+# utf16 1:0
+error[Y0022]: flow collection is not closed
+ --> 2:1
+  |
+1 | k: [é, 😀
+  |    - this `[` is never closed
+2 |
+  | ^
+  |
+  = help: close every `[` with `]` and every `{` with `}`
+  = suggestion: close the collection: insert `]` at 1:10
+=== long_line
+# input "key: [long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, @x, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, ]\n"
+# utf16 0:366
+error[Y0008]: this character cannot start a node
+ --> 1:367
+  |
+1 | ...long, long, long, long, @x, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, tail, ...
+  |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |                            - `@` is reserved
+  |
+  = help: `@` and `` ` `` are reserved indicators (YAML 1.2 §5.3): a plain scalar cannot start with them, so quote the value
+  = suggestion: quote the value: replace `@x` with `'@x'`
+=== multi_line_label
+# input "a: |\n  x\n  y\nb: 1\n"
+# utf16 0:3
+warning[Y3004]: a block scalar
+ --> 1:4
+  |
+1 | a: |
+  |    ^
+ ...
+3 |   y
+  | ^^^ spans three lines
+4 | b: 1
+  | - next key
+=== empty_input_eof
+# input ""
+# utf16 0:0
+error[Y3004]: nothing here
+ --> 1:1
+  |
+1 |
+  | ^

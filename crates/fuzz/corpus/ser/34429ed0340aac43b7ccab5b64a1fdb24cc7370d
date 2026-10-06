@@ -1,0 +1,5 @@
+%TAG !e! tag:exampl+0x1m,2000:app/
+---
+- !local fo?!eo
+- !!str bar
+- !e!tag%20 baz

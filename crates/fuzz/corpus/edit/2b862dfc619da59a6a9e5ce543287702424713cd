@@ -1,0 +1,24 @@
+ë--
+&a1
+!!{tr
+scalaÿÿÿÿno--
+%YAML 2.0
+
+s!!tr&a2
+scalar2
+---
+&a3
+!!str$scalar3
+---
+&a4 !!map
+&a5 !!str key5: value4
+--
+-a6: 1
+&0-,o!sn›Åß›0: &l0 [lol]
+l1: &l0 [*l0,o-!sÿÿÿ%2
+
+
+three: 4å,str &a20 ky1A: value9
+---
+!!str &a12:
+valueu:

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kubernete--- /revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    me&tadata:
+      labels:
+       0app: &b web
+    spec:
+   #  containe08rs:
+        - nameimage: nginx:1.27
+          Šorts:
+            - trueainerPort: 80
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: in\x41           - name     memory: 128Mi

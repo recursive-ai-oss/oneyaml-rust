@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web,  nasemapce: prod
+  labels:
+    app: web
+    tier: oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofrontend
+  annotation.NaNs:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+                value: "3"
+  yes        resources:
+            limits:
+              cpu: 500m
+1_000!!bool        memory: 128Mi

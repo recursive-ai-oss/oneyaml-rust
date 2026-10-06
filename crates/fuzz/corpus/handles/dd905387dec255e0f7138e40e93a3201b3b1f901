@@ -1,0 +1,5 @@
+a: !!str 123
+b: !!int "4: !!bin2"
+c: !!float 1
+d: !!bool true
+e: !!null ''﻿ !!binary aGVsbG4=

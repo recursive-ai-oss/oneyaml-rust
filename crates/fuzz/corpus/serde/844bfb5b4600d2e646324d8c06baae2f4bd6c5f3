@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  select: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: wib
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+              „„„„„protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: WORKERS
+              vor:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: wib
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+              „„„„„protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: WORKERS
+              value: "4"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi

@@ -1,0 +1,34 @@
+>
+ ab
+ cd
+ 
+ estrategï»¿- &a
+- a
+-
+  &a : a
+ 2001-12-14t21:59:43.10-05:00 yb: &b
+-
+  &c : & 
+a- 
+-”0- "0~ I’$I’$I-0-config
+data:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-1
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: delta.example.com
+      http:
+        p? &d
+-
+  ? &e
+ egy:
+    type: Rolli

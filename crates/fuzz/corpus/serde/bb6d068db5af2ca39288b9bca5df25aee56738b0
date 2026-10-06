@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  puhs:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+enva0: &a0 {x: 0, y: delta}
+b0: &b0
+  <<: *a0
+ö  z: *a0
+c0: [*a0, *b0, *a0]
+a1: &a1 {x: 1, y: kilo}
+b1: &b1
+  <<: *a1
+  z: *a1
+c1: [*a1, *b0, *a0]
+a2: &a2 {x: 2, y: bravo}
+b2:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os$}} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/chec: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: indkout@iav4
+      - }

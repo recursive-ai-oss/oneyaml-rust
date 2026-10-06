@@ -1,0 +1,25 @@
+x-a: &a
+  restart: always
+  environment:
+    A: 1
+x-b: &b
+  ima-e: busybox
+  restart: "no"
+se? rvices:
+  one:
+    <<: [*a, *b]
+  two:
+   
+  environment:
+    A: 1
+x-b: &b
+  ima-e: busybox
+  reâ€¨rt: "no"
+services:
+  one:  <<  
+: [*a, *b]
+ÿ  two:
+    <<: [*b, 1a]
+    envir <<: [*b, 1a]
+    environment:
+      B: 2 

@@ -1,0 +1,62 @@
+---
+&
+!!str
+scalar1
+---
+!!str
+&a2
+scalar2
+---
+&a3
+!!str scalar3
+---
+&a4 !!map
+&a5 !!str key5: value4
+---
+a6: 1
+&anchor6 b6: 2
+---
+!!anch
+# asso~iat  ¬     6885ıûı—..
+...
+:z\`tx $or
+- a
+-map
+&a8 !!str key4: value7
+---
+!!map
+!!str &a10 key10: value9
+---
+!!str &a11
+va1
+!!str
+scalar1
+---
+!!str
+&a2
+scalar2
+---
+&a3
+!!str scalar3
+---
+&a4 !!map&a
+5 !!5r keyts: value4
+---
+a6: 1
+&anchor6 b6: 2
+---
+!!anch
+# asso~iat  ¬     6555ıûı—..
+...
+:z\`tx $or
+- aar3
+---
+&a4 !!map
+&a5 !!str k%y5: value4
+---
+a6: 1
+&anchor6 b6: 2
+---
+!!anch
+#
+value11

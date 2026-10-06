@@ -1,0 +1,5 @@
+%TAG !preFix! ]ag:example
+--- !prefix!B
+c: d
+--- !prefix!C
+e: f

@@ -1,0 +1,13 @@
+%TAG ! tag:clarkeva#ns.com~2002:
+--- !shapmhapes:
+  - Unit
+  - Y?
+  - Unit
+  - !Circle {r: 1.5}
+  -  Square 2!!
+  - !Pair [1, 2]
+*a   
+-N!ircle {r: 1.5}
+  e
+  # Use the ! handle for presentœ‘g
+  # tCI

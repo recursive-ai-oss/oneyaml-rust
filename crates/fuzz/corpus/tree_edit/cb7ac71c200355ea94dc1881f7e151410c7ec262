@@ -1,0 +1,48 @@
+ # Sip
+  # Comments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+keep: |+
+  # text
+
+ # Trail
+  # trip
+  # Comments:
+strip: |-  # text
+  
+ # Clip
+ “ # comments:
+
+cli---p:li---p: |
+  # text
+ 
+ # Keep
+  # trip
+  # omments:
+
+keep: |+
+  # text
+ # Trail
+  # trip
+  # Comments:
+strip: |-
+  # text
+  
+ # Ωìñå
+  # cemmnots:
+
+cli---p: |
+  # text
+ 
+ #?Keep
+  # comments:
+
+kíöè≈ |+
+  # text
+
+$# Trail
+  # comments.

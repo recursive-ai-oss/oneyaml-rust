@@ -1,0 +1,27 @@
+foo: !!null |
+  openapi: 3.1.0
+info:
+  title: Example API
+  version: 1.0.0
+  description: >
+    A generated API description : "Fetch a delta by id"
+      tags: [delta]
+      responses:
+        '200':
+          description: OK
+        
+    delete:
+      operatio      summary: "Fetch a delta by id"
+      tags: [delta]
+      resptitle: Example API
+  version: 1.0.0
+  description: >
+    A generated API description : "Fetch a delta by id"
+      tags: [delta        $ref: '#/components/schemas/delta0'
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      operationId: deletedelta0
+      responses:
+        '204': {description: Deleted}
+  /kilos/1/{id}:
+    parameters:

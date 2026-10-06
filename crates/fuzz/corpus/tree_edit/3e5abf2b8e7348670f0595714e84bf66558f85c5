@@ -1,0 +1,21 @@
+complex1:
+  ? - a
+complex2:
+  ? - 
+  : b
+complex3:
+  ? - a
+  : >
+    b *b9, *a9]
+a11: &a11 {x: 11, y: alpha}
+b11: &b11
+  <<: *a11
+  z: *a1 ? - a
+  : >
+    b)complex4:
+  ? >
+    a
+  :
+complex5:
+  ? - a
+  : - b

@@ -1,0 +1,82 @@
+%TAG ! ma!tlyag*yaml.orgÿÿk1 key1:ÿÿÿÿÿ#ÿÿÿkey2: twcommÿÿÿÿÿÿ---
+top1: &node1
+  &k1 key1: one
+? &a key1: one
+? &a ÿtop2: &noe_
+  &k1 key1: one
+? &a ÿtop2Î
+  &k11 ky
+!ya! y*õataml.org,1001:
+---
+!ya002:
+---
+!ya! tag*002:-0 fo&---
+?
+- a-i#!!null i*%GA:ï»¿ÕÑÕÕÕ0&no»€â?`---
+plai -  n:s!
+!väw-4 c®
+--- !˜q!•!bAML 1.2
+ï»¿`	˜q!•
+--- 	@éÿÿÿTÿÿÿ- s!
+!t2...%YAML .1©ÿ€â?`!&b ˜ - s!
+!t4---{\"
+? ,xrli#!L .1©»€â?`---2plai -  n:s!
+!v4 c®
+--- !˜q!•!- s!
+!v4 c®!bool - s!
+!t2...%YAML .1©ÿ€â?`!&b ˜ - s!
+!t4---{\"
+? ,xrli#!L .1©»€â?`---2plai -  n:s!
+!v4 c®
+--- !˜q!•!null it%GA:ï»¿ÕÑ®
+--- !˜q!•!n \ÿÿÿE-
+?--tp1nod
+--a
+..."
+- ağ- =
+?
+AML 2.0
+P- a
+-
+
+?
+AML 2.0
+P- i
+- -
+?
+
+
+--- %%%y
+?%%- -
+?"""""""
+
+
+--- %%%p""""---
+plai -  n:s!
+!v4 c®
+--- !˜q!•!bAML 1.2
+ï»¿`	˜q!•
+--- @éÿÿÿTÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ!c®!bool ' s!
+!t4...%YAML .2©»€â?`1©»€â?`!˜ - s!
+!t4...%YAML . b
+
+ c
+!˜q!•!bolool - s!
+!v4 c®!bool - s!
+!t2...%YAMLP.1©»€â?`!L .9©»€â?`---
+plai
+ -  n:s!
+!v4 c®
+--- !˜q!•!bt4...%YAML .1©»€â?`---	ªªªªªªªa
+ b
+
+ c
+!%YAML . b
+
+ c!
+!˜q!•!bolool - s!
+!v4 c®!bool - s!
+!t2...%YAMLP.1©»€â?`!L .9©»€â?`---
+plai -  n:s!
+!v4 c®
+--- !˜q!•!bt4...%YAML .1©»€â?`---	ª

@@ -1,0 +1,41 @@
+# Public repository: allowlist.
+#
+# Everything at the top level is ignored unless it is listed below, so a new
+# file is private until someone deliberately adds it here. The surrounding
+# directory also holds private working files (plans, agent definitions) that
+# must never be committed.
+/*
+!/.gitignore
+!/.github/
+!/Cargo.toml
+!/Cargo.lock
+!/README.md
+!/CHANGELOG.md
+!/CONTRIBUTING.md
+!/CODE_OF_CONDUCT.md
+!/SECURITY.md
+!/LICENSE-APACHE
+!/LICENSE-MIT
+!/crates/
+!/docs/
+
+# Never commit these anywhere in the tree, including inside crates/ (tests
+# run with a crate directory as their working directory).
+target/
+core
+core.[0-9]*
+vgcore.*
+*.core
+callgrind.out.*
+cachegrind.out.*
+massif.out.*
+dhat*.json
+perf.data*
+*.profraw
+.env
+.env.*
+*.pem
+*.key
+*.swp
+*~
+.DS_Store

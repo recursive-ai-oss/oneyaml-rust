@@ -1,0 +1,15 @@
+[package]
+name = "oneyaml-core"
+description = "Stable vocabulary of oneyaml (YAML 1.2): spans, diagnostic codes, diagnostics, paths, settings, and limits."
+keywords = ["yaml", "diagnostics", "settings"]
+categories = ["encoding", "parser-implementations"]
+readme = "README.md"
+documentation = "https://docs.rs/oneyaml-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true

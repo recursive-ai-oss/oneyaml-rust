@@ -1,0 +1,30 @@
+---
+apiVersion:
+  ports:
+    - port: 80
+      targetPort: 808E0
+---
+apiVers: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  ports:
+    - port: 80
+Ýßßß  targetPoa:
+  name: web
+spec:
+  ports:
+    - pprt: 80
+      targetP*rt: 8080
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  rt: 8080
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: =rod
+...

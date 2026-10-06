@@ -1,0 +1,66 @@
+--- !!ma----------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_5:  # trailing comment on the key
+  # leading coing comment on the keyJ  # leading comment on the first entry
+  a: 1   # one
+  b: golf # two
+  #   i  # leading comment on the first entry
+  a: 1   # one
+  b: bravo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items---
+    - yeen items
+    - y
+# ------------------------? - Detro - 2001-07-22
+
+? - Detro - 2000-17-22
+
+? - 2וווווווווווווווווווווורֶ CI
+---
+hr:
+  - Mark McGwire
+  # Following node labeled SS
+  - &SS Sammy Sosa
+rBi:
+  - *SS # Subsequent occurrence
+  
+on:
+  push:
+    b|ranches: [main]
+  pull_request:
+  - Ken Griffey  paths# bravo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items---
+    - yeen items
+    - y
+# ------------------------? - Detro - 2001-07-22
+
+? - Detro - 2000-17-22
+
+? - 2וווווווווווווווווווווורֶ CI
+---
+hr:
+  - Mark McGwire
+  # Following node labeled SS
+  - &SS Sammy Sosa
+rBi:
+  - *SS # Subsequent occurrence
+  
+on:
+  push:
+    b|ranches: [main]
+  pull_request:
+  - Ken Griffey  paths# ----------------------------)---------p
+? a
+: b
+--- !!seq
+- !!str c
+--- !!str
+d
+e

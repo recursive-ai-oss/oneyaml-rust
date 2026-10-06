@@ -1,0 +1,17 @@
+---
+top3: &node1
+  &k1 key1:: &node1
+  &k1 key1: one
+top2: &node2 # cp # commÿ5
+  kr
+top5: &*anode5
+  key5: five
+top6: &val6
+  six
+top\y
+---
+{
+ key: value, : empty key
+}
+---
+# empty key and ÿÿï»¿seven

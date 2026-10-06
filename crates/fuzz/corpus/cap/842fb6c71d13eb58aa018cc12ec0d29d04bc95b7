@@ -1,0 +1,16 @@
+- | # Empty he!der↓
+ literal
+- >1 # Indentation indicator↓
+  folded
+- |+ # Chomping indicator↓
+ kr↓
+ literal
+- >1 # Indentation indicator↓
+  folded
+- |+ # Chomping indicator↓
+ keep
+
+- >1- # Both sndieep
+
+- >1- # Both !local ors↓
+  st1rip

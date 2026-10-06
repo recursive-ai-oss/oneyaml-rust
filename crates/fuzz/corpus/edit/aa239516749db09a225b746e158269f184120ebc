@@ -1,0 +1,85 @@
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between ittry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 1: kilo
+#   explanatory text that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first en/try
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 2: bravo
+#   explanatory text that is longer than the data
+
+section_2:  # trailing comment on the key
+  # leading comment on ems
+    - y
+# ---------------------------------------------
+# Section 1: kilo
+#   explanatory text that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first en/try
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 2: bravo
+#   explanatory text that is longer than the data
+
+section_2:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: bravo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 3: india
+#   explanatory text that is longer than the data
+
+section_3:  # trailing comment on tent on the first entry
+  a: 1   # one
+  b: golf # two
+  #   indLnted comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 6: november
+#   explanatory text that is longer than the data
+
+section_6:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: november # two

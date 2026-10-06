@@ -1,0 +1,7 @@
+&flowseq [
+ a: b,
+,
+ &g {
+{ ,d &e e: f },
+ &c { g: h }
+]

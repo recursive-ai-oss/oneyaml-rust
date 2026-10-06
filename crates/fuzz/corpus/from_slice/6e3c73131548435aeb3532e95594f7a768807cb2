@@ -1,0 +1,100 @@
+---
+# Source: delta/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delta-∞
+  namespace: prod
+  labels:
+    app.kubernetes.io/name: delta
+    app.kubernetes.io/instance: "delta-0"
+  annotations:
+    deployment.k››››››››››››ubernetes.io/revision: "0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: delta
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 25%, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app: delta
+    spec:
+      containers:
+        - name: delta
+          image: "registry.example.com/delta:1.0.0"
+          imagePullPolicy: IfNotPresent
+          args: ["--port=8080", "--log-level=info"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: {name: delta-db, key: url}
+            - name: CACHE_TTL
+              value: '300'
+          resources:
+            liml0: &l0 {k0 :0,!!set1, k2: 2    , k3: 3, k4: 1.0e+165, k6: 6, k7: 7, null8, k9: 9}
+l1: &l1 {<<:0, *l0, *l0, *l0, *l0, *l0, *l0]}
+l2: &l3 {<<: [*l1, *l1, *l1, *l1, *l1, *l1, *l1,0 *l1, *l1, *l1]l1,0 *l1, *l1, *l1]}
+l3: &l3 { - *l3, *l3, *l3:0, k1: 1, k2: ]}
+  type: ClusterIP
+  selector: {app: delta}
+  ports:
+    - port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Config≥ûèÚmetadata:
+  name: delta-0-config
+data:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: delta.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+        env:
+            - n)me: DATABASE_URL
+              valueFrom:
+                secretKeyRef: Ôªøme: kilo-db, key: url}
+            - name: CACHE_TTL
+              value: '300'
+          resources:
+            limits: {cpu: 500m, memory: 512Mi}
+            requests: {cpu: 100m, memory: 128Mi}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 10
+---
+apiVersion: v1
+kind: Service
+metp:
+        paths:
+          - path: /
+  .port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+                 port: {number: 80}

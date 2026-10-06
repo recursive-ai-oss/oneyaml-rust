@@ -1,0 +1,4 @@
+{ ?foo: bar,
+bar: 4
+2}
+!!omapp

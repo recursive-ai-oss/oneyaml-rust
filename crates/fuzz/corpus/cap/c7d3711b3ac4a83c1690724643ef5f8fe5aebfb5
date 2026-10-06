@@ -1,0 +1,17 @@
+&flowseq [
+ a: b,
+ &c c: d,
+ a: b,
+ &cÿ=ÿÿÿÿÿÿÿÿÿÿÿÿe:	a
+pÿÿÿÿÿÿÿe:	a
+port: 1
+---
+nt: 0
+---
+name: b
+port: 21me: e: bÿÿÿÿort: 1
+---
+nt: 0
+---
+name: b
+port: 21me: e: bÿÿÿÿ

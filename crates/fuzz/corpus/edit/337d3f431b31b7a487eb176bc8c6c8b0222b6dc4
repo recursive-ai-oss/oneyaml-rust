@@ -1,0 +1,14 @@
+---
+a: &1
+:â # $90_8ip
+  3%TAG ! tag:clarkevans.com,2003:
+--- !shape
+  # Use the ! handle for presenti|2ng
+  # tag:clarkevans.com,2002:circle
+- !andle for presenting
+  # tag:clarkevans.c|-om,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGr: 0xFFEEBB
+  text: P\_retty vector drawing.
+

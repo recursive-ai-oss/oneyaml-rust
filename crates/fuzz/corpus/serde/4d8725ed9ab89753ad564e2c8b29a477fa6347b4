@@ -1,0 +1,21 @@
+%YAML 1.2
+---
+Doc……………………………………………………………………openapi: 3.1.0
+info:
+  title: Example………………………………………… API
+  version: 1.0.0
+  description: >
+    A generated API description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: onents/schemas/delta0'
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      operationMd: de`letedelta0
+      responses…um:

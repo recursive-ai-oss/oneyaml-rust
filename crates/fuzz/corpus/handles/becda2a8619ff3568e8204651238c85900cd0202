@@ -1,0 +1,11 @@
+﻿? _a1tart: always
+  environment:
+    A: 1
+x-b: &b
+  ima-e: busybo'
+  restart: "no"
+services:
+  one:
+    <<: _*a, 
+? {k: v]
+: 

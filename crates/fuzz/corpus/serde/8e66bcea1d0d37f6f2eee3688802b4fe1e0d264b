@@ -1,0 +1,9 @@
+# ----------------------------Section 0: delta
+#   explanatory text that is longer than the da------------GS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:    
+  fail-fast: tfals entry

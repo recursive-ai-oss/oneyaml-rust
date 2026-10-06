@@ -1,0 +1,11 @@
+ver\U0001F600sion: "3.8"
+x-common: &common
+  restart: unless-soedtpp2ÿes:
+  web:
+?   <<: *common
+    ihagÿÿÿÿÿÿÿÿÿes:
+  web:
+?   <<: *common
+    ihage: 1:30:05mag%: example/api:2e: 1:30:05mag%: example/api:2.3
+   rt: always
+*

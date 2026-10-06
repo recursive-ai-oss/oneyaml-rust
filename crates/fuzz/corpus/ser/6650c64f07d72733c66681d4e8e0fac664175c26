@@ -1,0 +1,7 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # Use tans.com,e
+- !circle
+  center: &ORI !label
+  start: *ORIGIN
+  colg.

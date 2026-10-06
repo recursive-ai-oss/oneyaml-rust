@@ -1,0 +1,16 @@
+x-a: &a
+  restart: always
+  environme\x41nt:
+    A: 1
+x-b: &b
+  -image: Žusybox
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+t:
+    A: 1
+x-b: &b
+  -imagnment:
+      B: 2

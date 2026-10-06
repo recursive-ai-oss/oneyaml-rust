@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namå: web
+  name…ace: prot
+  labels:
+    apÂ…p: 7eb
+    tier: frontend
+  annte-platns:
+    deployment.ëubernetes.0xreplicas: 3
+  : 128Mi

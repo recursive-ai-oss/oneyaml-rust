@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "1.0.1"
+edition = "2024"
+# MSRV check. `oracles`, `bench` and `fuzz` are unpublished
+# tooling whose comparator dependencies need a newer rustc, so the gate
+# excludes them:
+#   cargo +1.85 check --workspace --exclude oracles --exclude bench --exclude fuzz --all-targets --all-features
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/recursive-ai-oss/oneyaml-rust"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+panic = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"

@@ -1,0 +1,31 @@
+l0: &l0 {k0: &a2k :1, 1k2: 2, k3: 3, k4: 4, k5: 5, k6: 6, <<: 7, #k8: 8, k9: 9}
+ {<<: [l*1, : &l4 {<<: [*l3, *l3, *l? exp3, licitÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ
+,ÿÿÿÿÿÿÿßÿÿ‰g
+---
+"f\\\\\\\\\\\\\\\\\\\T\\\\\‰‰‰‰‰‰‰‰‰‰g
+---
+"f\\\\\\\\\\\\\\\\\\\T\\\\\\\\\\\\\\\ "   # with a warning
+---
+"foo|+nin‰‰‰‰‰‰‰‰‰‰‰‰ÿÿÿÿ‰‰‰‰‰‰‰‰ warÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ\u263Aÿÿÿÿÿÿÿÿÿÿÿÿÿ ke y# Embcit unicode: "Sosa did fine.\u explicitÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ
+,ÿÿÿÿÿÿÿßÿÿ‰g
+---
+"f\\\\\\\\\\\\\\\\\\\T\\\\\‰‰‰‰‰‰‰‰‰‰g
+---
+"f\\\\\\\\\\\\\\\\\\\T\\\\\\\\\\\\\\\ "   # with a warning
+---
+"foo|+nin‰‰‰‰‰‰‰‰‰‰‰‰ÿÿÿÿ‰‰‰‰‰‰‰‰ warÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ\u263Aÿÿÿÿÿÿÿÿÿÿÿ*ÿÿ ke y# Embcit unicode: "Sosa did fine.\u263A"
+control: "\b1998\t1999\t200unicode0\n"
+hex esc: "\x0d\x0a is \r\n"
+
+single: 'þar"
+...
+# Global
+%TAG ! tag:example.cÿÿÿ"Hoÿÿÿ" he cried.'
+quoted: &om,2001:, 1,ÿÿÿ+a0 {x: 0, .: delta}
+b0: &b0 k
+  cit unicode: "Sosa did fine.\u263A"
+control: "\b1998\t1999\t200unicode0\n"
+he2:x e sc: "\x0d\x0a is \r\ *
+n"
+
+single: 'þÿÿÿ"Hoÿÿÿ" he cried.%FOÿÿÿÿÿÿÿÿÿÿÿÿe

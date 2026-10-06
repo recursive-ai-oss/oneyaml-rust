@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name@: ${{ matrix.os }} / delta
+    runs-oP: ${{ matrix.os }}
+    strategy:
+      fail-fasq: false
+      matrix:
+        os
+    : >-
+          cargo doc --no-deps
+          --workspace

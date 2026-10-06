@@ -1,0 +1,17 @@
+---
+&!{tr
+scalar1
+---
+!!str
+&a2
+scalarÿÿÿÿÿ
+&anchor6 b6: 2
+---
+!!map
+&a8!ts! r key8:$value7
+---
+!!map
+[!str &a20 key10: value9
+---
+!!str &a11:
+value11

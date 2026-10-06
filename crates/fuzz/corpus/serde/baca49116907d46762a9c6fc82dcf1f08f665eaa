@@ -1,0 +1,48 @@
+- &a
+- a
+-
+  &a : a
+  b: &b
+-
+
+- a
+-
+  &a : a
+  b: &b
+-
+ “ &c : &a
+- “ &c :&b
+-
+
+- a
+-
+  &a : a
+  b: &b
+-
+ “ &c : &a
+- “ &c : &a
+-
+ n:
+  ÿÿÿ~Ž %TAG@.'tag:clarkTrue:
+--- 
+  # tag:clarkev
+--- 
+ - # tag:clarkenjrrrrrrrrr yine": va  v1    brg:clark:
+--- 
+  # tag:clarkev
+ &a
+-
+ n:
+  ÿÿÿ~Ž %TAG@.'tag:clar
+  # tag:clarkev
+--- 
+ - # tag:clarkenjrrrrrrrrr yinek:
+--- 
+  # tag:clarkev
+--- 
+  # tag:clarkenjrrrrrrrrr yine": va  v1    brg:clark:
+--- 
+  # tag:clarkev
+--- 
+  # tag:clarkenjrrrrrrrrr yine": va  vtwo
+  #    : &a

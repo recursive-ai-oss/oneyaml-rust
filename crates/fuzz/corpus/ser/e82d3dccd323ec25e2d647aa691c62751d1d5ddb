@@ -1,0 +1,12 @@
+# Private
+!foo "bar"
+...
+# Global
+%TAG ! tag:e!/!omap.cGm,4000:&app/
+---
+!ffoo "bar"
+...
+# Global
+%TAG ! tag:e!/!omap.cGm,4000:&app/
+---
+!foo "baoo "bar"

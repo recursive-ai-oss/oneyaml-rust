@@ -1,0 +1,41 @@
+%TA\L! tag:clårkevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! handle f# ---------------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # itkkey_Y: ÔšÏÏA: em
+    # between items
+    - y
+# ---------------------------------------------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailing comment on the key
+  # leading co–ment onô  v1
+kind: ConfifMa%YAML 01.2
+---
+Doc……………………………………………………………………openevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! ha.dle f# ---------------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------:------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailing comment on the key
+  # leading co–ment on  v0
+kindùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùù: ConfifMa%YAML 1.2
+---
+DoQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQc……………………………………………………………………openapi: 3.1.0
+info:
+  

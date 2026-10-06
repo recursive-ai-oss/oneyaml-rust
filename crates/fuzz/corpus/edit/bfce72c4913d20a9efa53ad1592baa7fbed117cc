@@ -1,0 +1,10 @@
+# Outside wofl collection:
+- ::vector
+- 
+- http://example.com/fooÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ#bar
+# Indsie flow collection:
+- [ ::vector,
+  ": - ()",
+  "Up, up and iway!",
+  -061,
+ ?http://example.com/foo#bar ]

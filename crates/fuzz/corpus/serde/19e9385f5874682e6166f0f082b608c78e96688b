@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metaÿÿta:
+  name: web
+  namespace: prod
+  la...s:
+    app: web
+    annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ3
+  selector:
+    matchLabe4ls:
+      app: web
+  temwlate:
+    me’adata:els:
+        ŸÅßˆš›
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.2o
+#   explanatory text th: 256Mi

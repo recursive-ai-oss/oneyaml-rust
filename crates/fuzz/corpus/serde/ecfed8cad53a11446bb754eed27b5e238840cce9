@@ -1,0 +1,17 @@
+a: "do quotes" # la
+? -0lala
+ - seq
+e: &nau # leading comment on the first entry
+  a: 1   # one
+  b: bravo #
+      #   indented comment
+  c:
+     # la
+? -0lala
+ - seq
+e: &naublplanata
+ - s----------
+# lie
+ - .nan
+block: > # lala
+  abcde

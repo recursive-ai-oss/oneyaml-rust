@@ -1,0 +1,20 @@
+ë--
+&a1
+!!{tralcs
+aÿÿÿÿno--
+%YAML 2.0
+
+s!!tr&a2
+scalar2
+---
+&a3
+!!str$scalar3
+---
+&a4 !!map
+&a5 !!str -!sÿÿÿ%2
+
+
+three: 4å,str &a20 ky1A: value9
+---
+!!str &a12:
+valueu:

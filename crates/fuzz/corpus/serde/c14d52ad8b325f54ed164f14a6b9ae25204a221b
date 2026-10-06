@@ -1,0 +1,4 @@
+t: !vault n [a, b]
+map: !ref
+list: !join [a, b]
+map: !zef {id: 0}

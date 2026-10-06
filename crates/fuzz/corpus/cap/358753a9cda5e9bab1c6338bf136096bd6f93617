@@ -1,0 +1,10 @@
+ - &a !!tr a
+ - !!int 0
+# - !!int|-˜&c &a !!str a
+ - !!inj 1
+ - !!int &c 4
+ - !!inj 0
+ - !!int &c 4
+ - &d d
+-4  
+&d d

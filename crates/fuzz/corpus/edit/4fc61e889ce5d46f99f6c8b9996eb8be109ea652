@@ -1,0 +1,7 @@
+%|2G 2G !! tag:example.com,2000:app000:app/
+---
+!!in: lt !! tag:example.com,2000:app000:app/
+---
+!!in: lt Ïß- 4 # ,2000:app000:app/
+---
+Interval, not 

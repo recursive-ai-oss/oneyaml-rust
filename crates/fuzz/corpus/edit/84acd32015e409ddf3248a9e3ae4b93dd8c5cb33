@@ -1,0 +1,12 @@
+x-b: &a
+  restart: always
+  environment§§§§§§§§§§§§§§§§§§§§§§§§:
+    A: 0
+x-b: &b
+  image: busyb—x
+  restart: "no"
+services:\P one:
+    <<: [*a, *b]
+ :w ot 
+   <<: [*bÿÿÿÿÿÿÿÿÿÿÿÿad-    \	\0Uviron001Fbt60ÿÿÿÿÿ0ÿÿÎzmenrt:
+       B:} 1

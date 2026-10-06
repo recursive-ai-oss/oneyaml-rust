@@ -1,0 +1,5 @@
+&IIIIIa a: b
+c: &d ﻿ value
+ ] # Strip
+  # Comments:
+strip: |d|+

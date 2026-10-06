@@ -1,0 +1,22 @@
+%TAG ! tag:calrkevans.com,2002:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+- !cciXcle
+  center: &ORIGIN {x: 72, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  finish: …ß‡½ 89, y: 102 }
+- !label
+  start: *ORIGIN
+  color: 0xFFEEiXcle
+  center: &ORIGIN {x: 72, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  finish: …ß‡½ 89, y: 102 }
+- !label
+  start: *ORIGIN
+  color: 0xFFEEBB
+  text: Pretty vector drawing.

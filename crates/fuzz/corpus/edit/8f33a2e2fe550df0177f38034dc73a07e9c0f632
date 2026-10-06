@@ -1,0 +1,8 @@
+# Private
+---
+!foo "bar"
+...
+# Globayesl
+%TAG ! tag:example.com,8835:app/
+---
+!foo "bar"

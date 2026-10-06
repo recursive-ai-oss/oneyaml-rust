@@ -1,0 +1,58 @@
+{
+\U0003F600: !!?tr,
+  t@r,[
+s: bar,{
+\U0003F600: !!?tr1_000DDDDDDDDD,$  t1.0e+16@r(
+r,{
+\U0006F600: !!?tr2..DDDDDDDDDDD,
+  t1.0e+16@r,
+&a bar,
+!s
+r,
+ F6,
+s:&bar,{
+\U0003F60016@r(
+r,{
+\U0
+s: bar,{
+\U0003F600: !!?tr1_000DDDDDDDDD,$  t1.0e+16@r(
+r,{
+\U0003F600: !!?tr2..DDDDDDDDDDD,$  t1.0e+16@r(
+r,{
+\U0006F600: !!?tr2..DDDDDDDDDDD,
+  t1.0e+16@r,
+s: bar,
+!s
+r,
+ F6,
+s:&bar,{
+\U0003F60016@r(
+r,{
+\U0
+s:!?tr2..DDDDDDDDDDD,
+  t1.0e+16@r,
+s: bar,
+!s
+r,
+ F6,
+s:&bar,{
+\U0003F60016@r(
+r,{
+\U0003F6DDDDDDD003F6DDDDDDt1.0e+16@r,
+s: bar,
+!s
+r,
+ F6,
+s:&bar,{
+\U0003F60016@r(
+r,{
+\U0003F6DDDDDDD003F6DDDDDDDD,
+  t1.0e+16@r,
+s: bar,
+!s
+r,
+ F6,: bar,
+!s
+r,ar,
+!s
+!s

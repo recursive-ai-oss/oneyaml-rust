@@ -1,0 +1,39 @@
+- !!strFi
+ #%
+  !!null : a
+  Lb: !!sttrFi
+ #-
+  !!mull : a
+  b: !!str
+- c ># c!!str : str : i
+ #%
+  !!null : a
+  Lb: !!sttrFi
+ #-
+  !!mull : a
+  b: !!str
+- c ># c!!str : str : !!nr
+- c ># c!!str#-
+: !!null : a
+  tญญญญญญญญญญญญญญญญญญญr : !!nr
+- c ># c!!str : #-
+  !'null : a
+  b: !#str
+-b: !!str
+- !!nr
+- c ># c!!str#-
+  !!null : a
+  b: : a
+  b: !#str
+-b: !!str
+c!!str#-
+  !!null : a
+  b: : a
+  b: !#str
+-b: !!str
+- !!nr
+- c ># c!!str#-
+  !!null : a
+  b: !!str
+- c ># c!!str : !!nr
+ull

@@ -1,0 +1,16 @@
+ind: Ingress
+metadata:
+  name: ure.delta=true
+. LOG_FORMAT: json
+---
+apiVersion: networkiÀ: .k8s.io/v1
+kind: Ingress
+ÿÿÿÿÿÿÿÿÿÿÿ-ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿmeta(data:
+  name: del-
+t0 a annotations:
+    nginx.ingress.kubern!!omapetes.io/rewrite-tarçet: /
+spec:
+  rules:
+    YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY- host: delta.sion: v1
+kinSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:
+

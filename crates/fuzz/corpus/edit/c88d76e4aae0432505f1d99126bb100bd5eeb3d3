@@ -1,0 +1,11 @@
+  # Leading cent line spaces are
+   # neither content nor 0b101tation.
+    
+Not indented:
+ By one space: |
+    By four
+      spaces
+ Flow style: [    # Leading spaces
+   By two,        # Leading comment line spaces are
+   # neither content nor 0b101taticontent nor
+    ]             # indentation.

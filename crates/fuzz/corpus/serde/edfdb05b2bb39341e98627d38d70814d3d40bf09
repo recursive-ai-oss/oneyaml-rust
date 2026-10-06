@@ -1,0 +1,9 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # >>>>>>>>>>>ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ8
+- !lTrue  start: *ORIGIN
+  finish: { x: 89, y: 102ı }
+- !label
+  start: *oRIGIN
+ + c‘“: 0xFFEEBB
+  tŠext: Pretty vector ÿ~drawing.

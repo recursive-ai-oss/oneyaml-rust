@@ -1,0 +1,64 @@
+--- !!map
+? a
+: b
+--- !!3eq
+- !&!st1   # one #   indented comment
+  c:
+    - x  # item
+    #  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------ent on the key
+  # leading comment on the first entry
+  a: 1   ------------------------:::::::----------------
+# Section 0: delta
+#   explanatory text tha tis longer than the data
+
+section_0:  # trailing comment on the %!PS-Ad...-2.0 # Not Not the firs x0a: &o  o : v(   
+:
+  -A ßßßßjT|212:30:050.ğ1_000)ßİdobe-2.0nt?
+...
+|
+%!PS-Ad...-2.0 # Not Not the firs x0a: &o  o : v(   
+:
+    
+:
+
+...nt
+...
+# No document?
+...
+|
+%!PS-A ßßßßjT|212:30:050.ğ1_000)ßİdobe-2.0nt?
+...
+|
+%!PS-Ad...-2.0 #  # Cloor hare
+document
+...
+# No document?
+...
+|--------------------------------
+# Sectrst entry
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    #  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------ent on the key
+  # leading comment on the first entry
+  a: 1   ------------------------:::::::----------------
+# Section 0: delta
+#   explanatory text tha tis longer than the data
+
+section_0:  # trailing comment on the key
+  # leadinr c
+--- !)tsr
+d)
+e

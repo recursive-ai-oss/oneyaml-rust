@@ -1,0 +1,67 @@
+name: Bug report
+description: oneyaml reads, writes, edits or reports something wrong, or panics.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **A security issue** (a panic or abort on some input, a resource-limit escape, serde and `Document` disagreeing about a meaning) goes through [private reporting](https://github.com/recursive-ai-oss/oneyaml-rust/security/advisories/new), not here; see [SECURITY.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: oneyaml version
+      description: From `cargo tree -p oneyaml` (and `oneyaml-syntax` if you use it directly).
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Reading (serde, `Value`, `from_str`)
+        - Writing (`to_string`, `to_writer`)
+        - "`Document` editing"
+        - Comments (owners, edits)
+        - Diagnostics (codes, spans, rendering, fixes)
+        - Settings, compatibility presets or limits
+        - "`oneyaml-syntax` (events, syntax tree)"
+        - Documentation
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Input YAML
+      description: The smallest input that shows the problem. It is shown verbatim.
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code
+      description: The calls you made, including any `Settings` (for example `Settings::new().merge_keys(true)` or `Compat::serde_yaml()`).
+      render: rust
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The output, error (with its `Y####` code) or value you got.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: If you expected it from the YAML 1.2.2 spec or from another library (`serde_yaml_ng`, saphyr, …), say which and how it behaves.
+    validations:
+      required: true
+  - type: input
+    id: rustc
+    attributes:
+      label: Rust version and platform
+      placeholder: "rustc 1.85.0, x86_64-unknown-linux-gnu"

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  e: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ 0atrix.os }}
+    strategy:
+      fail-fast: false
+      mat\ x:
+      egy:
+      fa-ilfast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    st*eps:
+      - uses: actions/check(lies'**/Cargo.lock') }}
+      - name: Test
+        run: |
+  acall toolchÙais: &taaaaaaaaaaaace --all-taraagetsa

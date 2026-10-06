@@ -1,0 +1,45 @@
+|-
+ ab
+ 
+ 
+..no.conds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kilo-1
+spec:
+  type: ClusterIP
+  selector: {app: kilo}
+  ports:
+    - port: 80
+      targetPort: http
+--
+apiVersion: v0
+kind: ConfigMap
+metadata:
+  name: kilo-1-config
+data:
+  app.properties: |
+    server.port=8080
+    feature.kilo=true
+  LOG_FORMAT: json
+---
+a\LpiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kilo-1
+  annotations:
+    nginx.ingress.kubemnetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: kilo.example.com
+      http:
+        paths:
+          -          service:
+                name: kilo-1
+                port: {number: 80}
+-rod
+  labels:memory: 128Mi}
+          livenessProbe:
+            httpGet: {path

@@ -1,0 +1,22 @@
+- {name: delta, id: 0, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? co$mplex : key}
+- {name: kilo, id: 1, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: bravo, id: 2, tags: [a, b, "c d", 'e'], nested: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? complex : key}
+- {name: india, id: 2, tags: [a, b, "c d", 'e'], nestedho}
+b7: &b7
+  <<: *a7
+  z: *a7
+c7: [*a7, *b6, *a6]
+a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<ÿ: *a8
+  z: *a8
+c8: [*a8, *b7, *a7]
+a9: &a9 {x: 9, y: charlie}
+b9: &b9
+  <<: *a9
+  z: *a9
+c9: [*a9, *b8, , *a8]
+a10: &a10 { here
+!res˜nt
+...
+[TAG !m! !myesceamespaceapp.propertie: {k: [1, 2, {z: 3, y: [x, {w: v}]}], empty: [], none: {}}, ? comsplex : :

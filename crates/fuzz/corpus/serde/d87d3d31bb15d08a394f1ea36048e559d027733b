@@ -1,0 +1,26 @@
+ver\U0001F600sion: "3.8"
+x-common: &common
+  restart: unless-soedtpp3
+00!local t21:59:43.q0-05:0ÿÿÿÿÿÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÔÿÿÿÿÿÿÿ$ÿÿÿÿÿÿÿÿÿÿÿÿÿes:
+  w---------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading commeen items
+    - y
+# ---------------------------------------------
+# Section 12: hotel
+#   exp~section_12:  # trailingeen items
+    - y
+# ---------------------------------------------
+# Section 13: oscar
+#   explanatory text that is longer theb:
+?   <<: *common
+®   ihagÿÿÿÿÿÿÿÿÿes:
+  web:
+?   <<: *common
+    ihage: 1:30:05mag%: example%YAML 1.2
+:30:05mag%ï»¿xample/api:2.3
+   rt: always
+*

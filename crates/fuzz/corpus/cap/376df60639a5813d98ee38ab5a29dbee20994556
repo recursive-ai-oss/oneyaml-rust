@@ -1,0 +1,69 @@
+k0000001: kilo
+kname: aö*bt: 1# ----------------------
+# Sec ---------------------------------------------
+# Section 0: delta
+ï»¿ explanatory text that is longer than the data
+
+section_â:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    #*between 
+---
+nt: 1
+---
+---
+top1: &node1
+ ey_0000000: delta
+key_0000001: kilo
+kname: aö*bt: 1# -----------------value
+--- !!set
+? Mapk McGwire
+? SaaŒß¬Œı? a
+# Mapping where each key is
+# associated with a+12.5l value
+--- !!set
+? M----------------------------
+# Section 0: delta
+ï»¿ explanatory text that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the firstion 0: delta
+ï»¿ explanatory text that is longer than the data
+
+section_â:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+ ÙßßÜÕš‹ween 
+---
+nt: 1
+---
+---
+top1: &node1
+ ey_0000000: delta
+key_0000001: kilo
+kname: aö*bt: 1# ---------------------------------------------
+# Section 0: delta
+ï»¿ explanatory text that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    #*bet\U0001F600nt: 1
+---
+---
+top1: &node1
+  &k1 key1: on[e
+top13: items
+   &node2 # 

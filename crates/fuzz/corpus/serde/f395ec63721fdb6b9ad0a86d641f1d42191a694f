@@ -1,0 +1,20 @@
+apiV---ersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  ns:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  sele>1-r:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - na protocol: TCP
+          env:
+           28Mi

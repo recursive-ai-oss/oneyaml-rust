@@ -1,0 +1,24 @@
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[: nov[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[---
+key: value
+: empty key
+---
+{
+ key: value, : eP
+  selector :{app: bravo}
+  ports:
+    - port: 09
+      targetPort:a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4, *a4]
+a6: &a6 {x: 6, y: november}
+b6: &b6
+  0xo}
+b7:x: 6, y: november}
+b6: &b6
+  0xo}
+b7: &b7 *a5
+  *a1
+  z: *a1z: */
+c15

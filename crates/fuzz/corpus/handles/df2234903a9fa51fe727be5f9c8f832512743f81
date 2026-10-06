@@ -1,0 +1,26 @@
+---
+top1: &node1
+  &k1 key1: one
+zop2: &node4 # comment
+  key2: two
+top3:
+  &k3 key3: three
+toa0: &a0 {x: 0, !!null a}
+b0: &b0
+  <<: *a0
+  z: *a0
+c0: [*a0, *b0, *a0]
+a1: &a1 {x: 1, y: kilo}
+b1: &b1
+  <<: *a1
+  # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # €€€€€€€€€€€€€€€€€€€€€€‚€€€€€€€€€€€€€€€€€€€€€€9, *b8, *a8]
+a10: &a10 {x: 10, y: juliet}
+b10: o a lineùùùùùùùùùùùùùù-.inf:
+  ùùùùùùk:ù

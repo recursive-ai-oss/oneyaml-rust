@@ -1,0 +1,44 @@
+# Corrections for known defects in the vendored yaml-test-suite data (see
+# src/known.rs). Format: <case-id> <correction> -- <reason>
+#
+# A listed case is judged against its corrected expectation, EXACTLY, like
+# any other case: nothing is excused, codes are checked as usual, and a real
+# mismatch is a real failure. An entry whose correction changes nothing is
+# rejected as stale.
+#
+# Checked 2026-09-27: no data release newer than `data-2022-01-17` exists
+# (`data` branch head 6ad3d2c has the same files), and the generator sources
+# on `main` (da267a5) still carry these defects.
+
+# src/4H7K.yaml and src/T833.yaml on main write their flow collections as
+# bare `+SEQ` / `+MAP`, without the flow markers the format requires: output
+# of an older version of the suite's error-tree generator (`yamlpp-events`,
+# bin/yaml-to-test). Both corrections restore the marker and change nothing
+# else. 4H7K's recorded `-DOC` before the error is kept: it is what the
+# spec reference parser (YAML::Parser 0.0.5 via YAML::PP::Ref 0.02) emits,
+# yaml-rust2 0.13.0 reproduces the recorded prefix, and BS4K and EB22 carry
+# the same `-DOC`-before-the-error pattern. Current YAML::PP v0.41.0 omits
+# it, but it also disagrees with 28 of the 94 recorded error trees, so its
+# output is not evidence that a recorded tree is defective.
+4H7K events +STR; +DOC ---; +SEQ []; =VAL :a; =VAL :b; =VAL :c; -SEQ; -DOC -- test.event omits the [] flow marker on +SEQ
+T833 events +STR; +DOC ---; +MAP {}; =VAL :foo -- test.event omits the {} flow marker on +MAP
+
+# src/MUS6.yaml on main: the second entry (`%YAML 1.2` / `---` / `%YAML 1.2`
+# / `---`) has no `tree:`, so bin/YAMLTestSuite.pm (lines 83-90) copies the
+# first entry's tree `+STR`. Corrected prefix: the explicit document starts,
+# then the directive inside it is the error (production 211). This is also
+# what the suite's own error-tree generator, `yamlpp-events` (YAML::PP
+# v0.41.0, bin/yaml-to-test), outputs for this input today.
+MUS6/01 events +STR; +DOC --- -- tree copied from MUS6/00 (source entry has no tree)
+
+# src/Y79Y.yaml on main: the `fail: true` entries at lines 78-99 have no
+# `tree:`, so the generator gave each Y79Y/003's tree. Corrected prefixes,
+# derived by hand from the spec: each input is valid up to a compact
+# collection after a tab, which production 185 forbids (the compact forms
+# need s-indent, spaces only); ends caused by a strict dedent are included.
+Y79Y/004 events +STR; +DOC; +SEQ -- copied from Y79Y/003; input `-<TAB>-`
+Y79Y/005 events +STR; +DOC; +SEQ -- copied from Y79Y/003; input `- <TAB>-`
+Y79Y/006 events +STR; +DOC; +MAP -- copied from Y79Y/003; input `?<TAB>-`
+Y79Y/007 events +STR; +DOC; +MAP; +SEQ; =VAL :; -SEQ -- copied from Y79Y/003; input `? -` then `:<TAB>-`
+Y79Y/008 events +STR; +DOC; +MAP -- copied from Y79Y/003; input `?<TAB>key:`
+Y79Y/009 events +STR; +DOC; +MAP; +MAP; =VAL :key; =VAL :; -MAP -- copied from Y79Y/003; input `? key:` then `:<TAB>key:`

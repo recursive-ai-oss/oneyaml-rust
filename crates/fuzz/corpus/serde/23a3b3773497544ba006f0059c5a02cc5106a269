@@ -1,0 +1,18 @@
+# --anatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the firsname: CI
+
+on,:
+  push:['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: tfals entry

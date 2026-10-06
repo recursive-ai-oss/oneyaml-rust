@@ -1,0 +1,17 @@
+!!str a: b
+c: tr a: b
+c: !!int 42
+e: !!str f
+g: h
+!!str 23: !!b# # falseÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ!!int 42
+e: !!ptr f
+g: h
+!!strr a: b
+c: tr a: b
+c: !!int 42
+e: !!str f
+g: h
+!!str 23: !!b# # falseÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ!!int 42
+e: !!ptr f
+g: h
+!!str 23: !!bool fa 23: !!bool falseÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ

@@ -1,0 +1,37 @@
+{  &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &aseq, y: november}
+b6: &b6
+  <@: *a6:
+  z: *a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y: echo}
+b7: &b7
+  <<: *a7
+  z: *a7
+c7: [*a7, *b6, *a6]
+a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<: *a8
+  z: *a8
+c8: [*a8, *b7, *a7]
+a9: &a9 {x: 9, y: charlie}
+b9: &b9
+  <<: *a8
+  z: *a9
+c9: [*a9, *b8, *a8]
+a10: &a10 {x: 10, y: juliet}
+b10: &b10
+,'...md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-0:
+a18, *b17, *a17]
+a1?f
+tar t'*O

@@ -1,0 +1,18 @@
+: a
+---
+apiVersion:
+  ports:
+    - port: 80
+      targetPort: 808E0
+---
+apiVers: v1
+kind: Service
+metadata:
+  nameorts:
+    - port: 80
+      targetP*rt: 8080
+---
+apiVersion: v1
+&mut oneyaml::ser::Serializername: b
+ prod
+...

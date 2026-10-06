@@ -1,0 +1,18 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # Use the ! handle for presentin'g
+  # tag:clarkevans.com,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radius: 7
+- !line
+  start: *ORIGIN
+  finish: { x: 89, y: 102 }
+- !la0 k—†10: v tag:clarkevans.com,2002:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radl0: &l0 {k0â+€©, k1IGIN
+  f0e+16:2  z«ini««

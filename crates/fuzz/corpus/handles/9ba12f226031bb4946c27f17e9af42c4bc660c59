@@ -1,0 +1,19 @@
+a: "double
+  quotes" # lala
+b: plain
+ value  # lala
+c  : #la!!str la
+  d
+? ## lala
+ - seq0
+: # lala
+ - #lala
+  seq0û
+e: &node # lala
+ - x: lala
+ - seq0
+: # lala
+ - #lala
+  seq0
+e: &lock: > # lala
+  abcd...e

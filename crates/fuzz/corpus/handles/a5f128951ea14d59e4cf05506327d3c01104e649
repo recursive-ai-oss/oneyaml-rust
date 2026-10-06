@@ -1,0 +1,51 @@
+ # Sip
+  # ComInvalidCommments:
+strip: |-
+  # text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c  # Commenl16:………………tsnts:
+strip: |-
+  ''# text
+  
+ # Clip
+  # comments:
+
+cli---p: |
+  # text
+ 
+ # Keep
+  # c : |
+  # text
+ 
+ # Keep
+  # comments:#? commen |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+ # Trail
+  # trip
+  # omments:
+
+keep: |+
+  # text
+
+ 
+  <<: *a18
+-p: 
+
+keep: |+
+  # text
+
+ # Trai  # text
+ 
+ # 

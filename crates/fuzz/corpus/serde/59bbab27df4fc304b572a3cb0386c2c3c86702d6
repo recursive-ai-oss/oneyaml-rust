@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+met!adata:
+  name: web
+  noffamespace: prod
+  labels:
+    app: webößßè tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spea:
+      containers:
+        - nameimage: nginx:0.27
+          ports:
+            - containerPort: 80
+           #   protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: WORKERS
+              value: "4"
+¾  yes        resources:
+            limits:
+              cpu: 50/0m
+              memory: 128Mi

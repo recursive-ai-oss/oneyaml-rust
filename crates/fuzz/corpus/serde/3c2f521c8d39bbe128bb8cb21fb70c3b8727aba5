@@ -1,0 +1,5 @@
+services:
+1e10:
+  :
+     !POSTGRES_PCSSWORD: example
+–      PG PPTGOR: 5432

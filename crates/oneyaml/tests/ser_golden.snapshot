@@ -1,0 +1,1940 @@
+# oneyaml serializer golden outputs. FROZEN: changes need owner approval.
+# Each case: `=== name` then the exact output bytes (or `!error Y####`).
+=== null
+null
+=== null_unit
+null
+=== bool_true
+true
+=== bool_false
+false
+=== int_small
+- 0
+- -1
+- 9223372036854775807
+- 18446744073709551615
+=== int_128
+- -170141183460469231731687303715884105728
+- 340282366920938463463374607431768211455
+=== int_wide
+- 0x1ffffffffffffffffffffffffffffffff
+- 0x1ffffffffffffffffffffffffffffffff
+- 1000000000000000000000000000000000000000000
+- -680564733841876926926749214863536422911
+- 1316217038422671360000000000000000000000
+- -1361129467683753853853498429727072845823
+=== int_wide_number_hex
+0x1ffffffffffffffffffffffffffffffff
+=== int_wide_number_decimal
+-123456789012345678901234567890123456789012
+=== int_wide_number_field
+'n': 0x1ffffffffffffffffffffffffffffffff
+all:
+  - 0x1ffffffffffffffffffffffffffffffff
+  - 0x1ffffffffffffffffffffffffffffffff
+  - 1000000000000000000000000000000000000000000
+  - -123456789012345678901234567890123456789012
+  - -680564733841876926926749214863536422911
+  - -1361129467683753853853498429727072845823
+  - 1316217038422671360000000000000000000000
+small: -7
+maybe: 1000000000000000000000000000000000000000000
+=== stream_wide_numbers
+0x1ffffffffffffffffffffffffffffffff
+---
+0x1ffffffffffffffffffffffffffffffff
+---
+1000000000000000000000000000000000000000000
+---
+-123456789012345678901234567890123456789012
+---
+-680564733841876926926749214863536422911
+---
+-1361129467683753853853498429727072845823
+---
+1316217038422671360000000000000000000000
+=== float_forms
+- 1.0
+- 0.1
+- -2.5
+- 1000000000000000.0
+- 1.0e+16
+- 1.0e+300
+- 1.0e-5
+- 1.5e-7
+- 5.0e-324
+- 1.7976931348623157e+308
+- 123456789.125
+- -0.0
+- 0.0
+=== float_special
+- .inf
+- -.inf
+- .nan
+=== float_f32
+- 1.1
+- 0.1
+- 3.4e+38
+- 1.0e-7
+- 16777216.0
+=== quote_awkward_values
+- ''
+- ' '
+- '  a'
+- 'a '
+- 'a  '
+- "\ta"
+- "a\t"
+- '#'
+- '#a'
+- 'a #b'
+- a#b
+- 'a: b'
+- 'a:'
+- a:b
+- ':'
+- ':a'
+- '-'
+- '-a'
+- '- a'
+- '--'
+- '---'
+- '--- a'
+- '...'
+- '... a'
+- '?'
+- '?a'
+- '? a'
+- ','
+- ',a'
+- a,b
+- '['
+- ']'
+- '{'
+- '}'
+- '[a]'
+- '{a: b}'
+- '&a'
+- '*a'
+- '!a'
+- '!'
+- '|'
+- '|a'
+- '>'
+- '>a'
+- ''''
+- '''a'
+- '"'
+- '"a'
+- '%'
+- '%a'
+- '@'
+- '@a'
+- '`'
+- '`a'
+- a'b
+- a"b
+- a\b
+- \
+- '~'
+- 'null'
+- 'Null'
+- 'NULL'
+- 'true'
+- 'True'
+- 'TRUE'
+- 'false'
+- 'FALSE'
+- 'yes'
+- 'Yes'
+- 'YES'
+- 'no'
+- 'No'
+- 'NO'
+- 'on'
+- 'On'
+- 'ON'
+- 'off'
+- 'Off'
+- 'OFF'
+- 'y'
+- 'Y'
+- 'n'
+- 'N'
+- '0'
+- '00'
+- '007'
+- '0777'
+- '-0'
+- '+1'
+- '123'
+- '-123'
+- '1_000'
+- '1,000'
+- '12:30'
+- '1:20:30'
+- '12:30.5'
+- '0x1F'
+- '0X1F'
+- 0xZZ
+- '0o17'
+- '0b1'
+- '-0b1'
+- '+0x1f'
+- '0x_'
+- '1e3'
+- '1E3'
+- '1.5e-3'
+- '1.0'
+- '1.'
+- '.5'
+- '-.5'
+- '1.2.3'
+- '1.1.1.1'
+- '.'
+- '..'
+- '.inf'
+- '.Inf'
+- '-.inf'
+- '+.inf'
+- '.nan'
+- '.NaN'
+- inf
+- nan
+- infinity
+- '2001-12-14'
+- '2001-12-14t21:59:43.10-05:00'
+- '2001-12-14 21:59:43.10 -5'
+- '<<'
+- '='
+- é
+- 日本語
+- 😀
+- a😀b
+- ' '
+- 'a '
+- "\N"
+- "\L"
+- "a\Pb"
+- "\uFEFFa"
+- "\uFFFF"
+- "\0"
+- "\a"
+- "\e"
+- "\x7F"
+- "\x9F"
+- "\r"
+- "a\rb"
+- "a\r\nb"
+- "\t"
+- "a\tb"
+- "\n"
+- "\n\n"
+- "\n\n\n"
+- |
+  a
+- |-
+  a
+  b
+- |
+  a
+  b
+- |+
+  a
+  b
+
+- |+
+  a
+
+- |-
+
+  a
+- |2-
+
+   a
+- |2-
+   a
+  b
+- |2-
+    a
+   b
+- |-
+  a
+   b
+- |-
+  a 
+  b
+- |-
+  a
+  	b
+- "\ta\nb"
+- |
+  a
+   
+- |2
+   
+- |-
+  a
+
+
+  b
+- |-
+  - a
+  - b
+- |-
+  a: 1
+  b: 2
+- |-
+  # not a comment
+  x
+- |-
+  --- 
+  x
+- |-
+  ...
+  x
+- |-
+  x
+  ...
+- |-
+  x
+  ---
+- "a\Nb\nc"
+- |-
+  é
+  ü
+- '1,2'
+- '+1,000'
+- '0,7'
+- '1,000.5'
+- '09:15'
+- '00:30'
+- '0:30'
+- '.iNf'
+- '+.INf'
+- '.nAn'
+- '+_1'
+- '1e_5'
+- '0_x1F'
+- '1_e_5'
+- 'tRUE'
+- 'nULL'
+- 'yEs'
+- 'oFF'
+- 'FaLsE'
+- '0b1,0'
+- '0x1,F'
+- '0x,1F'
+=== quote_awkward_keys
+'': 0
+' ': 1
+'  a': 2
+'a ': 3
+'a  ': 4
+"\ta": 5
+"a\t": 6
+'#': 7
+'#a': 8
+'a #b': 9
+a#b: 10
+'a: b': 11
+'a:': 12
+a:b: 13
+':': 14
+':a': 15
+'-': 16
+'-a': 17
+'- a': 18
+'--': 19
+'---': 20
+'--- a': 21
+'...': 22
+'... a': 23
+'?': 24
+'?a': 25
+'? a': 26
+',': 27
+',a': 28
+a,b: 29
+'[': 30
+']': 31
+'{': 32
+'}': 33
+'[a]': 34
+'{a: b}': 35
+'&a': 36
+'*a': 37
+'!a': 38
+'!': 39
+'|': 40
+'|a': 41
+'>': 42
+'>a': 43
+'''': 44
+'''a': 45
+'"': 46
+'"a': 47
+'%': 48
+'%a': 49
+'@': 50
+'@a': 51
+'`': 52
+'`a': 53
+a'b: 54
+a"b: 55
+a\b: 56
+\: 57
+'~': 58
+'null': 59
+'Null': 60
+'NULL': 61
+'true': 62
+'True': 63
+'TRUE': 64
+'false': 65
+'FALSE': 66
+'yes': 67
+'Yes': 68
+'YES': 69
+'no': 70
+'No': 71
+'NO': 72
+'on': 73
+'On': 74
+'ON': 75
+'off': 76
+'Off': 77
+'OFF': 78
+'y': 79
+'Y': 80
+'n': 81
+'N': 82
+'0': 83
+'00': 84
+'007': 85
+'0777': 86
+'-0': 87
+'+1': 88
+'123': 89
+'-123': 90
+'1_000': 91
+'1,000': 92
+'12:30': 93
+'1:20:30': 94
+'12:30.5': 95
+'0x1F': 96
+'0X1F': 97
+0xZZ: 98
+'0o17': 99
+'0b1': 100
+'-0b1': 101
+'+0x1f': 102
+'0x_': 103
+'1e3': 104
+'1E3': 105
+'1.5e-3': 106
+'1.0': 107
+'1.': 108
+'.5': 109
+'-.5': 110
+'1.2.3': 111
+'1.1.1.1': 112
+'.': 113
+'..': 114
+'.inf': 115
+'.Inf': 116
+'-.inf': 117
+'+.inf': 118
+'.nan': 119
+'.NaN': 120
+inf: 121
+nan: 122
+infinity: 123
+'2001-12-14': 124
+'2001-12-14t21:59:43.10-05:00': 125
+'2001-12-14 21:59:43.10 -5': 126
+'<<': 127
+'=': 128
+é: 129
+日本語: 130
+😀: 131
+a😀b: 132
+' ': 133
+'a ': 134
+"\N": 135
+"\L": 136
+"a\Pb": 137
+"\uFEFFa": 138
+"\uFFFF": 139
+"\0": 140
+"\a": 141
+"\e": 142
+"\x7F": 143
+"\x9F": 144
+"\r": 145
+"a\rb": 146
+"a\r\nb": 147
+"\t": 148
+"a\tb": 149
+"\n": 150
+"\n\n": 151
+"\n\n\n": 152
+? |
+  a
+: 153
+? |-
+  a
+  b
+: 154
+? |
+  a
+  b
+: 155
+? |+
+  a
+  b
+
+: 156
+? |+
+  a
+
+: 157
+? |-
+
+  a
+: 158
+"\n a": 159
+" a\nb": 160
+"  a\n b": 161
+? |-
+  a
+   b
+: 162
+? |-
+  a 
+  b
+: 163
+? |-
+  a
+  	b
+: 164
+"\ta\nb": 165
+? |
+  a
+   
+: 166
+" \n": 167
+? |-
+  a
+
+
+  b
+: 168
+? |-
+  - a
+  - b
+: 169
+? |-
+  a: 1
+  b: 2
+: 170
+? |-
+  # not a comment
+  x
+: 171
+? |-
+  --- 
+  x
+: 172
+? |-
+  ...
+  x
+: 173
+? |-
+  x
+  ...
+: 174
+? |-
+  x
+  ---
+: 175
+"a\Nb\nc": 176
+? |-
+  é
+  ü
+: 177
+'1,2': 178
+'+1,000': 179
+'0,7': 180
+'1,000.5': 181
+'09:15': 182
+'00:30': 183
+'0:30': 184
+'.iNf': 185
+'+.INf': 186
+'.nAn': 187
+'+_1': 188
+'1e_5': 189
+'0_x1F': 190
+'1_e_5': 191
+'tRUE': 192
+'nULL': 193
+'yEs': 194
+'oFF': 195
+'FaLsE': 196
+'0b1,0': 197
+'0x1,F': 198
+'0x,1F': 199
+=== quote_double_style
+- ""
+- " "
+- "  a"
+- "a "
+- "a  "
+- "\ta"
+- "a\t"
+- "#"
+- "#a"
+- "a #b"
+- a#b
+- "a: b"
+- "a:"
+- a:b
+- ":"
+- ":a"
+- "-"
+- "-a"
+- "- a"
+- "--"
+- "---"
+- "--- a"
+- "..."
+- "... a"
+- "?"
+- "?a"
+- "? a"
+- ","
+- ",a"
+- a,b
+- "["
+- "]"
+- "{"
+- "}"
+- "[a]"
+- "{a: b}"
+- "&a"
+- "*a"
+- "!a"
+- "!"
+- "|"
+- "|a"
+- ">"
+- ">a"
+- "'"
+- "'a"
+- "\""
+- "\"a"
+- "%"
+- "%a"
+- "@"
+- "@a"
+- "`"
+- "`a"
+- a'b
+- a"b
+- a\b
+- \
+- "~"
+- "null"
+- "Null"
+- "NULL"
+- "true"
+- "True"
+- "TRUE"
+- "false"
+- "FALSE"
+- "yes"
+- "Yes"
+- "YES"
+- "no"
+- "No"
+- "NO"
+- "on"
+- "On"
+- "ON"
+- "off"
+- "Off"
+- "OFF"
+- "y"
+- "Y"
+- "n"
+- "N"
+- "0"
+- "00"
+- "007"
+- "0777"
+- "-0"
+- "+1"
+- "123"
+- "-123"
+- "1_000"
+- "1,000"
+- "12:30"
+- "1:20:30"
+- "12:30.5"
+- "0x1F"
+- "0X1F"
+- 0xZZ
+- "0o17"
+- "0b1"
+- "-0b1"
+- "+0x1f"
+- "0x_"
+- "1e3"
+- "1E3"
+- "1.5e-3"
+- "1.0"
+- "1."
+- ".5"
+- "-.5"
+- "1.2.3"
+- "1.1.1.1"
+- "."
+- ".."
+- ".inf"
+- ".Inf"
+- "-.inf"
+- "+.inf"
+- ".nan"
+- ".NaN"
+- inf
+- nan
+- infinity
+- "2001-12-14"
+- "2001-12-14t21:59:43.10-05:00"
+- "2001-12-14 21:59:43.10 -5"
+- "<<"
+- "="
+- é
+- 日本語
+- 😀
+- a😀b
+- " "
+- "a "
+- "\N"
+- "\L"
+- "a\Pb"
+- "\uFEFFa"
+- "\uFFFF"
+- "\0"
+- "\a"
+- "\e"
+- "\x7F"
+- "\x9F"
+- "\r"
+- "a\rb"
+- "a\r\nb"
+- "\t"
+- "a\tb"
+- "\n"
+- "\n\n"
+- "\n\n\n"
+- |
+  a
+- |-
+  a
+  b
+- |
+  a
+  b
+- |+
+  a
+  b
+
+- |+
+  a
+
+- |-
+
+  a
+- |2-
+
+   a
+- |2-
+   a
+  b
+- |2-
+    a
+   b
+- |-
+  a
+   b
+- |-
+  a 
+  b
+- |-
+  a
+  	b
+- "\ta\nb"
+- |
+  a
+   
+- |2
+   
+- |-
+  a
+
+
+  b
+- |-
+  - a
+  - b
+- |-
+  a: 1
+  b: 2
+- |-
+  # not a comment
+  x
+- |-
+  --- 
+  x
+- |-
+  ...
+  x
+- |-
+  x
+  ...
+- |-
+  x
+  ---
+- "a\Nb\nc"
+- |-
+  é
+  ü
+- "1,2"
+- "+1,000"
+- "0,7"
+- "1,000.5"
+- "09:15"
+- "00:30"
+- "0:30"
+- ".iNf"
+- "+.INf"
+- ".nAn"
+- "+_1"
+- "1e_5"
+- "0_x1F"
+- "1_e_5"
+- "tRUE"
+- "nULL"
+- "yEs"
+- "oFF"
+- "FaLsE"
+- "0b1,0"
+- "0x1,F"
+- "0x,1F"
+=== quote_root_empty
+''
+=== quote_root_plain
+hello world
+=== quote_root_yes
+'yes'
+=== indent_default
+name: web
+ports:
+  - 80
+  - 443
+env:
+  A: '1'
+  B:
+    c:
+      - d
+items:
+  - a: 1
+    b:
+      - 2
+  - - - 3
+      - 4
+    - x: null
+  - last
+block: |
+  line 1
+  line 2
+=== indent_4
+name: web
+ports:
+    - 80
+    - 443
+env:
+    A: '1'
+    B:
+        c:
+            - d
+items:
+    - a: 1
+      b:
+          - 2
+    - - - 3
+        - 4
+      - x: null
+    - last
+block: |
+    line 1
+    line 2
+=== indent_1
+name: web
+ports:
+ - 80
+ - 443
+env:
+ A: '1'
+ B:
+  c:
+   - d
+items:
+ - a: 1
+   b:
+    - 2
+ - - - 3
+     - 4
+   - x: null
+ - last
+block: |
+ line 1
+ line 2
+=== indent_sequences_off
+name: web
+ports:
+- 80
+- 443
+env:
+  A: '1'
+  B:
+    c:
+    - d
+items:
+- a: 1
+  b:
+  - 2
+- - - 3
+    - 4
+  - x: null
+- last
+block: |
+  line 1
+  line 2
+=== indent_root_seq
+- a
+- - b
+- c: d
+=== block_chomping
+clip: |
+  a
+  b
+strip: |-
+  a
+  b
+keep: |+
+  a
+  b
+
+keep_more: |+
+  a
+
+
+=== block_indicator
+lead: |2-
+   a
+  b
+lead_empty: |2
+
+    a
+blank_line: |
+  a
+
+   b
+in_seq:
+  - |2-
+      x
+    y
+=== block_root_indicator
+"  indented\nfirst line\n"
+=== block_root
+|
+  line 1
+  line 2
+=== block_indicator_indent_4
+k: |4-
+     a
+    b
+=== block_indicator_too_wide
+k: " a\nb"
+plain: |-
+          a
+          b
+=== block_cannot
+- "\n"
+- "\n\n"
+- "a\r\nb"
+- "a\Nb\nc"
+- "x\n\x01"
+=== block_tabs_and_spaces
+- |-
+  a
+  	b
+- "\ta\nb"
+- |-
+  a 
+  b
+- |2
+   
+=== empty_seq
+[]
+=== empty_map
+{}
+=== empty_nested
+a: {}
+b: []
+c:
+  - []
+  - {}
+d:
+  e: []
+=== complex_keys
+? - 1
+  - 2
+: seq key
+? a: 1
+: - seq value
+? |-
+  multi
+  line
+: map: value
+? []
+: empty seq key
+? {}
+: empty map key
+null: null key
+1: int key
+1.5: float key
+true: bool key
+? kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+: long key
+? !t
+  - x
+: tagged seq key
+!t x: tagged key
+=== keys_scalar_implicit
+1: int
+-1.5: float
+true: bool
+null: 'null'
+'yes': quoted string
+.nan: nan
+=== indent_max
+name: web
+ports:
+                                                                - 80
+                                                                - 443
+env:
+                                                                A: '1'
+                                                                B:
+                                                                                                                                c:
+                                                                                                                                                                                                - d
+items:
+                                                                - a: 1
+                                                                  b:
+                                                                                                                                  - 2
+                                                                - - - 3
+                                                                    - 4
+                                                                  - x: null
+                                                                - last
+block: |
+                                                                line 1
+                                                                line 2
+=== tag_values
+scalar: !color red
+quoted: !color 'yes'
+empty: !e ''
+block: !script |
+  a
+  b
+seq: !list
+  - 1
+  - a
+map: !obj
+  k: v
+empty_seq: !l []
+empty_map: !m {}
+binary: !!binary AAEC
+global: !<tag:example.com,2000:app/foo> x
+escaped: !a%21b%20c x
+in_seq:
+  - !i
+    - 1
+  - !j
+    k: 2
+  - !k v
+=== tag_root_seq
+!list
+- a
+=== tag_root_scalar
+!x '1'
+=== serde_service
+name: web
+port: 8080
+enabled: true
+ratio: 0.5
+small: 1.1
+big: -170141183460469231731687303715884105728
+huge: 340282366920938463463374607431768211455
+initial: 'y'
+note: 'no'
+missing: null
+unit: null
+pair:
+  - 1
+  - one
+bytes:
+  - 0
+  - 255
+inner:
+  name: inner
+  tags:
+    - a
+    - '1.0'
+    - ''
+  limits:
+    cpu: 2
+    'memory: max': 512
+shapes:
+  - Unit
+  - !Text hello
+  - !Text 'on'
+  - Count: 3
+  - Flag: false
+  - Maybe: null
+  - Maybe: 7
+  - !List
+    - 1
+    - 2
+  - !List []
+  - !Pair
+    - 1
+    - x
+  - !Point
+    x: 1.0
+    'y': -2.5
+  - !Nested
+    Count: 1
+  - !Nested Unit
+  - !a%20b s
+empty_list: []
+empty_map: {}
+script: |
+  set -e
+  echo hi
+id: 42
+marker: null
+=== serde_option_some
+5
+=== serde_option_none
+null
+=== serde_tuple
+- 1
+- a
+- true
+=== serde_char
+'#'
+=== serde_bytes_vec
+- 1
+- 2
+- 3
+=== serde_map_int_keys
+1: a
+2: |-
+  b
+  c
+=== serde_map_tuple_keys
+? - 1
+  - 2
+: a
+=== enum_unit
+Unit
+=== enum_newtype_str
+!Text x
+=== enum_newtype_int
+Count: 1
+=== enum_newtype_none
+Maybe: null
+=== enum_newtype_seq
+!List
+- 1
+- 2
+=== enum_tuple
+!Pair
+- 1
+- a
+=== enum_struct
+!Point
+x: 1.0
+'y': 2.0
+=== enum_nested
+Nested: !Text t
+=== enum_renamed
+!a%20b s
+=== enum_in_map
+a: Unit
+b: !Pair
+  - 2
+  - b
+c: !Point
+  x: 0.5
+  'y': 0.0
+=== stream_default
+a: 1
+---
+- x
+- 'y'
+---
+plain
+---
+'yes'
+---
+|-
+  two
+  lines
+---
+null
+---
+[]
+---
+!t x
+---
+!t
+k: v
+=== stream_one_document
+a: 1
+=== stream_empty
+=== error_indent_0
+!error Y1012
+=== error_schema_json
+!error Y1012
+=== error_schema_failsafe
+!error Y1012
+=== error_line_width
+!error Y1017
+=== error_value_depth
+!error Y2005
+=== error_typed_depth
+!error Y2007
+=== error_custom
+!error Y3012
+=== error_duplicate_key
+!error Y3014
+=== error_tagged_number
+!error Y3015
+=== error_nested_tags
+!error Y3015
+=== error_empty_tag
+!error Y3015
+=== error_bare_tag
+!error Y3015
+=== error_tag_without_scheme
+!error Y3015
+=== error_bare_tag_key
+!error Y3015
+=== error_indent_too_wide
+!error Y1012
+=== error_indent_usize_max
+!error Y1012
+=== error_core_tag
+!error Y3015
+=== serde_yaml_awkward_values
+- ''
+- ' '
+- '  a'
+- 'a '
+- 'a  '
+- "\ta"
+- "a\t"
+- '#'
+- '#a'
+- 'a #b'
+- a#b
+- 'a: b'
+- 'a:'
+- a:b
+- ':'
+- :a
+- '-'
+- -a
+- '- a'
+- --
+- '---'
+- '--- a'
+- '...'
+- '... a'
+- '?'
+- ?a
+- '? a'
+- ','
+- ',a'
+- a,b
+- '['
+- ']'
+- '{'
+- '}'
+- '[a]'
+- '{a: b}'
+- '&a'
+- '*a'
+- '!a'
+- '!'
+- '|'
+- '|a'
+- '>'
+- '>a'
+- ''''
+- '''a'
+- '"'
+- '"a'
+- '%'
+- '%a'
+- '@'
+- '@a'
+- '`'
+- '`a'
+- a'b
+- a"b
+- a\b
+- \
+- '~'
+- 'null'
+- 'Null'
+- 'NULL'
+- 'true'
+- 'True'
+- 'TRUE'
+- 'false'
+- 'FALSE'
+- yes
+- Yes
+- YES
+- no
+- No
+- NO
+- on
+- On
+- ON
+- off
+- Off
+- OFF
+- y
+- Y
+- n
+- N
+- '0'
+- '00'
+- '007'
+- '0777'
+- '-0'
+- '+1'
+- '123'
+- '-123'
+- 1_000
+- 1,000
+- 12:30
+- 1:20:30
+- 12:30.5
+- '0x1F'
+- 0X1F
+- 0xZZ
+- '0o17'
+- '0b1'
+- '-0b1'
+- '+0x1f'
+- 0x_
+- '1e3'
+- '1E3'
+- '1.5e-3'
+- '1.0'
+- '1.'
+- '.5'
+- '-.5'
+- 1.2.3
+- 1.1.1.1
+- .
+- ..
+- '.inf'
+- '.Inf'
+- '-.inf'
+- '+.inf'
+- '.nan'
+- '.NaN'
+- inf
+- nan
+- infinity
+- 2001-12-14
+- 2001-12-14t21:59:43.10-05:00
+- 2001-12-14 21:59:43.10 -5
+- '<<'
+- '='
+- é
+- 日本語
+- 😀
+- a😀b
+-  
+- a 
+- "\N"
+- "\L"
+- "a\Pb"
+- "\uFEFFa"
+- "\uFFFF"
+- "\0"
+- "\a"
+- "\e"
+- "\x7F"
+- "\x9F"
+- "\r"
+- "a\rb"
+- "a\r\nb"
+- "\t"
+- "a\tb"
+- |2+
+
+- |2+
+
+
+- |2+
+
+
+
+- |
+  a
+- |-
+  a
+  b
+- |
+  a
+  b
+- |+
+  a
+  b
+
+- |+
+  a
+
+- |2-
+
+  a
+- |2-
+
+   a
+- |2-
+   a
+  b
+- |2-
+    a
+   b
+- |-
+  a
+   b
+- "a \nb"
+- "a\n\tb"
+- "\ta\nb"
+- "a\n \n"
+- " \n"
+- |-
+  a
+
+
+  b
+- |-
+  - a
+  - b
+- |-
+  a: 1
+  b: 2
+- |-
+  # not a comment
+  x
+- "--- \nx"
+- |-
+  ...
+  x
+- |-
+  x
+  ...
+- |-
+  x
+  ---
+- "a\Nb\nc"
+- |-
+  é
+  ü
+- 1,2
+- +1,000
+- 0,7
+- 1,000.5
+- 09:15
+- 00:30
+- 0:30
+- .iNf
+- +.INf
+- .nAn
+- +_1
+- 1e_5
+- 0_x1F
+- 1_e_5
+- tRUE
+- nULL
+- yEs
+- oFF
+- FaLsE
+- 0b1,0
+- 0x1,F
+- 0x,1F
+=== serde_yaml_awkward_keys
+'': 0
+' ': 1
+'  a': 2
+'a ': 3
+'a  ': 4
+"\ta": 5
+"a\t": 6
+'#': 7
+'#a': 8
+'a #b': 9
+a#b: 10
+'a: b': 11
+'a:': 12
+a:b: 13
+':': 14
+:a: 15
+'-': 16
+-a: 17
+'- a': 18
+--: 19
+'---': 20
+'--- a': 21
+'...': 22
+'... a': 23
+'?': 24
+?a: 25
+'? a': 26
+',': 27
+',a': 28
+a,b: 29
+'[': 30
+']': 31
+'{': 32
+'}': 33
+'[a]': 34
+'{a: b}': 35
+'&a': 36
+'*a': 37
+'!a': 38
+'!': 39
+'|': 40
+'|a': 41
+'>': 42
+'>a': 43
+'''': 44
+'''a': 45
+'"': 46
+'"a': 47
+'%': 48
+'%a': 49
+'@': 50
+'@a': 51
+'`': 52
+'`a': 53
+a'b: 54
+a"b: 55
+a\b: 56
+\: 57
+'~': 58
+'null': 59
+'Null': 60
+'NULL': 61
+'true': 62
+'True': 63
+'TRUE': 64
+'false': 65
+'FALSE': 66
+yes: 67
+Yes: 68
+YES: 69
+no: 70
+No: 71
+NO: 72
+on: 73
+On: 74
+ON: 75
+off: 76
+Off: 77
+OFF: 78
+y: 79
+Y: 80
+n: 81
+N: 82
+'0': 83
+'00': 84
+'007': 85
+'0777': 86
+'-0': 87
+'+1': 88
+'123': 89
+'-123': 90
+1_000: 91
+1,000: 92
+12:30: 93
+1:20:30: 94
+12:30.5: 95
+'0x1F': 96
+0X1F: 97
+0xZZ: 98
+'0o17': 99
+'0b1': 100
+'-0b1': 101
+'+0x1f': 102
+0x_: 103
+'1e3': 104
+'1E3': 105
+'1.5e-3': 106
+'1.0': 107
+'1.': 108
+'.5': 109
+'-.5': 110
+1.2.3: 111
+1.1.1.1: 112
+.: 113
+..: 114
+'.inf': 115
+'.Inf': 116
+'-.inf': 117
+'+.inf': 118
+'.nan': 119
+'.NaN': 120
+inf: 121
+nan: 122
+infinity: 123
+2001-12-14: 124
+2001-12-14t21:59:43.10-05:00: 125
+2001-12-14 21:59:43.10 -5: 126
+'<<': 127
+'=': 128
+é: 129
+日本語: 130
+😀: 131
+a😀b: 132
+ : 133
+a : 134
+? "\N"
+: 135
+? "\L"
+: 136
+? "a\Pb"
+: 137
+"\uFEFFa": 138
+"\uFFFF": 139
+"\0": 140
+"\a": 141
+"\e": 142
+"\x7F": 143
+"\x9F": 144
+? "\r"
+: 145
+? "a\rb"
+: 146
+? "a\r\nb"
+: 147
+"\t": 148
+"a\tb": 149
+? |2+
+
+: 150
+? |2+
+
+
+: 151
+? |2+
+
+
+
+: 152
+? |
+  a
+: 153
+? |-
+  a
+  b
+: 154
+? |
+  a
+  b
+: 155
+? |+
+  a
+  b
+
+: 156
+? |+
+  a
+
+: 157
+? |2-
+
+  a
+: 158
+? |2-
+
+   a
+: 159
+? |2-
+   a
+  b
+: 160
+? |2-
+    a
+   b
+: 161
+? |-
+  a
+   b
+: 162
+? "a \nb"
+: 163
+? "a\n\tb"
+: 164
+? "\ta\nb"
+: 165
+? "a\n \n"
+: 166
+? " \n"
+: 167
+? |-
+  a
+
+
+  b
+: 168
+? |-
+  - a
+  - b
+: 169
+? |-
+  a: 1
+  b: 2
+: 170
+? |-
+  # not a comment
+  x
+: 171
+? "--- \nx"
+: 172
+? |-
+  ...
+  x
+: 173
+? |-
+  x
+  ...
+: 174
+? |-
+  x
+  ---
+: 175
+? "a\Nb\nc"
+: 176
+? |-
+  é
+  ü
+: 177
+1,2: 178
++1,000: 179
+0,7: 180
+1,000.5: 181
+09:15: 182
+00:30: 183
+0:30: 184
+.iNf: 185
++.INf: 186
+.nAn: 187
++_1: 188
+1e_5: 189
+0_x1F: 190
+1_e_5: 191
+tRUE: 192
+nULL: 193
+yEs: 194
+oFF: 195
+FaLsE: 196
+0b1,0: 197
+0x1,F: 198
+0x,1F: 199
+=== serde_yaml_nested
+name: web
+ports:
+- 80
+- 443
+env:
+  A: '1'
+  B:
+    c:
+    - d
+items:
+- a: 1
+  b:
+  - 2
+- - - 3
+    - 4
+  - x: null
+- last
+block: |
+  line 1
+  line 2
+=== serde_yaml_floats
+- 1.0
+- 0.1
+- 1000000000000000.0
+- 1e16
+- 1e300
+- 0.00001
+- 1e-7
+- 1.5e-7
+- -0.0
+=== serde_yaml_complex_keys
+? - 1
+  - 2
+: seq key
+? a: 1
+: - seq value
+? |-
+  multi
+  line
+: map: value
+[]: empty seq key
+{}: empty map key
+null: null key
+1: int key
+1.5: float key
+true: bool key
+? kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+: long key
+? !t
+  - x
+: tagged seq key
+!t x: tagged key
+=== serde_yaml_tags
+scalar: !color red
+quoted: !color yes
+empty: !e ''
+block: !script |
+  a
+  b
+seq: !list
+- 1
+- a
+map: !obj
+  k: v
+empty_seq: !l []
+empty_map: !m {}
+binary: !!binary AAEC
+global: !<tag:example.com,2000:app/foo> x
+escaped: !a%21b%20c x
+in_seq:
+- !i
+  - 1
+- !j
+  k: 2
+- !k v
+=== serde_yaml_blocks
+- |-
+  a
+  b
+- |2-
+   a
+  b
+- |2+
+
+- |+
+  a
+
+- "a \nb"
+=== serde_yaml_root_block_indicator
+" a\nb"
+=== serde_yaml_empty
+a: []
+b: {}
+=== serde_yaml_service
+name: web
+port: 8080
+enabled: true
+ratio: 0.5
+small: 1.1
+big: -170141183460469231731687303715884105728
+huge: 340282366920938463463374607431768211455
+initial: y
+note: no
+missing: null
+unit: null
+pair:
+- 1
+- one
+bytes:
+- 0
+- 255
+inner:
+  name: inner
+  tags:
+  - a
+  - '1.0'
+  - ''
+  limits:
+    cpu: 2
+    'memory: max': 512
+shapes:
+- Unit
+- !Text hello
+- !Text on
+- !Count 3
+- !Flag false
+- !Maybe null
+- !Maybe 7
+- !List
+  - 1
+  - 2
+- !List []
+- !Pair
+  - 1
+  - x
+- !Point
+  x: 1.0
+  y: -2.5
+- Nested: !Count 1
+- !Nested Unit
+- !a%20b s
+empty_list: []
+empty_map: {}
+script: |
+  set -e
+  echo hi
+id: 42
+marker: null
+=== serde_yaml_stream
+a: 1
+---
+- x
+- y
+--- plain
+--- yes
+--- |-
+  two
+  lines
+--- null
+--- []
+--- !t x
+--- !t
+k: v

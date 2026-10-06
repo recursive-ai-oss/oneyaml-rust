@@ -1,0 +1,4 @@
+version: "3.8"
+x-common: &common
+  restart:: &a0 {x:*0common: &commmen}
+b0: 

@@ -1,0 +1,231 @@
+a0: &a0 {x: 0, y: delta}
+b0: &b0
+  <<: *a0
+  z: *a0
+c0: [*a0, *b0, *a0]
+a1: &a1 {x: 1, y: kilo}
+b1: &b1
+  <<: *a1
+  z: *a1
+c1: [*a1, *b0, *a0]
+a2: &a2 {x: 2, y: bravo}
+b2: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: india}
+b3: &b3
+  <<: *a3
+  z: *a3
+c3: [*a3, *b2, *a2]
+a4: &a4 {x: 4, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4
+c4: [*a4, *b3, *a3]
+a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4, *a4]
+a6: &a6 {x: 6, y: november}
+b6: &b6
+  <<: *a6
+  z: *a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y:x: 2, y: bravo}
+b2: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: india}
+b3: &b3
+  <<: *a3
+  z: *a3
+c3: [*a3, *b2, *a2]
+a4: &a4 {x: 4, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4
+c4: [*a4, *b3, *a3]
+a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4, *a4]
+a6: &a6 {x: 6, y: november}
+b6: &b6
+  <<: *a6
+  z: *a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y: 1, y: kilo}
+b1: &b1
+  <<: *a1
+  z: *a1
+c1: [*a1, *b0, *a0]
+a2: &a2 {x: 2, y: bravo}
+b2: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: india}
+b3: &b3
+  <<: *a3
+  z: *a3
+c3: [*a3, *b2, *a2]
+a4: &a4 {x: 4, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4
+c4: [*a4, *b3, *a3]
+a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4, *a4]
+a6: &a6 {x: 6, y: november}
+b6: &b6
+  <<: *a6
+  z: *a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y:x: 2, y: bravo}
+b2: &b2
+  <<: *a2
+  z: *a2
+c2: [*a2, *b1, *a1]
+a3: &a3 {x: 3, y: india}
+b3: &b3
+  <<: *a3
+  z: *a3
+c3: [*a3, *b2, *a2]
+a4: &a4 {x: 4, y: papa}
+b4: &b4
+  <<: *a4
+  z: *a4
+c4: [*a4, *b3, *a3]
+a5: &a5 {x: 5, y: golf}
+b5: &b5
+  <<: *a5
+  z: *a5
+c5: [*a5, *b4, *a4]
+a6: &a6 {x: 6, y: november}
+b6: &b6
+  <<: *a6
+  z: *a6
+c6: [*a6, *b5, *a5]
+a7: &a7 {x: 7, y: echo}
+b7: &b7
+  <<: *a7
+  z: *a7
+c7: [*a7, *b6, *a6]
+a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<: *a8
+  z: *a8
+c8: [*a8, *b7, *a7]
+a9: &a9 {x: 9, y: charlie}
+b9: &b9
+  <<: *a9
+  z: *a9
+c9: [*a9, *b8, *a8]
+a10: &a10 {x: 10, y: juliet}
+b10: &b10
+  <<: *a10
+  z: *a10
+c10: [*a10, *b9, *a9]
+a11: &a11 {x: 11, y: alpha}
+b11: &b11
+  <<: *a11
+  z: *a11
+c11: [*a11, *b10, *a10]
+a12: &a12 {x: 12, y: hotel}
+b12: &b12
+  &a20 {x: 20, y: papa}
+b20: &b20
+  <<: *a20
+  z: *a20
+c20: [*a20, *b19, *a19]
+a21: &a21 44 {x: 44, y: hotel}
+b44: &b44
+  <<: *a44
+  z: *a44
+c44: [*a44, *b43, *a43]
+a45: &a45 {x: 45, y: oscar}
+b45: &b45
+  <<: *a45
+  z: *a45
+c45: [*a45, *b44, *a44]
+a46: &a46 {x: 46, y: foxtrot}
+b46: &b46
+  <<: *aa10 {x: 10, y: juliet}
+b10: &b10
+  <<: *a10
+  z: *a10
+c10: [*a10, *b9, *a9]
+a11: &a11 {x: 11, y: alpha}
+b11: &b11
+ echo}
+b7: &b7
+  <<: *a7
+  z: *a7
+c7: [*a7, *b6, *a6]
+a8: &a8 {x: 8, y: lima}
+b8: &b8
+  <<: *a8
+  z: *a8
+c8: [*a8, *b7, *a7]
+a9: &a9 {x: 9, y: charlie}
+b9: &b9
+  <<: *a9
+  z: *a9
+c9: [*a9, *b8, *a8]
+a10: &a10 {x: 10, y: juliet}
+b10: &b10
+  <<: *a10
+  z: *a10
+c10: [*a10, *b9, *a9]
+a11: &a11 {x: 11, y: alpha}
+b11: &b11
+  <<: *a11
+  z: *a11
+c11: [*a11, *b10, *a10]
+a12: &a12 {x: 12, y: hotel}
+b12: &b12
+  &a20 {x: 20, y: papa}
+b20: &b20
+  <<: *a20
+  z: *a20
+c20: [*a20, *b19, *a19]
+a21: &a21 44 {x: 44, y: hotel}
+b44: &b44
+  <<: *a44
+  z: *a44
+c44: [*a44, *b43, *a43]
+a45: &a45 {x: 45, y: oscar}
+b45: &b45
+  <<: *a45
+  z: *a45
+c45: [*a45, *b44, *a44]
+a46: &a46 {x: 46, y: foxtrot}
+b46: &b46
+  <<: *aa10 {x: 10, y: juliet}
+b10: &b10
+  <<: *a10
+  z: *a10
+c10: [*a10, *b9, *a9]
+a11: &a11 {x: 11, y: alpha}
+b11: &b11
+  <<: *a11
+  z: *a11
+c11: [*a11, *b10, *a10]
+a12: &a12 {x: 12, y: hotel}
+b12: &b12
+  &a20 {x: 20, y: papa}
+b20: &b20
+  <<: *a20
+  z: *a20
+c20: [*a20, *b19, *a19]
+a21: &a21 44 &a50 {xz 50, y: bravo}
+b50: &b50
+  <<: *a50
+  z:

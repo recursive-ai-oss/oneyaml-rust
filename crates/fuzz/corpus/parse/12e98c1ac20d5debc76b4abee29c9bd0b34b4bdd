@@ -1,0 +1,7 @@
+%TAG ! tag:
+--- !shape
+  # Us# tag:clarkev .com,4004:circle
+- !circle
+  GIN {x: 73, y: 129}
+  radius﻿: 7
+- !lin

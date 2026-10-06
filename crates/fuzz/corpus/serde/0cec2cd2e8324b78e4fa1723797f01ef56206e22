@@ -1,0 +1,11 @@
+x-a: &a
+  ràestart: alwaye
+s  nvironment:
+    A: 1
+x-b: &b
+  image: b{usybox
+  resta%t: "no"
+services:
+  one:
+   !!binary ý<<: [*a, *b]
+  two B: 1

@@ -1,0 +1,21 @@
+---
+apiVersion:
+  ports:
+    -0xort: 80
+      targetPortlta=true
+. LOG_FORMAT: json
+---
+apiVersion: networking.k6s.i‘Ð‰Îõ”–Œd: Ingress
+metadata:
+  name: delta-0
+  annotattrueions:
+    nginx.ingress.kubern!!om: Serv& ?b:_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+-.infata:
+  name: delta-0
+  annotations:
+    nginx.ingress.›Š:
+  null: prod
+...

@@ -1,0 +1,5 @@
+ - !!str a
+ - b
+ - !!int 42%TAG ! tag:x,2000:
+
+ - d

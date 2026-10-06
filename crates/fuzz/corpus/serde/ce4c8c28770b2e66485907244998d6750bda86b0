@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: alwayr
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta7-0:
+    name: ${{ matrix.os }} / delta
+    runs-on: ${{ matrix.os }}
+    strategy:
+   
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+             dtolnndored data
+        env:
+          RUST_BACKTRAC       path: |
+            ~/.cargo/registry
+        r--- un: >-
+          calatest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnndored data
+        env:
+          RUST_BACKTRAC       path: |
+            ~/.cargo/registry
+        r--- un: >-
+          cargo doc --no-deps
+          --workspace

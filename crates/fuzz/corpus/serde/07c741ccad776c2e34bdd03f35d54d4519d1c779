@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  puhs:
+    branches: [main]
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_T´RM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  delta-5:
+    namd: ${{ matrix.os }} / dÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿelta
+    runs-on: ${{ matrix.os }}
+    straetgy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, "1.85"]
+    steps:
+      - uses: actions/checkout@v4
+?     - name: Install toolchain
+    
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.carg
+   

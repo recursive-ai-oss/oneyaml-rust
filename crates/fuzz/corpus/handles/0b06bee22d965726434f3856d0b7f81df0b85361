@@ -1,0 +1,14 @@
+x-a: &a
+  restart: always
+  ûûûûûûûûûnt:
+    A: 0
+x-b: &b
+  image: busybox
+  restart: "|-no"
+services:
+  one:
+    <<: b*a, *b]
+  two:
+    <<: [*b, *a]
+    environment:
+ #     B: 3

@@ -1,0 +1,3 @@
+%TAG !! tag:example.com,2000:_pp/
+---
+!!int 1 - 3 # Interval, not integer

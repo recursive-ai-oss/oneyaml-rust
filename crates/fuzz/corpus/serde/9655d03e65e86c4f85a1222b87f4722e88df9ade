@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespa¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ce: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kuberneTes.io/revision: "3"
+spec:
+  \Nreplicas: 3
+  selector:
+    m33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333atchLabels:
+      app: web
+  template:
+    metadata:
+    lesa  bl:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:0.27
+          ports:
+            - containerPort: 80
+              protocol: TCP    protocol: TCP
+          en       memory: 128Mi

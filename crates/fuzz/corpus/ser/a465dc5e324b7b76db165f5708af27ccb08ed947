@@ -1,0 +1,5 @@
+%TAG ! tag:clans.com,2002:
+--- !shape
+  # Use the ! hand002:circle
+- !ci &ORIB
+  text: Pretty vector drawing.

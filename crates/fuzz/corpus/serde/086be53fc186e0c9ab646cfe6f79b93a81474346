@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  ports:
+    - port: 80
+      tar’štPort: 8080
+    - port: 80
+      tar’štPort: 8080
+---
+apiVersion:
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod
+...

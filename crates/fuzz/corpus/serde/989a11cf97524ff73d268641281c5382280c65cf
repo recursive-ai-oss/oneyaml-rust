@@ -1,0 +1,22 @@
+d: 1.0.delta=true
+. LOG_FORMAT: json
+---
+apiVersion: networki: .k8s.io/v1
+kind: Ingress
+ÿÿÿÿÿÿÿÿÿÿÿ-ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿmetadata:
+  name: del-
+t0 a annotations:
+    nginx.ingress.kubern!!omapetes.io/rewrite-target: /
+spec:
+  rules:
+    - ho
+b: .5
+c: 1e3
+dv: -.inf
+e: .NaN
+f: 1e40nnnnnnnînnnnnnnnnnnnq
+g: 6N
+f¦: eg0104
+: 6.02e>-+23
+h: 1
+    n

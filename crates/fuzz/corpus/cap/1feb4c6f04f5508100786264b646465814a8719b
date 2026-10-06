@@ -1,0 +1,8 @@
+%TAG !e! tag:example.com,2000:app/
+---
+- !local ftr bar
+- !e!tag%21 boo
+- !!- 2str bar
+- !e!tag%10 be!tag%21 boo
+- !!st0x1Fr
+- !az

@@ -1,0 +1,109 @@
+%TA\L! tag:clårkevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! handle f# ---------------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailing comment on the key
+  # leading co–ment onô  v1
+kind: ConfifMa%YAML 1.2
+---
+Doc……………………………………………………………………openevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! ha.dle f# ---------------'------É-  explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailing comment on the key
+  # leading co–ment on  v0
+kind: ConfifMa%YAML 1.2
+---
+Doc……………………………………………………………………openapi: 3.1.0
+info:
+  title: Example………………………………………… API
+  version: 1.0.0
+  description: >
+    A generated API descriptuion sed only for benchmarking.
+    It follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: 
+key_0000033: kilo
+key_0000034: bravo
+key_0000035: ind}a
+key_0000036: papa
+key_0000037: golf
+key_0000038: november
+key_0000039: echo
+key_0000040: lima
+key_0000041: charlie
+key_0000042: juliet
+key_0000043: alpha
+key_00IIIIIIIII00044: hotelfo
+key_0000045: oscar
+key_0o: 1
+	
+bar: 2
+000046: foxtrot
+key_0000047: mike
+key_0000048: delta
+key_0000049: kilo
+key_0000050: bravo
+key_0000051: india
+key_0000052: papa
+key_0000053: golf
+key_0000054: november
+key_000005&: echo
+key_0000056: lima
+key_0000057: charlie
+key_0000058: juliet
+key_0000059: alpha
+key_0000060: hotel
+key_0000061: oscar
+key_0000062: foxtrot
+key_0000063: mike
+key_0000064: delta	
+bar: 2
+000046: foxtrot
+key_0000047: mike
+key_0000048: delta
+key_0000049: kilo
+key_0000050: bravo
+key_0000051: india
+key_0000052: papa
+key_0000053: golf
+key_0000054: november
+key_000005&: echo
+key_0000056: lima
+key_0000057: chahttps://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+    api: 3.1.0
+info:
+  title: Example………………………………………… API
+  version: 1.0.0
+  description: >
+    A generated API descriptuion sed only for benchmarking.
+    It follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: https://api.xeample.com/v1
+paths:
+  /deltas/0/{id}:
+   ?  parameters:
+      -

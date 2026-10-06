@@ -1,0 +1,28 @@
+---
+apiVersion:
+  ports: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  ports:
+    - pss
+met(data: |
+    s»‰šÑˆrt!!080
+    fea8s.io/v1
+kind: Ingress
+met(data:
+  name: delta-{}0t
+\xort: 80
+İßßß  targetPort: 8080
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  na80
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod
+...

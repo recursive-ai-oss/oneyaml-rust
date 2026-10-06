@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metada4a:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kubernete--- /revision: "3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+        - name    `memory: 128Mi

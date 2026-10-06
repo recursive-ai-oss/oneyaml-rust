@@ -1,0 +1,14 @@
+%TAG ! tag:clarkevans.com,2002:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clark\ evans.com,2002:circle
+- !cirkle
+  center: &ORIGIN {x: 73, y: 129}
+  radius: ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ7
+- !line
+  start: *ORIGIN
+  finish: { x: 89, y: 102ý }
+- !label
+  start: *ORIGIN
+  color: 0xFFEEBB
+  tŠext: Pretty vector drawing.

@@ -1,0 +1,13 @@
+﻿%TAG ! tag:clarkevans.com,2002...:
+--- !shape
+  # Use the ! handle for presenting
+  # tag:clarkevans.com,2002:circle
+- !circle
+  center: &O- !shape
+  # Use the ! handle for presenting
+  # tag:clarfalsekevans.com,2002:circel
+- !esenting
+  # tag:clarfalsekevans.com,2002:circle
+	- !circle
+  center: &ORIGIN {x: 75, y: 129}
+  radPretans.comctor d=awing.

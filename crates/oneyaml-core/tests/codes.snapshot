@@ -1,0 +1,92 @@
+# Frozen Y#### code registry. APPEND-ONLY.
+#
+# One line per code, tab-separated: code, name, default severity, status
+# (active | deprecated), summary. Must equal `oneyaml_core::code::REGISTRY`.
+#
+# Lines are in numeric code order. Allowed changes: insert a line for a new
+# code (max + 1 of its range) at its place in numeric order, or flip an
+# existing line's status from `active` to `deprecated`. Existing lines never
+# change otherwise; any other change breaks the code-stability promise and
+# needs human approval.
+Y0001	DIRECTIVE_WITHOUT_DOCUMENT	error	active	directives not followed by an explicit document start
+Y0002	MALFORMED_DIRECTIVE	error	active	malformed directive
+Y0003	DIRECTIVE_IN_DOCUMENT	error	active	directive inside a document not ended with `...`
+Y0004	CONTENT_AFTER_DOCUMENT	error	active	content after the document's root node or end marker
+Y0005	INVALID_INDENTATION	error	active	content at an invalid indentation
+Y0006	BLOCK_COLLECTION_NOT_ALLOWED	error	active	block collection cannot start on this line
+Y0007	MULTILINE_IMPLICIT_KEY	error	active	implicit mapping key spans more than one line
+Y0008	INVALID_NODE_START	error	active	character cannot start a node
+Y0009	UNTERMINATED_QUOTED_SCALAR	error	active	quoted scalar not closed
+Y0010	INVALID_ESCAPE	error	active	invalid escape sequence in a double-quoted scalar
+Y0011	QUOTED_SCALAR_INDENTATION	error	active	quoted scalar continuation line not indented enough
+Y0012	INVALID_ANCHOR	error	active	empty or malformed anchor or alias name
+Y0013	INVALID_TAG	error	active	malformed tag
+Y0014	ALIAS_WITH_PROPERTIES	error	active	alias node with an anchor or tag
+Y0015	DUPLICATE_PROPERTY	error	active	node with more than one anchor or tag
+Y0016	TAB_INDENTATION	error	active	tab character used as block indentation
+Y0017	UNEXPECTED_CONTENT	error	active	unexpected content after a node on the same line
+Y0018	MISSING_MAPPING_COLON	error	active	block mapping entry without `:`
+Y0019	UNSUPPORTED_SYNTAX	error	deprecated	syntax not yet supported by this parser version
+Y0020	INVALID_BLOCK_HEADER	error	active	malformed block scalar header
+Y0021	BLOCK_SCALAR_INDENTATION	error	active	block scalar leading empty line indented more than its content
+Y0022	UNTERMINATED_FLOW_COLLECTION	error	active	flow collection not closed
+Y0023	MISSING_FLOW_SEPARATOR	error	active	flow collection entries not separated by `,`
+Y0024	UNEXPECTED_FLOW_INDICATOR	error	active	flow indicator where it cannot appear
+Y0025	IMPLICIT_KEY_TOO_LONG	error	active	implicit key longer than 1024 characters
+Y0026	INVALID_QUOTED_CHARACTER	error	active	character not allowed in a quoted scalar
+Y0027	INLINE_COLON_IN_PLAIN_VALUE	error	active	`: ` inside an unquoted block mapping value
+Y0028	LENIENT_INLINE_COLON	warning	active	`: ` inside an unquoted block mapping value read as text (lenient_inline_colons)
+Y0029	INVALID_UTF8	error	active	invalid UTF-8 in the input
+Y0030	INVALID_UTF16	error	active	invalid UTF-16 in the input
+Y0031	INVALID_UTF32	error	active	invalid UTF-32 in the input
+Y0032	MISPLACED_BYTE_ORDER_MARK	error	active	byte order mark where no document prefix may start
+Y1000	YAML_VERSION_1_1	warning	active	%YAML 1.1 directive
+Y1001	YAML_VERSION_NEWER_MINOR	warning	active	%YAML 1.x (x > 2) document processed as YAML 1.2
+Y1002	YAML_VERSION_UNSUPPORTED_MAJOR	error	active	unsupported %YAML major version
+Y1003	RESERVED_DIRECTIVE_IGNORED	warning	active	reserved directive ignored
+Y1004	DUPLICATE_DIRECTIVE	error	active	duplicate %YAML directive or %TAG handle
+Y1005	UNDEFINED_TAG_HANDLE	error	active	tag handle not declared by a %TAG directive
+Y1006	YAML_VERSION_1_0	warning	active	%YAML 1.0 directive
+Y1007	INVALID_SCALAR_FOR_TAG	error	active	scalar is not a valid form of its tag
+Y1008	COLLECTION_TAG_ON_SCALAR	error	active	collection tag on a scalar
+Y1009	WRONG_TAG_ON_COLLECTION	error	active	tag does not match the collection kind
+Y1010	JSON_UNMATCHED_SCALAR	error	active	plain scalar matches no JSON schema type
+Y1011	MEANINGLESS_SETTINGS	warning	active	setting has no effect in this combination
+Y1012	INCORRECT_SETTINGS	error	active	settings combination gives incorrect results
+Y1013	DUPLICATE_KEY	error	active	duplicate mapping key
+Y1014	DUPLICATE_KEY_LAST_WINS	warning	active	duplicate mapping key, last value wins (DuplicateKeys::LastWins)
+Y1015	UNDEFINED_ALIAS	error	active	alias to an undefined or incomplete anchor
+Y1016	INVALID_MERGE_VALUE	error	active	merge key value is not a mapping or a sequence of mappings
+Y1017	UNSUPPORTED_SETTING	error	active	setting not supported by this version
+Y2000	DEPTH_LIMIT_EXCEEDED	error	active	nesting deeper than Limits::max_depth
+Y2001	SCALAR_TOO_LONG	error	active	scalar longer than Limits::max_scalar_len
+Y2002	DOCUMENT_TOO_LARGE	error	active	input larger than Limits::max_document_size
+Y2003	TOO_MANY_DOCUMENTS	error	active	more documents than Limits::max_documents
+Y2004	ALIAS_BUDGET_EXCEEDED	error	active	alias expansion larger than Limits::alias_budget
+Y2005	VALUE_DEPTH_EXCEEDED	error	active	Value nests deeper than Limits::max_depth
+Y2006	TREE_CAPACITY_EXCEEDED	error	active	input has more elements than a syntax tree can index
+Y2007	TYPED_DEPTH_EXCEEDED	error	active	recursive target type nests deeper than Limits::max_typed_depth
+Y2008	JSON_DEPTH_EXCEEDED	error	active	JSON output nests deeper than 128 levels
+Y2009	ALIAS_BYTE_BUDGET_EXCEEDED	error	active	alias expansion larger than Limits::alias_byte_budget
+Y2010	DIAGNOSTICS_SUPPRESSED	warning	active	more diagnostics than Limits::max_diagnostics; the rest are counted, not kept
+Y3000	TYPE_MISMATCH	error	active	node type does not fit the target type
+Y3001	INTEGER_OUT_OF_RANGE	error	active	integer out of range for the target type
+Y3002	MISSING_FIELD	error	active	missing struct field
+Y3003	UNKNOWN_VARIANT	error	active	unknown enum variant
+Y3004	CUSTOM	error	active	error raised by the target type
+Y3005	UNKNOWN_FIELD	error	active	unknown struct field
+Y3006	INVALID_VALUE	error	active	value rejected by the target type
+Y3007	INVALID_LENGTH	error	active	collection length rejected by the target type
+Y3008	DUPLICATE_FIELD	error	active	struct field given twice
+Y3009	MULTIPLE_DOCUMENTS	error	active	more than one document for a single-document entry point
+Y3010	IO_ERROR	error	active	I/O error while reading the input
+Y3011	DOCUMENT_UNAVAILABLE	error	active	document no longer available from the multi-document deserializer
+Y3012	SERIALIZE_CUSTOM	error	active	error raised by the value's Serialize impl
+Y3013	WRITE_ERROR	error	active	I/O error while writing the output
+Y3014	SERIALIZE_DUPLICATE_KEY	error	active	serialized mapping has two equal keys
+Y3015	UNREPRESENTABLE_VALUE	error	active	value cannot be represented in YAML output
+Y3016	INVALID_SERIALIZE_CALLS	error	active	Serialize impl drove the serializer out of order
+Y3017	THREAD_LOCAL_UNAVAILABLE	error	active	Value serialized or deserialized during thread-local storage teardown
+Y3018	READ_AFTER_IGNORED_ERROR	error	active	deserializer used after one of its errors was ignored
+Y9000	INTERNAL_ERROR	error	active	internal error (a bug in oneyaml)
+Y9001	INVALID_EVENT_STREAM	error	active	caller-supplied event stream violates the event contract

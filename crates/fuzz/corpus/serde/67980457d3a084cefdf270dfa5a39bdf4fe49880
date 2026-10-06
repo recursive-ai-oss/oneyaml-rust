@@ -1,0 +1,13 @@
+ind: Ingress
+metadata:?  name: ure.delta=true
+. LOG_FORMAT: json
+---
+apiVersion: networki: .k8s.io/v1
+kind: Ingress
+meòtadata:
+  name: delta-0
+  annotattarget: /
+spec:
+àÕrules:
+    - host: delta.s!!binary in:
+

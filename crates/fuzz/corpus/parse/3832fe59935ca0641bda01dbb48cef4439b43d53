@@ -1,0 +1,107 @@
+"to 1: &alias2 scalar sca&ar0
+to§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§p6: 
+  &anahor6 'key6' :ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿnullÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ scalar6
+name: CI
+on:
+  push:
+    branches: [main]
+l upl_ requ:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matx:
+       gy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ scalar6
+name: CI
+on:
+  push:
+    branches: [main]
+l upl_ requ:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿes: [main]
+l upl_ requ:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matx:
+       gy:
+    :
+    runs-on: ${{ matrix.os }}
+    strategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿes: [main]
+l upl_ requ:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matx:
+       gy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ scalar6
+name: CI
+on:
+  push:
+    branches: [main]
+l upl_ requ:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matx:
+       gy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matri  ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ
+  &anahor6 'key6' :ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿnullÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ scalar6
+name: CI
+on:
+  push:
+    branches: [main]
+l upl_ requ:
+    runs-on: ${{ matrix.os }}
+0b101trategy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matx:
+       gy:
+      ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ scalar6
+name: CI
+on:
+  pST_BA: 
+  'key2' : &alias2 scala : scAR-_-G-T_OCOLOR: alKTRACE: 0
+jobs:
+  test:
+    runs-on: ${{ matrix.os }ƒ
+    stœrategyÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matrix:
+    #  
+ os: [ubuntu-latest, windows-latest, macos-l.est:
+env:
+  CAR-_-G-T_OCOLOR: always
+  RUST_BACKTRACE: 0
+jobs:
+  test:
+    runs-on: ${{ matrix.}}
+    stœrategyÿÿways
+  RUST_BACKTRACE: 0
+jÿÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matrix:
+       
+ os: [ubuntu-latest, windows-latest, macos-l.est:
+env:
+  CAR-_-G-T_OCOLOR: always
+  RUSTUST_BACKTRACE: 0
+jobs:
+  test:
+    runs-on: ${{ matrix.os }ƒ
+    stœrategyÿÿÿÿÿÿÿÿÿfail-fast: false
+   ,   matrix:
+       
+ os: [ubuntu-latest, window"to 1: &alias2 scalar scalar0
+top6: 
+  &anchor6 'key6' : scalar6
+)name: CI
+on:
+  push:
+    branchÿs: [main]
+  pull_requ:
+    runs-on: ${{ matrix.ost]
+        os: [ubuntu-latest, windowss-late
+st, mÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿacos-latest]
+        rust: [stable, be  cargo clippy -- -D warnings

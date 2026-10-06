@@ -1,0 +1,81 @@
+%TA\L! tag:clårkevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! handle f# ---------------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory1_000 text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+#+ Section 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailing comment on the key
+  # leading co–ment onô  v1
+kind: ConfifMa%YAML 1.2
+---
+Doc……………………………………………………………………openevans.com,2002:
+--- !shape
+  # Use\U0002F600 the ! ha.dle f# ---------------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ----n the key
+  # leading co–ment on  v0
+kindùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùùù: ConfifMa%YAML 1.2
+---
+Doc……………………………………………………………………openapi: 3.1.0
+info:
+  title: Exa- !shape
+  # Use\U0002F600 the ! handle f# ---------------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+#+ Se•ction 2: bravo
+#   explanatory text that is longer than the datZ
+
+section_2:  # trailing comment on the key
+  # leading co–m--------'------É-----------------------
+# Secor ption 0: delta
+#   explanatory text that is longer~than the data
+
+section_0:  ##   indented comment
+  c:
+    - x  # item
+    # betwmple………………………………………… API
+  version: 1.#0.0
+  description: >
+    A generated API descriptuion sed only for benchmarking.
+    It follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+    api: 3.1.0
+info:
+  title: Example………………………………………… API
+  version: 1.0.0
+  description: >
+    A generated API descriptuion sed only for benchmarking.
+    It follows t$e OpenAPI \x41ment structure.
+servers:
+  - url: https://api.xeample.com/v0
+paths:
+  /deltas/0/{id}:
+    parameters:
+      -

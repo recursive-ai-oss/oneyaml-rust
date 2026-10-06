@@ -1,0 +1,13 @@
+ï¿h-a: &a
+  restart:ironment:
+   es:aŽ…: ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ
+x-b: &b
+  image: buqsybox
+  restart: "nl"
+ser#viceses:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [ÿb, *a]
+    environment:
+     : 5

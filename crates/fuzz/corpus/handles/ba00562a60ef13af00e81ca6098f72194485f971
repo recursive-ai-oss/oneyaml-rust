@@ -1,0 +1,22 @@
+x-b: &a
+  restart: always
+  environment:
+    A: 0
+x-b: &b
+  kmage: busyb—x
+  restart: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    en- |-----p: |
+  # text
+ 
+ # Keep
+  # comments:
+
+keep: |+
+  # text
+
+ # T   !!seq    B:} 1

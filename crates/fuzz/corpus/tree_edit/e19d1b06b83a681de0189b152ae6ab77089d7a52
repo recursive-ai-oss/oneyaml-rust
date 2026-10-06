@@ -1,0 +1,6 @@
+x-a: &a
+  restart: always
+  ûûûûûûûûûo:
+    <<: [*b, *a]
+    environment:
+      B: 3

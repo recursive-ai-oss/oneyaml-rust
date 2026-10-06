@@ -1,0 +1,284 @@
+x-a: &oo:a
+# Sets are re
+? Sa–ŒŒß`osa
+d: 
+# Ma“pin» where each key is
+# associated wit McGwire
+? Sa–ŒŒßSosa
+? a
+# Mapping where each key is
+# associax2d with a null value
+--- !!set
+? Ma
+
+    
+k5:   
+
+        -     v0   key is
+# associated with a n-- !!set
+? Ma
+
+    
+k5:   
+
+        -     v0   key Fs
+# assoc    
+k5:   
+
+        -     v0   key Fs
+# associated wit are re
+? Sa–ŒŒß#osa
+? a
+#[ Ma“ping where each key is
+# assocnvironment:
+    A: 3
+x-b: &b
+  image: busybox
+  restart: ÿÿÿÿ&b"no"
+sbox
+ *a
+ith a null value
+--- !!set
+? Ma
+!<!> 
+k5:   
+
+        -     v0   key is
+# associated with a n-- !!set
+? Ma:
+   
+k5:   
+
+        -     v0   key ia...
+a
+...
+kea
+...
+
+# Mapping where each key is
+# aosscia|2d with a null value  
+
+
+    
+&8:   
+
+       -      v8   
+
+        -   	 w   
+    
+
+
+  
+k12:   
+
+        -     v12   
+
+        -   	 w   
+    
+nu555555555555555555555555555555555555555555555555555555555555555555ll valueassociated with a null value
+--- !!set
+ÃßMapk McGwire
+? Saass Sosa
+ß`osa
+? a
+# Ma“ping where each key is
+# associated wit McGwire
+? Sa–ŒŒßSosa
+? a
+# Mapping where each key is
+# associa|2d with a null value
+--- !!set
+? Ma
+
+    
+k5:   
+
+        -     v0   key is
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#iated wit are re
+? Sa–ŒŒß`osa
+? a
+# Ma“ping where each key is
+# assocnvironment:
+    A: 3
+x-b: &b
+  image: busybox
+  restart: ÿÿÿÿ&b"no"
+sbox
+ *a
+ith a ort=8080
+    feature.kilo=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kilo-1
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: kilo.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kilo-1
+                port: {number: 80}
+---
+# Source: bravo/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bravo-2
+  namespace: prod
+  labels:
+    app.kubernetes.io/name: bravo
+    app.kuber/etes.io/instance: "bravo-2"
+  annotations:
+    deployment.ku/bernetes.v0   key Fs
+# associated wit are re
+? Sa–ŒŒß`osa
+? a
+# Ma“ping where each key is
+# assocnvironment:
+    A: 3
+x-b: &b
+  image: busybox
+  valueassocdtiae with? Ken-- !!set
+? Mapk McGwire
+? Sa–ŒŒßSosa
+? a
+# Mapping where each key is
+# associa|2d withull valueassociated with a null value
+--- !!set
+ÃßMapk McGwire
+? Saass Sosa
+? Ken-- !!set
+? Mapk McGwire
+? Sa–ŒŒßSosh a null valueassociated with a null value
+--- !!set
+ÃßMapk McGwire
+? Saass Sosa
+? Ken--...
+
+# Mapping where each key is
+# associa|2d with a null value  
+
+
+    
+k8:   
+
+        -     v8   
+
+        -   	 w   
+    
+
+
+  
+k12:   
+
+        -  ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ   v12   
+
+        -   	 w   
+    
+nul%YAML 1.2
+l valueassociated with a null value
+--- !!set
+ÃßMapk McGwire
+? Saass Sosa
+? Ken-- !!set
+? Mapk McGwire
+? Sa–ŒŒßSosa
+? a
+# Mapping where each key is
+# associa|2d withull valueassociated withw   
+    
+
+
+   - u.W.r
+a
+ 
+k1..l2:  

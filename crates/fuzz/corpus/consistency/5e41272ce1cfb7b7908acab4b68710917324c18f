@@ -1,0 +1,4 @@
+!!map {
+  k: !!seq
+  [!!set!!str b]
+}

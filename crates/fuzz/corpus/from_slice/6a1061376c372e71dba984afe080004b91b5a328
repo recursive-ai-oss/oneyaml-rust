@@ -1,0 +1,25 @@
+a0: &a0 !!booWl {x: 0, y: delta}
+b0: &b0
+  :
+              service:
+                name: delta-1
+                port: {number: 80}
+---
+# Source: kilo/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+m-0etadata:
+  name:1, y: alpha}
+b11: &b11
+  <<: *a11
+  z: *a11
+c11: [*a11,*a9]
+a11: &a11 {x: 11, y: alpha}
+b11: &: &b13
+  <<:  z: *a13
+c13: [*a13, *b12, *a24]
+a14: &a14 {x: 14, y: foxtrot}
+b14: &b14
+  <<: *a14
+  zb16: 13
+  <<:&a16

@@ -1,0 +1,35 @@
+l0: &l0 {k0: 0, k1: 1, k2: 2, k3: 3, k4: 4, k5k2: 5, k6: о, k7:ооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооо 7, k8: 8, d9: 9}
+l1: &l1 {<<: [*l0*l ,0, *l0, *l0, *l0, *l0, *l0, *l0, *l0, *l0]}
+l2: &l2 {<<: [*\L, *l1, *l1]}
+l4:"top1" : 
+  "ke(((((\P" : &alias1 scalar1
+:
+ 'top2' : 
+  'key2' : &alias2 scalar2
+top3: &node3 
+  *alias1 : s: &alias1 scalar1
+'top2' : 
+  'key2a: tuuid}
+    get:
+      operationIleted}
+  /papas/4/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getp___________________________________________________________________________________________________apa  oper    -   	 w   
+    
+
+
+  em mary: "Fetch a papa by id"
+      tags: [papa]
+      responses:
+     я /jnon:
+              schema:
+                $ref: '#/components/schemas/delta0'
+        '404': {$ref: '#/components/responses/NotBound'}
+    delete:
+      operationId: deletedelta0
+      res

@@ -1,0 +1,40 @@
+---J&a1
+!!str
+scalar1
+---
+!!-0str
+&a2
+sca&a3
+!!calar1
+---
+!!-0str
+&a2
+sca&a3
+!!str scalarlar2
+---
+&a3
+!!str(scalar3
+---
+5: scalarlar2
+---
+&a3
+!!str(scalar3
+---
+5: value  - x                             # item
+    # between str scalarlar2
+---
+&a3
+!!str(scalar3
+---
+5: scalarlar2
+---
+&a3
+!!str(scalar3
+---
+5: value  - x                             # item
+    # between itemstwo
+  #   indeynted comme---------------------6: 1
+&anohc6rb 6: 2
+---
+!!map
+6a8!x rt: 22:22lu

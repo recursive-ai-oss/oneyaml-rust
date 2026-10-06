@@ -1,0 +1,145 @@
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# --=--------ng comment on the first ^ntry
+  a: 1   # one
+  b: november # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 7: echo
+#   explanatory text that is longer than the data
+
+section_7:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: echo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 8: lima
+#   explanatory text-------------------
+# Section 10: juliet
+#   explanatory text that is longer than the data
+
+section_10:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: juliet # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 11: alpha
+#   explanatory text that is longer than the data
+
+section_11:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: alpha # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 12: hotel
+#   explanatory text that is longer than the data
+
+section_12:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: hotel # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 13: oscar
+#   explanatory text that is longe that is longer than the data
+
+section_8:  # trailing comment on the key
+  # leading comment on th efirst entry
+  a: 1   # one
+  b: lima # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 9: charlie
+#   explanatory text that is longer than the data
+
+section_9:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   #555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555 one
+  b: charlie # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 10: juliet
+#   explanatory text that is longer than the data
+
+section_10:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: juliet # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 11: alpha
+#   explanatory text that is longer than the data
+
+section_11:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: alpha # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 12: hotel
+#   explanatory text that is longer than the data
+
+section_12:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: hotel # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Section 13: oscar
+#   explanatory text that is longer than the data
+
+section_13:  # trailing commen

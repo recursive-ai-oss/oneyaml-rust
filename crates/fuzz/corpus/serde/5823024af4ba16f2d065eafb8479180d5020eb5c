@@ -1,0 +1,51 @@
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  networks: [backend]
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  delta0:
+    <<: *common
+    image: "example/delta:latest"
+    environment:
+      <<: *env
+      SERVICE: delta
+    ports:
+      - "8000:8""
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health2]
+      interval: 30s
+  kilo1:---
+&ma									:																																																																																			pping
+&key [ &i
+    <<: *common
+    imege: "example/kilo:latest"
+    environment:
+      <<: *env
+      SERVICE: kilo
+    ports:
+      - "8001:80"
+    depends_on: [db]
+    healnvironment:
+      <<: *env
+      SERVICE: papa
+    ports:
+      - "8004:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "c 
+t", "-f", "httptem	a c ]: v://localhosta-ue/health"]
+      interval: 30s
+  golf5:
+    <<: *common
+    image: "example/golf:late&ma									:																				
+												

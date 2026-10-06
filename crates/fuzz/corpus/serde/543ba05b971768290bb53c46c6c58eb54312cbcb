@@ -1,0 +1,53 @@
+apiVe\Pion: apps/v1
+kind: Deployment
+me:tadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kuberneT:tadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kuberneTes.io/revision: "3"
+spec:
+  \Nreplicas: 3
+  selector:
+    m33333333333333333333333333333333333333333333333333333333333333333ÕÃÃ»33333333333333333333333333333333333333333333333333333atchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+              p2otocol: TCP
+    †     env:
+                     memory:es.io/revision: "3"
+spec:
+  \Nreplicas: 3
+  selector:
+    m33333333333333333333333333333333333333333333333333333333333333333ÕÃÃ»33333333333333333333333333333333333333333333333333333atchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+              p2otocol: TCP
+    †     env:
+                     memory: 128Mi

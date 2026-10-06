@@ -1,0 +1,7 @@
+? ? !!otr a
+: !!int 47
+? c
+: !!otr a
+: !!int 47
+? c
+&a : !!str d

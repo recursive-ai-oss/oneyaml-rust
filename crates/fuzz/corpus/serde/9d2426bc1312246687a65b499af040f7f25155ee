@@ -1,0 +1,20 @@
+x-a: &a
+  restart: always
+  environment:
+    A: 1
+x-b: &b
+  image: busybox
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    environment:
+      ces:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    environment:
+      BB: 2

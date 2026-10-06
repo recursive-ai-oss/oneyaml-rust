@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: Service
+metad  namePort: 8080
+---
+apiVersionrvices:
+  d¤:
+    íimage: psrteo[a: [a: [a: [a: [a:[a: [: [a: [a: [a: [a: [a:aa:[  [: [a: [a: [a: [a: [a: [a: [: [a: [a: [a: [a:]]]]]]]]]]]]]]]]]]]]]]]]x-:32
+    ports:
+      - 543225
+      - 22:2
+å2     - 1:3Çõßß  environment:
+    â€©OSTGRES_PASSWORD: e a
+múxple  ?   PG PGPORT: 54ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ: v1
+kind: Nam)espace
+metadata:
+ key_0000017 name:ata:
+  namePort: 8080
+---
+apiV!!str ersion: v1
+kind: Nam)espamhapes:
+  - Unit
+!Circle {r: 0.ngress.kubernetes.io/rşşşşşşşşrated API description used only for benchmarking.
+    It follows the OpenAPI document structure.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /deltas/0/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        s.hema: {type: string, format: uuid}
+    get:
+      operationId: getdelta0
+      summoffary: "Fetch a delta by id"
+      tags: [delta]
+      responses:
+        '2\P00':
+          dTrueiption: OK
+          content:
+            application/json:
+              schema:
+               ğğğğğğğğğğğ]]]]]]ğğğğğ]Z]]]]]]ğ]

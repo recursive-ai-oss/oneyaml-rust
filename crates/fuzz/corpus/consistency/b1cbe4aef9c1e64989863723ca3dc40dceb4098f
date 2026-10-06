@@ -1,0 +1,12 @@
+x-a: &a
+  res: &b
+  image: busybox
+~ restart: "no"
+s<<: *a
+:
+  one:
+    <<: [(a, *b]
+  two:
+    <<: [*b, *a]
+    environment:
+      B: 3

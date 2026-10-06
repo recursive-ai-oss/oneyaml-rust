@@ -1,0 +1,14 @@
+x-a: &a
+  restart: always
+Â…  environment:
+!  a: &a
+  restart: always
+  environment:
+!   A: 1
+xÆb: &b
+  ida eg:bu{ybox
+  rÿŽÿÿ  ÿÿÿÿÿÿÿÿÿÿÿ`ÿ n%FOO bar
+ull ssssÿÿÿÿÿt   A: 1
+x-b: &b
+
+  one:

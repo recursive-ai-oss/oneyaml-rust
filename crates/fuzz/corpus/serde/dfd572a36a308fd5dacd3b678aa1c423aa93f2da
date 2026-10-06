@@ -1,0 +1,17 @@
+apiV---ersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  sele>1-r:
+    matchLabels:
+      app: web
+  template:
+    meMi

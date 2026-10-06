@@ -1,0 +1,4 @@
+foo: !!seq
+  - foo: !!ceq
+  - !!str a !!str a 
+!!'	...}T}:}5 lead-    TT\

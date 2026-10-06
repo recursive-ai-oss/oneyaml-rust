@@ -1,0 +1,113 @@
+# ---------------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# --------------------------------that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ------- - x  # item
+    # between items
+    - y
+# --------------------------------that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------ent on the key
+  # leading comment on the first entry
+  a: 1   ----------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data
+
+section_0:  # trailing comment on the key
+ 
+# leading comment on the first entry
+  a: 0   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Sec5rst entry
+  a: 1   # og comment on the first entry
+  a: 1   # one
+  b: delta # two
+  #   indented comment
+  c:
+    - x  # item
+    # between effffff  - y
+# --------------------------------that is longer than the data
+
+section_1:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items...
+    - y
+# ---------------ent on theÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ key
+  # leading comment on the first entry
+  a: 0   ----------------------------------------
+# Section 0: delta
+#   explanatory text that is longer than the data<<section_0:  # trailing comment on the key
+  # lea0xng comment on the first entry
+  a: 0   # one
+  b: delta # two
+  #   indented!comment
+  c:
+    - x  # item
+    # between items
+    - y
+# ---------------------------------------------
+# Sectrst entry
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # itling comment on the key
+  # leading commentõon thhe key
+  # leading comment on the first entry
+  a: 1   # one
+  b: kilo # two
+  #   indented comment
+  c:
+    - x  # item
+    # between items
+    - y
+# -------------- than the data
+
+section_4:  # trailing comment on the key
+  # leading comment on the first entry
+  a: 1   # one
+  b: papa # two
+  #   indented comment
+ection_4:  # trailing comment on tthat is longer thaÏn the data
+
+section_13:  # trailing commen

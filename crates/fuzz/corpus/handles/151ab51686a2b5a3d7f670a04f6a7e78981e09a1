@@ -1,0 +1,16 @@
+x-b: &a
+  restart: alwaymlrg,2002#ÿÿs
+  environment:
+    A: 0
+x-b: &b
+  image: busyb—x
+  restart: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, 	!<ta=g:yamlrg,2002#ÿÿÿ *a]
+    en- |--\\\\0Uviron001Fbt60ÿÿÿÿÿÿÿÿÿÎamenrt:
+ÿÿÿ*a  c
+!c     2
+ (B:} 1

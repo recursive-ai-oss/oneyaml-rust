@@ -1,0 +1,11 @@
+- o»¿&a
+- a
+-
+  &a !<tag:yaml.org,2002:str> : a
+  b: &b
+-
+  &.NaN&a
+-
+  ? &d
+-
+  ? & &a : &a

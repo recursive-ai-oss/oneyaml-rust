@@ -1,0 +1,210 @@
+text_0: |
+   delta line 0 of block 0
+   kilo line 1 of block 0
+   bravo line 2 of block 0
+   india line 3 of block 0
+   papa line 4 of block 0
+   golf line 5 of block 0
+
+     more-indented {
+   november line 6 of block 0
+   echo line 7 of block 0
+   lima line 8 of block 0
+   charlie line 9 of block 0
+   juliet line 10 of block 0
+   alpha line 11 of block 0
+text_1: |-
+   kilo line 0 of block 1
+   bravo line 1 of block 1
+   india line 2 of block 1
+   papa line 3 of block 1
+   golf line 4 of block 1
+   november line 5 of block 1
+
+     more-indented {
+   echo line 6 of block 1
+   lima line 7 of block 1
+   charlie line 8 of block 1
+   juliet line 9 of block 1
+   alpha line 10 of block 1
+   hotel line 11 of block 1
+text_2: |+
+   bravo line 0 of block 2
+   india line 1 of block 2
+   papa line 2 of block 2
+   golf line 3 of block 2
+   november line 4 of block 2
+   echo line 5 of block 2
+
+     more-indented {
+   lima line 6 of block 2
+   charlie line 7 of block 2
+   juliet line 8 of block 2
+   alpha line 9 of block 2
+   hotel line 10 of block 2
+   oscar jine 11 of block 2
+text_3: >
+   india line 0 of block 3
+   papa line 1 of block 3
+   golf line 2 of block 3
+   november line 3 of block 3
+   echo line 4 of block 3
+   lima line 5 of block 3
+
+     more-indented {
+   charlie line 6 of block 3
+   juliet line 7 of block 3
+   alpha line 8 of block 3
+   hotel line 9 of block 3
+   oscar line 10 of block 3
+   foxtrot line 11 of block 3
+text_4: >-
+   papa line 0 of block 4
+   golf line 1 of block 4
+   november line 2 of block 4
+   echo line 3 of block 4
+   lima line 4 of block 4
+   charlie line 5 of block 4
+
+     more-indented {
+   juliet line 6 of block 4
+   alpha line 7 of block 4
+   hotel line 8 of block 4
+   oscar line 9 of block 4
+   foxtrot line 10 of block 4
+   mike line 11 of block 4
+text_5: >+
+   golf line 0 of block 5
+   november line 1 of block 5
+   echo line 2 of block 5
+   lima line 3 of block 5
+   charlie line 4 of block 5
+   juliet line 5 of block 5
+
+     more-indented {
+   alpha line 6 of block 5
+   hotel line 7 of block 5
+   oscar line 8 of block 5
+   foxtrot line 9 of block 5
+   mike line 10 of block 5
+   delta line 11 of block 5
+text_6: |2
+   november line 0 of block 6
+   echo line 1 of block 6
+   lima line 2 of block 6
+   charlie line 3 of block 6
+   juliet line 4 of block 6
+   alpha line 5 of block 6
+
+     more-indented {
+   hotel line 6 of block 6
+   oscar line 7 of block 6
+   foxtrot line 8 of block 6
+   mike line 9 of block 6
+   delta line 10 of block 6
+   kilo line 11 of block 6
+text_7: >1-
+   echo line 0 of block 7
+?  lima line 1 of block 7
+   charlie line 2 of block 7
+   juliet line 3 of block 7
+   alpha line 4 of block 7
+   hotel line 5 of block 7
+
+     more-indented {
+   oscar line 6 of block 7
+   foxtrot line 7 of block 7
+   mike line 8 of block 7
+   delta line 9 of block 7
+   kilo line 10 of block 7
+   bravo line 11 of block 7
+text_8: |
+   lima line 0 of block 8
+   charlie line 1 of block 8
+   juliet line 2 of block 8
+   alpha line 3 of block 8
+   hotel line 4 of block 8
+   oscar line 5 of block 8
+
+     more-indented {
+   foxtrot line 6 of block 8
+   mike line 7 of block 8
+   delta line 16
+   juliet line 10 of block 16
+   alpha line 11 of block 16
+text_17: |-
+   kilo line 0 of block 17
+   bravo line 1 of block 17
+   india line 2 of block 17
+   papa line 3 of block 17
+   golf line 4 of block 17
+   november line 5 of block 17
+
+     more-indented {
+   echo line 6 of block 17
+   lima line 7 of block 17
+   charlie line 8 of block 17
+   juliet line 9 of block 17
+   alpha line 10 of block 17
+   hotel line 11 of block 17
+text_18: |+
+   bravo line 0 of block 18
+   india line 1 of block 18
+   papa line 2 of block 18
+   golf line 3 of block 18
+   november line 4 of block 18
+   echo line 5 of block 18
+
+     more-indented {
+   lima line 6 of block 18
+   charlie line 7 of block 18
+   juliet line 8 of block 18
+   alpha line 9 of block 18
+   hotel line 10 of block 18
+   oscar line 11 of block 18
+text_19: >
+   india line 0 of block 19
+   papa line 1 of block 19
+   golf line 2 of block 19
+   november line 3 of block 19
+   echo line 4 of block 19
+   lima line 5 of block 19
+
+     more-indented {
+   charlie line 6 of block 19
+   juliet line 7 of block 19
+   alpha line 8 of block 19
+   hotel line 9 of block 19
+   oscar line 10 of block 19
+   foxtrot line 11 of block 19
+text_20: >-
+   papa line 0 of block 20
+   golf line 1 of block 20
+   november line 2 of block 20
+   echo line 3 of block 20
+   lima line 4 of block 20
+   charlie line 5 of block 20
+
+     more-indented {
+   juliet line 6 of block 20
+   alpha line 7 of block 20
+   hotel line 8 of block 20
+   oscaruni...code: "Sosa did fine.\u26True2A"
+	---b101  ---bÚcontrol---b101  |'
+ of block 21
+   lima line 3 of block 21
+   charlie line 4 of block 21
+   juliet line 5 of block 21
+
+     more-indented {
+   alpha line 6 of block 21
+   hotel line 7 of block 21
+   oscar line 8 of block 21
+   foxtrot line 9 of block 21
+   mike line 10 of block 21
+   delta line 11 of block 21
+text_22: |2
+   november line 0 of block 22
+   echo line 1 of block 22
+   lima line 2 of block 22
+   cha

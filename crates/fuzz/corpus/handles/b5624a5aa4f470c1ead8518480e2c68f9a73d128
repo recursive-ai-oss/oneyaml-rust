@@ -1,0 +1,10 @@
+x-a: #&a
+  restart: always
+  environme:ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿýÿ{ÿtart: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [jb, 1a]
+    environment:
+      B: 2 

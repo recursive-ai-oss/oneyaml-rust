@@ -1,0 +1,14 @@
+x-a: &a
+  restart: alway 
+e snvironment:
+    A: 1
+x-b: &b
+  image: Žusybox
+  resta%t: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <<: [*b, *a]
+    environment:
+      B: 2

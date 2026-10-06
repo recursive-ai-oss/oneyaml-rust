@@ -1,0 +1,135 @@
+# Expected diagnostic codes per yaml-test-suite case.
+#
+# Format: <case-id> <Y####>...
+#   The codes of every Error and Warning event the producer must emit for the
+#   case, in stream order. Codes come from the registry in
+#   crates/oneyaml-core/src/code.rs. A case without a line is not checked for
+#   codes; a case id with no codes asserts that no diagnostics are emitted.
+#   `ExpectedCodes::validate` checks every entry against the registry and the
+#   vendored suite (run by the CLI and by tests/harness.rs).
+#
+# Syntax (Y0001-Y0999) codes are allocated by the parser work, and
+# their entries are added together with the code that emits them (starting
+# with the seven `+STR`-only error cases).
+
+# The seven error cases whose recorded prefix is only `+STR`: the codes the
+# parser (`--producer parser`) emits for them. These close the harness's
+# "error then skip everything" loophole for those cases.
+9MMA Y0001      # %YAML with no document after it
+B63P Y0001      # %YAML followed by `...`, no document
+H7TQ Y0002      # %YAML with an extra parameter
+MUS6/00 Y0002   # %YAML 1.1#... (comment not separated: malformed version)
+MUS6/01 Y0003   # %YAML inside a document not ended with `...`
+SF5V Y1004      # second %YAML directive for one document
+SY6V Y0006      # block sequence after properties on the same line
+
+# %YAML 1.1 is parsed as 1.2 with a warning.
+MUS6/02 Y1000
+MUS6/03 Y1000
+MUS6/04 Y1000
+
+# %YAML 1.3+ is processed as 1.2 with a warning.
+BEC7 Y1001
+
+# YAML 1.2.2 §6.8: reserved directives are ignored with a warning.
+2LFX Y1003
+6LVF Y1003
+MUS6/05 Y1003
+MUS6/06 Y1003
+
+# Every other error case the parser passes: the codes of all Error
+# and Warning events in stream order, pinned so a diagnosis cannot drift.
+# Several codes: the parser resynchronised at a later document and found
+# another problem there.
+236B      Y0018                  # Invalid value after mapping
+2CMS      Y0007                  # Invalid mapping in plain multiline
+2G84/00   Y0020                  # Literal modifers
+2G84/01   Y0020                  # Literal modifers
+3HFZ      Y0004                  # Invalid content after document end marker
+4EJS      Y0016                  # Invalid tabs as indendation in a mapping
+4HVU      Y0005                  # Wrong indendation in Sequence
+4JVG      Y0015                  # Scalar value with two anchors
+55WF      Y0010                  # Invalid escape in double quoted string
+5LLU      Y0021                  # Block scalar with wrong indented line after spaces only
+5TRB      Y0009 Y0009            # Invalid document-start marker in doublequoted tring
+5U3A      Y0006                  # Sequence on same Line as Mapping Key
+62EZ      Y0017                  # Invalid block mapping key on same line as previous key
+6JTT      Y0022                  # Flow sequence without closing bracket
+6S55      Y0005                  # Invalid scalar at the end of sequence
+7LBH      Y0007                  # Multiline double quoted implicit keys
+7MNF      Y0018                  # Missing colon
+8XDJ      Y0005                  # Comment in plain multiline value
+9C9N      Y0005                  # Wrong indented flow sequence
+9CWY      Y0018                  # Invalid scalar at the end of mapping
+9HCY      Y0003                  # Need document footer before directives
+9JBA      Y0017                  # Invalid comment after end of flow sequence
+9KBC      Y0006                  # Mapping starting at --- line
+9MAG      Y0024                  # Flow sequence with invalid comma at the beginning
+9MQT/01   Y0009 Y0004            # Scalar doc with '...' in content
+BD7L      Y0004                  # Invalid mapping after sequence
+BF9H      Y0005                  # Trailing comment in multiline plain scalar
+BS4K      Y0004                  # Comment between plain scalar lines
+CML9      Y0023                  # Missing comma in flow
+CQ3W      Y0009                  # Double quoted string without closing quote
+CTN5      Y0024                  # Flow sequence with invalid extra comma
+CVW2      Y0008                  # Invalid comment after comma
+CXX2      Y0006                  # Mapping with anchor on document start line
+D49Q      Y0007                  # Multiline single quoted implicit keys
+DK4H      Y0007                  # Implicit key followed by newline
+DK95/01   Y0011                  # Tabs that look like indentation
+DK95/06   Y0016                  # Tabs that look like indentation
+DMG6      Y0005                  # Wrong indendation in Map
+EB22      Y0003                  # Missing document-end marker before directive
+EW3V      Y0007                  # Wrong indendation in mapping
+G5U8      Y0008                  # Plain dashes in flow sequence
+G7JE      Y0007                  # Multiline implicit keys
+G9HC      Y0018                  # Invalid anchor in zero indented sequence
+GDY7      Y0018                  # Comment that looks like a mapping key
+GT5M      Y0004                  # Node anchor in sequence
+H7J7      Y0018                  # Node anchor not indented
+HRE5      Y0010                  # Double quoted scalar with escaped single quote
+HU3P      Y0007                  # Invalid Mapping in plain scalar
+JKF3      Y0011                  # Multiline unidented double quoted block key
+JY7Z      Y0017                  # Trailing content that looks like a mapping
+KS4U      Y0004                  # Invalid item after end of flow sequence
+LHL4      Y0013                  # Invalid tag
+N4JP      Y0005                  # Bad indentation in mapping
+N782      Y0022 Y0008 Y0008      # Invalid document markers in flow style
+P2EQ      Y0017                  # Invalid sequene item on same line as previous item
+Q4CL      Y0017                  # Trailing content after quoted value
+QB6E      Y0011                  # Wrong indented multiline quoted scalar
+QLJ7      Y1005 Y1005            # Tag shorthand used in documents but only defined in the first
+RHX7      Y0003                  # YAML directive without document end marker
+RXY3      Y0009 Y0009            # Invalid document-end marker in single quoted string
+S4GJ      Y0020                  # Invalid text after block scalar indicator
+S98Z      Y0021                  # Block scalar with more spaces than first content line
+SR86      Y0014                  # Anchor plus Alias
+SU5Z      Y0017                  # Comment without whitespace after doublequoted scalar
+SU74      Y0014                  # Anchor and alias as mapping key
+TD5N      Y0004                  # Invalid scalar after sequence
+U44R      Y0005                  # Bad indentation in mapping (2)
+U99R      Y0013                  # Invalid comma in tag
+VJP3/00   Y0005                  # Flow collections over many lines
+W9L4      Y0021                  # Literal block scalar with more spaces in first line
+X4QW      Y0020                  # Comment without whitespace after block scalar indicator
+Y79Y/000  Y0016                  # Tabs in various contexts
+Y79Y/003  Y0005                  # Tabs in various contexts
+YJV2      Y0008                  # Dash in flow sequence
+ZCZ6      Y0027                  # Invalid mapping in plain single line value (more specific than Y0006)
+ZL4Z      Y0006                  # Invalid nested mapping
+ZVH3      Y0005                  # Wrong indented sequence item
+ZXT5      Y0007                  # Implicit key followed by newline and adjacent value
+
+# Passes once a multi-line flow key is rejected at its closing
+# bracket (timing convention T3).
+C2SP      Y0007                  # Flow Mapping Key on two lines
+
+# The cases judged against corrected expectations (known-defects.txt).
+4H7K      Y0017                  # Flow sequence with invalid extra closing bracket
+T833      Y0023                  # Flow mapping missing a separating comma
+Y79Y/004  Y0016                  # Tabs in various contexts
+Y79Y/005  Y0016                  # Tabs in various contexts
+Y79Y/006  Y0016                  # Tabs in various contexts
+Y79Y/007  Y0016                  # Tabs in various contexts
+Y79Y/008  Y0016                  # Tabs in various contexts
+Y79Y/009  Y0016                  # Tabs in various contexts

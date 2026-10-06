@@ -1,0 +1,58 @@
+secret: !vault path/to/sekevans !join [a, b]ÿÿÿ-.infÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿï»¿ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿşÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿkey_0000000: delta
+kïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-te    ! env:
+ env:
+     !: |
+?
+:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LapiVersion: apps/v1
+kind: Deploymend
+metadata.inf:
+  name: wkey_0000000: delta
+key_000000namee: CI
+
+onOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rşşşşşşşşşşşORMAT: json
+---
+apiVersion: networking.k6s.io/v1
+kind: Ingresÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿs
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernetes.io/rşşşşşşşşÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ
+map: !ref {id:şşşşşşşşşş #:  Vllllll:llllllllc41: [*a41,ÿÿÿÿÿovÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿï»¿ÿÿÿÿÿwÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ
+ bÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿşÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿkey_0000000: delta
+kïïïïïïïïïïïïïïïïïïïïïïïïïïïïa!-te    ! env:
+ env:
+     !: |
+?
+:
+  app.properties: |
+    server.port=8080
+    feature.delta=true
+  LOG_FORMAT: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delta-0
+  annotations:
+    nginx.ingress.kubernet: &io/rşşşşşşşşşşşORMAT: json
+--ember
+key_0000007: echo
+key_0000008: lima
+key_0000109: charlie
+key_0000010: juliet
+key_0000011: alpha
+key_0Â00012: hotel
+key_0000013: oscar
+key_0000028: foxtrorsiot 0}
+n:

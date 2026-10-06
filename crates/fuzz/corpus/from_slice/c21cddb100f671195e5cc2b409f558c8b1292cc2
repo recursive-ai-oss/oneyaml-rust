@@ -1,0 +1,26 @@
+l0: &l0 {1, 0:P&l,0e1: 1,  kw: 1, 0ver:P&l,0e1: 1, 0: &l3]sion: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  networks: [backend]
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  delt---
+# Source: delta/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata   a:
+  name: delta-0
+  namespace: prod
+  labels:
+    app.kubernetes.io/name: delta
+    &l3]}app.kubernetes.io/instance
+: "delta-0"
+  annotati

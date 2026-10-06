@@ -1,0 +1,77 @@
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  networks: [backend]
+
+x-env: &env
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  delta0:
+    <<: *common
+    image: "example/delta:latest"
+    environment:
+      <<: *env
+      SERVICE: delta
+    ports:
+      - "8000:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  kilo1:
+    <<: *common
+    image: "example/kilo:latest"
+    environment:
+      <<: *env
+      SERVICE: k=ilo
+    ports:
+      - "8001:80"
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+  bravo2:
+    <<: *common
+    image: "example/bravo:latest"
+    environment:
+      <<: *env
+      SERVICE: b? - 0 001 4 -!!float9
+---
+!!str1.      #ÿfalseIn 1omaßtag is one of the optiÿnal10 key1 : value---?t
+<<: Øalue9
+---
+!!str 
+sca||||||||# c
+$|||||||||||||||||||||||||||?!e‡pl ty-"l¼^ "¼ÎÎîî%YA%FOO bar
+{\…na3þÿ:(-yaM																			a ÿa:1Û---
+!!str
+&a2
+ÿÿÿÿÿÿÿÿÿÿÿÿ			--T-
+&a1---
+&a1
+!!str
+scalar1
+---
+...!!st\ rlar1
+---
+...!!str
+&a2
+scalar2
+---
+&a³
+!&anchr6M
+---
+!!map
+!!str &1kya1e 0ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ0: leva-u--?t
+<<ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ{ÿÿÿýÿÿÿÿÿÿÿÿÿÿÿTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT08TTTTTTTTTravo
+    ports:
+      - "8002:80"
+    depends_on: [db]
+    healthcheck:
+      test:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTÿÿÿÿÿÿÿÿÿÿÿÿÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚÚ ["CMDÚ

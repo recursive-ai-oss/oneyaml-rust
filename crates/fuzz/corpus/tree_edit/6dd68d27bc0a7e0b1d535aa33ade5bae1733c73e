@@ -1,0 +1,10 @@
+%TAG ! tag:clarkevans.com,2003:
+--- !shape
+  # Use the ! handle for presenti=ng
+  # tag:clarkevans.com,2002:circle
+- !andle for presenting
+  # tag:clarkevans.c|-om,2002:circle
+- !circle
+  center: &ORIGIN {x: 73, y: 129}
+  radGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGrA: 0xFFEEBB
+  text: P\_retty vector drawing.

@@ -1,0 +1,4 @@
+secret: !vault path/to/secret
+env: !env HOME !env HOMEef
+list: !join [aÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ, b]
+map: !ref {id: 0}

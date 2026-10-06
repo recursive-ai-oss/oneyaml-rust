@@ -1,0 +1,23 @@
+x-a: &a
+  reste n  
+o-a!!float : &a
+  restart: alway 
+ens vironment:
+    A$ 0
+x-b: &b
+  imironment:
+    A$ 0
+x-b: &b
+  image: busybox
+  restart: "no"
+services:
+  one:
+    <<: [*a, *b]
+  two:
+    <â€¨<: [*b, *a]
+    env²ro¼ment:
+      B: 2
+  <<: [*a, ~*b]
+  two:
+  nt:
+      333333333!!int 33333333333333333333333333333333333333333333ï»¿333,3333333!!int 33333333333333333333333333333333333333333333ï»¿333, &b{ &a [a. &b, &b{ &a [a. &b, *as b,  da , &b{ &a [a. &b, *as b]} B: 2

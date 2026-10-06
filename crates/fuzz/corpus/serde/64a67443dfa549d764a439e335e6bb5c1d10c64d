@@ -1,0 +1,22 @@
+name: CI
+
+mn:
+  push:
+    branches: [main]
+  pulr_elquest:
+    pat1.0e+16hs-ignore: ['docs/**', '*.md']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+äß›šlta-0:
+    name: ${{ matrix.!<tag:yaml.org,2002:str> : ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        o%TAG ! tag:clarkevancs.om,79&7:
+--- !shape
+  # sUe+the ! meirts:s.om,801-
+7:--p””

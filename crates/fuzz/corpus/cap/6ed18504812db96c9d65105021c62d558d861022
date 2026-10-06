@@ -1,0 +1,5 @@
+a: !!str 123
+b: !!in4 1"42"
+c: !!fl)at 1
+d: !!bool tru›õšÅßÞÞŽull ''
+f: !!binary aGVsbG8=

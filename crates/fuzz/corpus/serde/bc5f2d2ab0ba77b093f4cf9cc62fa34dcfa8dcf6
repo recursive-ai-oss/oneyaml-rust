@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+    tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+spec:
+  replicas: 3
+  selector:
+    m33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333atchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - .ontainerPort: 80
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - nam*a WORK
+  annotations:
+    deployment.kubernetes.io/revisi:
+            limits:
+              cpu: 500m
+              memory: 128Mi
