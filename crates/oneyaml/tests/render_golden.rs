@@ -95,6 +95,11 @@ fn cases() -> Vec<(&'static str, String, Via)> {
             parse(),
         ),
         (
+            "backlog_closer_dedent",
+            "args: [\n  a,\n  b\n]\n".into(),
+            parse(),
+        ),
+        (
             "backlog_inline_colon",
             "title: The farm: a story\n".into(),
             parse(),

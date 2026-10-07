@@ -15,7 +15,7 @@ error[Y0018]: a mapping key needs `:`
 === backlog_single_quote_inside
 # input "key: 'it's'\n"
 # utf16 0:9
-error[Y0017]: unexpected content after a node
+error[Y0017]: a `'` inside a single-quoted scalar ends it early
  --> 1:10
   |
 1 | key: 'it's'
@@ -27,7 +27,7 @@ error[Y0017]: unexpected content after a node
 === backlog_double_quote_inside
 # input "say: \"a \"b\" c\"\n"
 # utf16 0:9
-error[Y0017]: unexpected content after a node
+error[Y0017]: a `"` inside a double-quoted scalar ends it early
  --> 1:10
   |
 1 | say: "a "b" c"
@@ -39,7 +39,7 @@ error[Y0017]: unexpected content after a node
 === backlog_comment_glued
 # input "key: \"value\"# note\n"
 # utf16 0:12
-error[Y0017]: unexpected content after a node
+error[Y0017]: a `#` right after a closing quote does not start a comment
  --> 1:13
   |
 1 | key: "value"# note
@@ -150,7 +150,7 @@ error[Y0022]: flow collection is not closed
 === backlog_unclosed_bracket_dedent
 # input "a: [1, 2\nb: 3\n"
 # utf16 1:0
-error[Y0005]: flow content must be indented more than its block parent
+error[Y0005]: a flow sequence is still open at this line, which is not indented more than its block parent; a `]` may be missing before it
  --> 2:1
   |
 1 | a: [1, 2
@@ -160,6 +160,20 @@ error[Y0005]: flow content must be indented more than its block parent
   |
   = help: the lines of a flow collection must be indented more than its parent; if the collection should end before this line, close it there
   = suggestion (may be incorrect): close the collection: insert `]` at 1:9
+=== backlog_closer_dedent
+# input "args: [\n  a,\n  b\n]\n"
+# utf16 3:0
+error[Y0005]: the closing `]` of a flow sequence is not indented more than the sequence's block parent
+ --> 4:1
+  |
+1 | args: [
+  |       - the flow sequence opened here
+ ...
+4 | ]
+  | ^
+  |
+  = help: every line of a flow collection, its closing bracket included, must be indented more than the block collection it is in
+  = suggestion (may be incorrect): indent the line: insert ` ` at 4:1
 === backlog_inline_colon
 # input "title: The farm: a story\n"
 # utf16 0:7
@@ -210,7 +224,7 @@ error[Y0016]: tabs cannot be used for block indentation
 === backlog_unterminated_quote
 # input "a: \"abc\nb: 1\n"
 # utf16 0:3
-error[Y0011]: quoted scalar continuation line is not indented enough
+error[Y0011]: a double-quoted scalar is still open at a line that is not indented more than its parent; a closing `"` may be missing
  --> 1:4
   |
 1 | a: "abc

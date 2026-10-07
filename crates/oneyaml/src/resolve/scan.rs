@@ -159,10 +159,16 @@ pub(crate) fn json_bool(s: &str) -> Option<bool> {
 /// yaml.org/type/bool (1.1): `y|Y|yes|Yes|YES|n|N|no|No|NO|true|…|on|On|ON
 /// |off|Off|OFF`.
 pub(crate) fn yaml11_bool(s: &str) -> Option<bool> {
+    yaml11_only_bool(s).or_else(|| core_bool(s))
+}
+
+/// The YAML 1.1 bool words that are strings under Core (`yes`, `no`, `on`,
+/// `off`, `y`, `n` in their 1.1 casings), with the bool they meant in 1.1.
+pub(crate) fn yaml11_only_bool(s: &str) -> Option<bool> {
     match s {
         "y" | "Y" | "yes" | "Yes" | "YES" | "on" | "On" | "ON" => Some(true),
         "n" | "N" | "no" | "No" | "NO" | "off" | "Off" | "OFF" => Some(false),
-        _ => core_bool(s),
+        _ => None,
     }
 }
 

@@ -273,6 +273,12 @@ oneyaml does: `yes`, `no`, `on`, `off` are strings; `12:30` is a string;
   infinity; `serde_yaml` reads it as the string `"1e400"`. (Written as a
   string, oneyaml quotes it, `'1e400'`, where `serde_yaml` writes it plain.)
 
+Reading `debug: yes` into a `bool` field is therefore an error
+(`Y3000`). The error says why: ``invalid type: string "yes", expected a
+boolean; YAML 1.2 reads `yes` as a string (its booleans are `true` and
+`false`)``, with help to write `true` or to turn on the 1.1 booleans below,
+and a suggested fix that writes `true`.
+
 Whatever the settings, oneyaml writes a string so that it reads back as
 the same string under the settings it was written with: with
 `yaml11_booleans(true)`, the string `no` is written `'no'`; with

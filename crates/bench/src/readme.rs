@@ -15,13 +15,15 @@
 //! competitor instructions ÷ oneyaml instructions (higher is better), two
 //! significant figures, computed from the two cells shown beside it.
 //! Values under 1.0× are shown as they are and marked slower
-//! (`0.80× — slower`). Whether the wall-clock medians point the same way is
-//! one strip line under the tables: how many rows agree, and every row
-//! that does not.
+//! (`0.80× — slower`). Each table also has a wall-clock "× faster" column
+//! from the medians of the wall-clock tables, and a note under the tables
+//! names every row where oneyaml is slower in wall-clock time.
 //!
-//! The same run writes the chart, with the same alt text and the measured
-//! revision and date, into the `bench:chart` region of the repo-root
-//! `README.md` ([`ROOT_README`]).
+//! The image's alt text is a short summary pointing at the tables; the
+//! SVG's own `<desc>` lists every bar ([`chart_description`]). The same run
+//! writes the same region (chart, tables and notes) into the `bench:chart`
+//! region of the repo-root `README.md` ([`ROOT_README`]), so a reader of
+//! either README gets the numbers as text.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -604,6 +606,9 @@ pub struct Row {
     pub faster: Option<f64>,
     /// Wall-clock direction.
     pub wall: Wall,
+    /// The wall-clock "× faster" (competitor's median time ÷ oneyaml's),
+    /// when both medians are numbers.
+    pub wall_faster: Option<f64>,
 }
 
 /// One operation's rows.
@@ -630,7 +635,9 @@ fn find_table(doc: &str, section: &str, column: &str) -> Result<Table, String> {
 /// Whether oneyaml is faster than `competitor` by wall-clock on this row:
 /// [`Wall::Agrees`] = faster, [`Wall::Differs`] = slower (the caller
 /// relates it to the instruction-count direction); [`Wall::Missing`] when
-/// a cell is present but not a number (`rejects`, `timeout …`).
+/// a cell is present but not a number (`rejects`, `timeout …`). With it,
+/// the wall-clock "× faster": the competitor's median time ÷ oneyaml's
+/// (oneyaml's throughput ÷ the competitor's, for MB/s columns).
 ///
 /// # Errors
 /// A missing wall-clock section, table, row or column.
@@ -639,7 +646,7 @@ fn wall_direction(
     op: &Op,
     keys: &[(&str, &str)],
     competitor: &str,
-) -> Result<Wall, String> {
+) -> Result<(Wall, Option<f64>), String> {
     let (section, ours, theirs, higher_faster) = op.wall;
     let theirs = theirs.replace("{}", competitor);
     let t = find_table(doc, section, ours)?;
@@ -651,18 +658,26 @@ fn wall_direction(
             .ok_or_else(|| format!("section `{section}` has no column `{col}`"))
     };
     let (Some(o), Some(c)) = (number(cell(ours)?), number(cell(&theirs)?)) else {
-        return Ok(Wall::Missing);
+        return Ok((Wall::Missing, None));
+    };
+    let ratio = match (higher_faster, o > 0.0, c > 0.0) {
+        (true, _, true) => Some(o / c),
+        (false, true, _) => Some(c / o),
+        _ => None,
     };
     if (o - c).abs() < f64::EPSILON {
-        return Ok(Wall::Tie);
+        return Ok((Wall::Tie, ratio));
     }
     // `true` when oneyaml is faster by wall-clock.
     let wall_faster = if higher_faster { o > c } else { o < c };
-    Ok(if wall_faster {
-        Wall::Agrees
-    } else {
-        Wall::Differs
-    })
+    Ok((
+        if wall_faster {
+            Wall::Agrees
+        } else {
+            Wall::Differs
+        },
+        ratio,
+    ))
 }
 
 /// Reads the summary rows out of `docs/performance.md`'s text.
@@ -714,7 +729,7 @@ pub fn summary(doc: &str) -> Result<Vec<Section>, String> {
             })?;
             // Always read, so missing wall-clock evidence is an error even
             // where the instructions are not measured.
-            let by_wall = wall_direction(doc, op, &keys, &competitor)?;
+            let (by_wall, wall_faster) = wall_direction(doc, op, &keys, &competitor)?;
             let wall = match faster {
                 None => Wall::Missing,
                 Some(f) => {
@@ -735,6 +750,7 @@ pub fn summary(doc: &str) -> Result<Vec<Section>, String> {
                 theirs,
                 faster,
                 wall,
+                wall_faster,
             });
         }
         out.push(Section {
@@ -834,9 +850,9 @@ fn competitor_versions(recorded: &str, sections: &[Section]) -> String {
         .join(", ")
 }
 
-/// The alt text: every bar of the chart in words.
+/// The chart's description inside the SVG (`<desc>`): every bar in words.
 #[must_use]
-pub fn alt_text(sections: &[Section]) -> String {
+pub fn chart_description(sections: &[Section]) -> String {
     let mut s = String::from(
         "Bar chart: how many times fewer CPU instructions oneyaml needs than each competitor \
          (competitor ÷ oneyaml; higher is better; 1.0× is parity).",
@@ -859,6 +875,64 @@ pub fn alt_text(sections: &[Section]) -> String {
         s.push('.');
     }
     s
+}
+
+/// The image's alt text: a short summary of the chart (shown in place of
+/// the image when it does not load), naming the rows where oneyaml is
+/// slower and pointing at the tables, which carry every number.
+#[must_use]
+pub fn alt_text(sections: &[Section]) -> String {
+    let total: usize = sections.iter().map(|sec| sec.rows.len()).sum();
+    let ops: Vec<String> = sections.iter().map(|sec| sec.short.to_owned()).collect();
+    let workloads = sections.first().map_or(0, |sec| sec.rows.len());
+    let mut s = format!(
+        "Bar chart: how many times fewer CPU instructions oneyaml needs than the fastest \
+         feature-complete competitor (higher is better), for {} on {workloads} workloads.",
+        and_list(&ops)
+    );
+    let slower = rows_matching(sections, |r| r.faster.is_some_and(|f| f < 1.0));
+    let unmeasured = rows_matching(sections, |r| r.faster.is_none());
+    let n_slower = count_rows(sections, |r| r.faster.is_some_and(|f| f < 1.0));
+    if n_slower == 0 {
+        s.push_str(" oneyaml needs no more instructions on any measured row.");
+    } else {
+        let _ = write!(
+            s,
+            " oneyaml needs more instructions on {n_slower} of {total} rows: {slower}."
+        );
+    }
+    if !unmeasured.is_empty() {
+        let _ = write!(s, " Not measured: {unmeasured}.");
+    }
+    s.push_str(" The tables below the chart give every number.");
+    s
+}
+
+/// How many rows of `sections` satisfy `keep`.
+fn count_rows(sections: &[Section], keep: impl Fn(&Row) -> bool) -> usize {
+    sections
+        .iter()
+        .flat_map(|sec| &sec.rows)
+        .filter(|r| keep(r))
+        .count()
+}
+
+/// The rows of `sections` that satisfy `keep`, grouped by operation:
+/// `serde read gha-workflow and helm-values; Document parse compose-merge`.
+fn rows_matching(sections: &[Section], keep: impl Fn(&Row) -> bool) -> String {
+    sections
+        .iter()
+        .filter_map(|sec| {
+            let names: Vec<String> = sec
+                .rows
+                .iter()
+                .filter(|r| keep(r))
+                .map(|r| r.workload.clone())
+                .collect();
+            (!names.is_empty()).then(|| format!("{} {}", sec.short, and_list(&names)))
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 fn html_attr(s: &str) -> String {
@@ -891,54 +965,36 @@ fn and_list(items: &[String]) -> String {
     }
 }
 
-/// The rows of `sections` whose wall-clock direction is `w`, grouped by
-/// operation: `serde read gha-workflow and helm-values; Document parse
-/// compose-merge`.
-fn rows_where(sections: &[Section], w: Wall) -> String {
-    sections
-        .iter()
-        .filter_map(|sec| {
-            let names: Vec<String> = sec
-                .rows
-                .iter()
-                .filter(|r| r.wall == w)
-                .map(|r| r.workload.clone())
-                .collect();
-            (!names.is_empty()).then(|| format!("{} {}", sec.short, and_list(&names)))
-        })
-        .collect::<Vec<_>>()
-        .join("; ")
-}
-
-/// The wall-clock strip: on how many rows the median wall-clock time
-/// points the same way as the instruction count, and every row where it
-/// does not (points the other way, is equal, or has no number).
+/// The wall-clock note under the tables: what the wall-clock column is, and
+/// every row where oneyaml is slower (or equal, or not measured) by
+/// wall-clock time.
 #[must_use]
 pub fn wall_strip(sections: &[Section]) -> String {
-    let count = |w: Wall| {
-        sections
-            .iter()
-            .flat_map(|sec| &sec.rows)
-            .filter(|r| r.wall == w)
-            .count()
-    };
     let total: usize = sections.iter().map(|sec| sec.rows.len()).sum();
-    let agree = count(Wall::Agrees);
-    let mut s = format!(
-        "**Wall-clock** (median, same host) points the same way as the instruction count on \
-         {agree} of {total} rows"
+    // As the column shows them: below 1.0 is slower (`0.98× — slower`).
+    let slower = |r: &Row| r.wall_faster.is_some_and(|f| f < 1.0);
+    let equal = |r: &Row| r.wall == Wall::Tie;
+    let missing = |r: &Row| r.wall_faster.is_none();
+    let mut s = String::from(
+        "**× faster (wall-clock)** = the competitor's median time ÷ oneyaml's on the same \
+         host (for serde, from the median throughput); it varies more from run to run than \
+         the instruction count.",
     );
-    if agree == total {
-        s.push_str(" (all)");
+    let n = count_rows(sections, slower);
+    if n == 0 {
+        s.push_str(" oneyaml is not slower in wall-clock time on any row");
+    } else {
+        let _ = write!(
+            s,
+            " oneyaml is slower in wall-clock time on {n} of {total} rows: {}",
+            rows_matching(sections, slower)
+        );
     }
-    for (w, what) in [
-        (Wall::Differs, "the other way on"),
-        (Wall::Tie, "equal on"),
-        (Wall::Missing, "not measured on"),
-    ] {
-        if count(w) > 0 {
-            let _ = write!(s, "; {what} {}", rows_where(sections, w));
-        }
+    if count_rows(sections, equal) > 0 {
+        let _ = write!(s, "; equal medians on {}", rows_matching(sections, equal));
+    }
+    if count_rows(sections, missing) > 0 {
+        let _ = write!(s, "; not measured on {}", rows_matching(sections, missing));
     }
     s.push('.');
     s
@@ -1000,18 +1056,19 @@ pub fn readme_body(doc: &str, git_ref: &str) -> Result<String, String> {
     for sec in &sections {
         let _ = writeln!(
             s,
-            "\n| {} | vs | oneyaml {} | competitor {} | × faster |\n|---|---|---|---|---|",
+            "\n| {} | vs | oneyaml {} | competitor {} | × faster | × faster (wall-clock) |\n|---|---|---|---|---|---|",
             sec.title, sec.unit, sec.unit
         );
         for r in &sec.rows {
             let (ours, theirs) = bold_better(&r.ours, &r.theirs);
             let _ = writeln!(
                 s,
-                "| {} ({}) | {} | {ours} | {theirs} | {} |",
+                "| {} ({}) | {} | {ours} | {theirs} | {} | {} |",
                 r.workload,
                 size(r.bytes),
                 r.competitor,
                 faster_cell(r.faster),
+                faster_cell(r.wall_faster),
             );
         }
     }
@@ -1047,25 +1104,14 @@ pub fn readme_body(doc: &str, git_ref: &str) -> Result<String, String> {
     Ok(s)
 }
 
-/// The repo-root README region body: the same chart and alt text as the
-/// crate README, and the measured revision and date.
+/// The repo-root README region body: the same chart, tables and notes as
+/// the crate README's region (a chart alone fails readers who cannot see
+/// it, and search and copy), so the two never disagree.
 ///
 /// # Errors
 /// As [`readme_body`].
 pub fn chart_body(doc: &str, git_ref: &str) -> Result<String, String> {
-    oracles::readme::validate_ref(git_ref)?;
-    let sections = summary(doc)?;
-    let env = environment(doc)?;
-    let mut s = String::from(
-        "<!-- Generated by `bench readme` from docs/performance.md; do not edit. -->\n",
-    );
-    s.push_str(&picture(&alt_text(&sections), git_ref));
-    let _ = writeln!(
-        s,
-        "\n*Measured {}; CPU instructions counted by valgrind, not wall-clock time.*",
-        measured(&env)?
-    );
-    Ok(s)
+    readme_body(doc, git_ref)
 }
 
 /// The chart panels: one row per table row, a row without a ratio kept
@@ -1116,7 +1162,7 @@ pub fn generate(root: &Path, performance: &Path, git_ref: &str) -> Result<Writte
     let chart_region = chart_body(&doc, git_ref)?;
     let sections = summary(&doc)?;
     let panels = panels(&sections);
-    let desc = alt_text(&sections);
+    let desc = chart_description(&sections);
     let svgs = [chart::LIGHT, chart::DARK].map(|theme| chart::svg(&panels, &theme, &desc));
     for (what, text) in [
         (README, body.as_str()),
@@ -1200,8 +1246,8 @@ mod tests {
     }
 
     #[test]
-    fn wall_strip_names_every_row_that_does_not_agree() {
-        let row = |w: &str, wall| Row {
+    fn wall_strip_names_every_row_where_oneyaml_is_slower() {
+        let row = |w: &str, wall, wall_faster| Row {
             workload: w.to_owned(),
             bytes: 1.0,
             competitor: "c".to_owned(),
@@ -1209,6 +1255,7 @@ mod tests {
             theirs: "2".to_owned(),
             faster: Some(2.0),
             wall,
+            wall_faster,
         };
         let sec = |short, rows| Section {
             title: "t",
@@ -1216,33 +1263,45 @@ mod tests {
             unit: "u",
             rows,
         };
+        let head = "**× faster (wall-clock)** = the competitor's median time ÷ oneyaml's on the \
+                    same host (for serde, from the median throughput); it varies more from run \
+                    to run than the instruction count.";
         let all = [sec(
             "read",
-            vec![row("a", Wall::Agrees), row("b", Wall::Agrees)],
+            vec![
+                row("a", Wall::Agrees, Some(1.2)),
+                row("b", Wall::Agrees, Some(3.0)),
+            ],
         )];
         assert_eq!(
             wall_strip(&all),
-            "**Wall-clock** (median, same host) points the same way as the instruction count \
-             on 2 of 2 rows (all)."
+            format!("{head} oneyaml is not slower in wall-clock time on any row.")
         );
         let mixed = [
             sec(
                 "read",
                 vec![
-                    row("a", Wall::Differs),
-                    row("b", Wall::Agrees),
-                    row("c", Wall::Differs),
-                    row("d", Wall::Differs),
+                    row("a", Wall::Differs, Some(0.8)),
+                    row("b", Wall::Agrees, Some(1.1)),
+                    // Shown as `1.0× — slower`, so named slower too.
+                    row("c", Wall::Differs, Some(0.996)),
                 ],
             ),
-            sec("parse", vec![row("a", Wall::Tie), row("b", Wall::Differs)]),
-            sec("edit", vec![row("e", Wall::Missing)]),
+            sec(
+                "parse",
+                vec![
+                    row("a", Wall::Tie, Some(1.0)),
+                    row("b", Wall::Differs, Some(0.5)),
+                ],
+            ),
+            sec("edit", vec![row("e", Wall::Missing, None)]),
         ];
         assert_eq!(
             wall_strip(&mixed),
-            "**Wall-clock** (median, same host) points the same way as the instruction count \
-             on 1 of 7 rows; the other way on read a, c and d; parse b; equal on parse a; \
-             not measured on edit e."
+            format!(
+                "{head} oneyaml is slower in wall-clock time on 3 of 6 rows: read a and c; \
+                 parse b; equal medians on parse a; not measured on edit e."
+            )
         );
     }
 
@@ -1414,20 +1473,24 @@ mod tests {
         assert!(body.contains("0.28× — slower"));
         // The better absolute value is bold, whichever side it is on.
         assert!(body.contains(
-            "| gha-workflow (2.4 kB) | yaml-edit | 1,078,595 | **302,491** | 0.28× — slower |\n"
+            "| gha-workflow (2.4 kB) | yaml-edit | 1,078,595 | **302,491** | 0.28× — slower | 0.43× — slower |\n"
         ));
         assert!(body.contains("oneyaml Ir per script"));
         assert!(body.contains("one script of three edits (insert + set + remove)"));
         assert!(body.contains(
-            "| gha-workflow (3.1 kB) | serde_yaml_ng | **100.0** | 113.0 | **1.1×** |\n"
+            "| gha-workflow (3.1 kB) | serde_yaml_ng | **100.0** | 113.0 | **1.1×** | **1.3×** |\n"
         ));
-        assert!(body.contains("| serde read (typed) | vs | oneyaml Ir/B | competitor Ir/B | × faster |\n|---|---|---|---|---|\n"));
+        assert!(body.contains("| serde read (typed) | vs | oneyaml Ir/B | competitor Ir/B | × faster | × faster (wall-clock) |\n|---|---|---|---|---|---|\n"));
+        // Equal wall-clock medians read 1.0×.
+        assert!(body.contains("| **1.1×** | **1.0×** |\n"));
+        assert!((secs[2].rows[0].wall_faster.unwrap() - 1.0).abs() < 1e-9);
         assert!(body.contains("- **Measured** Revision-value on Date-value · CPU-value"));
-        // Wall-clock: serde rows agree (50 vs 40 MB/s), parse ties, the
-        // edit-script losses agree (slower by both).
+        // Wall-clock: serde rows faster (50 vs 40 MB/s), parse ties, the
+        // edit script slower (0.035 ms vs 0.015 ms).
         assert!(body.contains(
-            "- **Wall-clock** (median, same host) points the same way as the instruction \
-             count on 15 of 20 rows; equal on Document parse gha-workflow, compose-merge, \
+            "oneyaml is slower in wall-clock time on 5 of 20 rows: Document edit script \
+             (insert + set + remove) gha-workflow, compose-merge, helm-values, openapi-100k \
+             and k8s-multi; equal medians on Document parse gha-workflow, compose-merge, \
              helm-values, openapi-100k and k8s-multi.\n"
         ));
         // Both sources and the image, the light one explicit.
@@ -1456,22 +1519,28 @@ mod tests {
             ),
             "serde_yaml_ng 0.10.0, yaml-edit 0.3.2"
         );
-        let alt = alt_text(&secs);
-        assert!(alt.contains(
+        // The SVG's description lists every bar; the alt text summarises.
+        assert!(chart_description(&secs).contains(
             "Document edit script (insert + set + remove): gha-workflow 0.28× — slower vs yaml-edit"
         ));
+        let alt = alt_text(&secs);
+        assert_eq!(
+            alt,
+            "Bar chart: how many times fewer CPU instructions oneyaml needs than the fastest \
+             feature-complete competitor (higher is better), for serde read, serde write, \
+             Document parse and Document edit script (insert + set + remove) on 5 workloads. \
+             oneyaml needs more instructions on 5 of 20 rows: Document edit script (insert + \
+             set + remove) gha-workflow, compose-merge, helm-values, openapi-100k and \
+             k8s-multi. The tables below the chart give every number."
+        );
+        assert!(alt.len() < 500, "{}", alt.len());
         let p = panels(&secs);
         assert_eq!(p[3].title, "Document edit script (insert + set + remove)");
         assert_eq!(p[3].bars[0].text, "0.28× — slower");
-        // The repo-root region: the same picture and alt text, and when.
+        // The repo-root region: the same picture, tables and notes.
         let chart = chart_body(&doc, "main").unwrap();
-        assert!(chart.contains(&picture(&alt, "main")));
         assert!(body.contains(&picture(&alt, "main")));
-        assert!(chart.ends_with(
-            "\n*Measured Revision-value on Date-value; CPU instructions counted by valgrind, \
-             not wall-clock time.*\n"
-        ));
-        assert!(!chart.contains("```"));
+        assert_eq!(chart, body);
         // A bad ref is refused before anything is written.
         for bad in ["", "a\"b", "<x>", "a b"] {
             assert!(readme_body(&doc, bad).is_err(), "{bad:?}");
@@ -1490,9 +1559,13 @@ mod tests {
         assert!(
             readme_body(&doc, "main")
                 .unwrap()
-                .contains("| timeout (> 300 s) | 302,491 | n/a |\n")
+                .contains("| timeout (> 300 s) | 302,491 | n/a | 0.43× — slower |\n")
         );
-        assert!(alt_text(&secs).contains("gha-workflow not measured vs yaml-edit"));
+        assert!(chart_description(&secs).contains("gha-workflow not measured vs yaml-edit"));
+        assert!(alt_text(&secs).contains(
+            " Not measured: Document edit script (insert + set + remove) gha-workflow, \
+             compose-merge, helm-values, openapi-100k and k8s-multi."
+        ));
         // The chart keeps the row, labelled, with no bar.
         let bars = &panels(&secs)[3].bars;
         assert_eq!(bars.len(), WORKLOADS.len());
@@ -1757,6 +1830,23 @@ mod tests {
         let root = String::from_utf8(first[1].clone()).unwrap();
         assert!(root.starts_with("# r\n\n<!-- bench:chart:begin -->\n<!-- Generated"));
         assert!(root.ends_with("<!-- bench:chart:end -->\n\nprose\n"));
+        // The root README carries the tables as text, as the crate README does.
+        assert!(root.contains("| serde read (typed) | vs |"));
+        assert!(root.contains("**× faster (wall-clock)**"));
+        // The SVGs keep a title and the full per-bar description; the
+        // image's alt text is only the short summary.
+        let secs = summary(&fixture("1,078,595")).unwrap();
+        for svg in &first[2..] {
+            let svg = String::from_utf8(svg.clone()).unwrap();
+            assert!(svg.contains("<title id=\"title\">"));
+            assert!(svg.contains("aria-labelledby=\"title desc\""));
+            assert!(svg.contains(&format!(
+                "<desc id=\"desc\">{}</desc>",
+                chart_description(&secs)
+            )));
+        }
+        assert!(readme.contains(&html_attr(&alt_text(&secs))));
+        assert!(!readme.contains(&html_attr(&chart_description(&secs))));
         // A missing root region fails before either README is touched.
         std::fs::write(dir.join(ROOT_README), "no markers\n").unwrap();
         std::fs::write(

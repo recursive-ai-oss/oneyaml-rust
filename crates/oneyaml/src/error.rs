@@ -126,7 +126,8 @@ impl Location {
 ///
 /// Fixes are offered for common mistakes (an unquoted `: `, a `'` inside
 /// single quotes, a Windows path in double quotes, a missing closing quote
-/// or bracket, a reserved `@` or `` ` ``, `key:value` without a space). A
+/// or bracket, a reserved `@` or `` ` ``, `key:value` without a space, a
+/// YAML 1.1 boolean such as `yes` read into a `bool`). A
 /// fix is `MachineApplicable` only when applying it makes the node valid
 /// where it stands and nothing after it can read differently; otherwise it
 /// is `MaybeIncorrect`, to be reviewed before applying. [`Render`](crate::Render)
@@ -323,6 +324,12 @@ impl Error {
         let mut help = help.into();
         cap_message(&mut help);
         self.0.diagnostic.help = Some(help);
+        self
+    }
+
+    /// Adds a suggested fix.
+    pub(crate) fn with_suggestion(mut self, suggestion: oneyaml_core::Suggestion) -> Self {
+        self.0.diagnostic.suggestions.push(suggestion);
         self
     }
 

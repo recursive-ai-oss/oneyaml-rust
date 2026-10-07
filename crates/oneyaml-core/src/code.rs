@@ -39,8 +39,9 @@ use crate::Severity;
 /// assert_eq!(info.name, "DUPLICATE_KEY_LAST_WINS");
 /// assert_eq!(info.severity, Severity::Warning);
 /// assert!(Code::parse("Y0000").is_none()); // Y0000 is never used
+/// assert_eq!(format!("{c:?}"), "Y1014"); // `Debug` shows the same form
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Code(u16);
 
 /// The area a [`Code`] belongs to.
@@ -127,6 +128,14 @@ impl Code {
 impl core::fmt::Display for Code {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Y{:04}", self.0)
+    }
+}
+
+// `Debug` prints the documented `Y####` form so a code inside a derived
+// `Debug` (a `Diagnostic`, an error kind) reads the same as everywhere else.
+impl core::fmt::Debug for Code {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Display::fmt(self, f)
     }
 }
 
@@ -771,6 +780,15 @@ mod tests {
         CodeRange::Serde,
         CodeRange::Reserved,
     ];
+
+    #[test]
+    fn debug_matches_display() {
+        assert_eq!(format!("{INVALID_INDENTATION:?}"), "Y0005");
+        assert_eq!(format!("{:?}", Some(INVALID_INDENTATION)), "Some(Y0005)");
+        for info in REGISTRY {
+            assert_eq!(format!("{:?}", info.code), info.code.to_string());
+        }
+    }
 
     #[test]
     fn registry_is_sequential_within_each_range() {

@@ -4,9 +4,15 @@
 //! its font/raster dependencies) would be the heaviest dependency in the
 //! workspace for one fixed chart shape. This writes the SVG text directly:
 //! deterministic (byte-stable output, fixed-precision coordinates), and
-//! honest by construction (§3 of the documentation concept): linear,
-//! zero-based bars, a labelled unit and direction, a marked parity line,
-//! slower bars in their own colour and labelled "slower", no log scale.
+//! honest by construction: linear, zero-based bars, a labelled unit and
+//! direction, a marked parity line, slower bars in their own colour and
+//! hatching and labelled "slower", no log scale.
+//!
+//! One far outlier must not set the scale for every other bar (a 63× bar
+//! would squash 1.1× and 0.79× into the same sliver). So the axis covers
+//! the bars up to [`CUT`] (see [`scale`]); a longer bar runs a little past
+//! the axis end, is drawn broken there (two slanted gaps), and is labelled
+//! with its value, and a caption line says so.
 
 use std::fmt::Write as _;
 
@@ -76,6 +82,12 @@ const BAR: f64 = 14.0;
 const PANEL_HEAD: f64 = 24.0;
 const PANEL_GAP: f64 = 10.0;
 const TOP: f64 = 58.0;
+/// The extra caption line when a bar is cut.
+const CUT_NOTE: f64 = 18.0;
+/// How far a cut bar runs past the axis end.
+const OVERRUN: f64 = 22.0;
+/// The estimated width of one character of a value label (13 px text).
+const LABEL_CHAR: f64 = 7.0;
 const BOTTOM: f64 = 46.0;
 
 fn escape(s: &str) -> String {
@@ -104,20 +116,39 @@ pub fn axis(max_value: f64) -> (f64, f64) {
     ((m / step).ceil() * step, step)
 }
 
+/// Bars up to this many × always fit the axis; longer ones may be cut.
+pub const CUT: f64 = 4.0;
+
+/// The axis maximum and tick step for `values`: [`axis`] of the largest
+/// value up to [`CUT`], so every such bar is drawn whole and only bars
+/// longer than the axis (all above [`CUT`]) are cut.
+#[must_use]
+pub fn scale(values: impl IntoIterator<Item = f64>) -> (f64, f64) {
+    let shown = values
+        .into_iter()
+        .filter(|v| v.is_finite() && *v <= CUT)
+        .fold(0.0_f64, f64::max);
+    axis(shown)
+}
+
 /// The chart.
 #[must_use]
 pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
     let rows: usize = panels.iter().map(|p| p.bars.len()).sum();
     let plot = WIDTH - LEFT - RIGHT;
+    let values = || {
+        panels
+            .iter()
+            .flat_map(|p| p.bars.iter().filter_map(|b| b.value))
+    };
+    let (axis_max, step) = scale(values());
+    let cut = values().any(|v| v > axis_max);
+    let top = if cut { TOP + CUT_NOTE } else { TOP };
     let body = panels.len() as f64 * (PANEL_HEAD + PANEL_GAP) + rows as f64 * ROW;
-    let height = TOP + body + BOTTOM;
-    let max = panels
-        .iter()
-        .flat_map(|p| p.bars.iter().filter_map(|b| b.value))
-        .fold(0.0_f64, f64::max);
-    let (axis_max, step) = axis(max);
-    let x = |v: f64| LEFT + v.max(0.0) / axis_max * plot;
-    let axis_y = TOP + body;
+    let height = top + body + BOTTOM;
+    let x = |v: f64| LEFT + v.clamp(0.0, axis_max) / axis_max * plot;
+    let axis_y = top + body;
+    let axis_end = x(axis_max);
     let font = "font-family=\"system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif\"";
 
     let mut s = String::new();
@@ -132,6 +163,11 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
     let _ = writeln!(s, "<desc id=\"desc\">{}</desc>", escape(description));
     let _ = writeln!(
         s,
+        "<defs><pattern id=\"slower\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><rect width=\"6\" height=\"6\" fill=\"{0}\" fill-opacity=\"0.4\"/><rect width=\"3\" height=\"6\" fill=\"{0}\"/></pattern></defs>",
+        theme.slower
+    );
+    let _ = writeln!(
+        s,
         "<rect width=\"100%\" height=\"100%\" fill=\"{}\"/>",
         theme.background
     );
@@ -142,20 +178,23 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
     );
     let _ = writeln!(
         s,
-        "<text x=\"16\" y=\"43\" fill=\"{}\">competitor CPU instructions ÷ oneyaml's · dashed line = 1.0× (equal) · orange = oneyaml slower</text>",
+        "<text x=\"16\" y=\"43\" fill=\"{}\">competitor CPU instructions ÷ oneyaml's · dashed line = 1.0× (equal) · orange, hatched = oneyaml slower</text>",
         theme.muted
     );
+    if cut {
+        let _ = writeln!(
+            s,
+            "<text x=\"16\" y=\"61\" fill=\"{}\">bars longer than {axis_max:.1}× run past the axis end and are drawn broken; the number is the value</text>",
+            theme.muted
+        );
+    }
 
-    // Grid and tick labels.
+    // Tick labels; the grid is drawn per panel, so no line crosses a
+    // panel heading.
     let ticks = (axis_max / step).round() as u32;
     for i in 0..=ticks {
         let v = f64::from(i) * step;
         let gx = x(v);
-        let _ = writeln!(
-            s,
-            "<line x1=\"{gx:.1}\" y1=\"{TOP:.1}\" x2=\"{gx:.1}\" y2=\"{axis_y:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
-            theme.grid
-        );
         let _ = writeln!(
             s,
             "<text x=\"{gx:.1}\" y=\"{:.1}\" fill=\"{}\" text-anchor=\"middle\">{v:.1}×</text>",
@@ -171,16 +210,9 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
         theme.muted
     );
 
-    // The parity line, under the bars and their value labels.
-    let px = x(1.0);
-    let _ = writeln!(
-        s,
-        "<line x1=\"{px:.1}\" y1=\"{TOP:.1}\" x2=\"{px:.1}\" y2=\"{axis_y:.1}\" stroke=\"{}\" stroke-width=\"1.5\" stroke-dasharray=\"4 3\"/>",
-        theme.text
-    );
-
     // Panels.
-    let mut y = TOP;
+    let px = x(1.0);
+    let mut y = top;
     for p in panels {
         let _ = writeln!(
             s,
@@ -190,6 +222,24 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
             escape(&p.title)
         );
         y += PANEL_HEAD;
+        // The grid and the parity line span this panel's rows only, under
+        // its bars and their value labels.
+        let rows_end = y + p.bars.len() as f64 * ROW;
+        if !p.bars.is_empty() {
+            for i in 0..=ticks {
+                let gx = x(f64::from(i) * step);
+                let _ = writeln!(
+                    s,
+                    "<line x1=\"{gx:.1}\" y1=\"{y:.1}\" x2=\"{gx:.1}\" y2=\"{rows_end:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
+                    theme.grid
+                );
+            }
+            let _ = writeln!(
+                s,
+                "<line x1=\"{px:.1}\" y1=\"{y:.1}\" x2=\"{px:.1}\" y2=\"{rows_end:.1}\" stroke=\"{}\" stroke-width=\"1.5\" stroke-dasharray=\"4 3\"/>",
+                theme.text
+            );
+        }
         for b in &p.bars {
             let _ = writeln!(
                 s,
@@ -201,17 +251,52 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
             );
             let (end, fill) = match b.value {
                 Some(v) => {
-                    let colour = if v < 1.0 { theme.slower } else { theme.accent };
+                    let fill = if v < 1.0 {
+                        "url(#slower)"
+                    } else {
+                        theme.accent
+                    };
+                    let broken = v > axis_max;
+                    let end = if broken { axis_end + OVERRUN } else { x(v) };
                     let _ = writeln!(
                         s,
-                        "<rect x=\"{LEFT:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{BAR:.1}\" fill=\"{colour}\"/>",
+                        "<rect x=\"{LEFT:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{BAR:.1}\" fill=\"{fill}\"/>",
                         y + 4.0,
-                        x(v) - LEFT
+                        end - LEFT
                     );
-                    (x(v), theme.text)
+                    if broken {
+                        // Two slanted gaps just past the axis end: the bar
+                        // is cut there, not drawn to scale.
+                        for dx in [6.0, 12.0] {
+                            let _ = writeln!(
+                                s,
+                                "<line x1=\"{:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"{}\" stroke-width=\"2.5\"/>",
+                                axis_end + dx - 3.0,
+                                y + 4.0 + BAR + 2.0,
+                                axis_end + dx + 3.0,
+                                y + 2.0,
+                                theme.background
+                            );
+                        }
+                    }
+                    (end, theme.text)
                 }
                 None => (LEFT, theme.muted),
             };
+            // An opaque box under the value label, so the parity and grid
+            // lines never run through it (a slower bar's label always
+            // crosses the parity line). The width is an estimate of the
+            // text's; a little too wide only hides more grid.
+            let chars = b.text.chars().count() as f64;
+            let _ = writeln!(
+                s,
+                "<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"{}\"/>",
+                end + 3.0,
+                y + 2.0,
+                chars * LABEL_CHAR + 6.0,
+                ROW - 4.0,
+                theme.background
+            );
             let _ = writeln!(
                 s,
                 "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"{fill}\" stroke=\"{}\" stroke-width=\"4\" paint-order=\"stroke\">{}</text>",
@@ -222,13 +307,21 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
             );
             y += ROW;
         }
+        // The zero axis of this panel, on top of its bars.
+        if !p.bars.is_empty() {
+            let _ = writeln!(
+                s,
+                "<line x1=\"{LEFT:.1}\" y1=\"{:.1}\" x2=\"{LEFT:.1}\" y2=\"{rows_end:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
+                rows_end - p.bars.len() as f64 * ROW,
+                theme.muted
+            );
+        }
         y += PANEL_GAP;
     }
-
-    // The zero axis, on top of the bars.
+    // The axis line under the last panel, where the ticks are.
     let _ = writeln!(
         s,
-        "<line x1=\"{LEFT:.1}\" y1=\"{TOP:.1}\" x2=\"{LEFT:.1}\" y2=\"{axis_y:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
+        "<line x1=\"{LEFT:.1}\" y1=\"{axis_y:.1}\" x2=\"{axis_end:.1}\" y2=\"{axis_y:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
         theme.muted
     );
     s.push_str("</svg>\n");
@@ -279,7 +372,10 @@ mod tests {
         let svg = svg(&panel(), &LIGHT, "desc & more");
         // Plot width 410 over an axis of 1.5×: 1.2× is 328 px, 0.28× 76.5 px.
         assert!(svg.contains("width=\"328.0\" height=\"14.0\" fill=\"#0969da\""));
-        assert!(svg.contains("width=\"76.5\" height=\"14.0\" fill=\"#bc4c00\""));
+        // The slower bar is hatched in the slower colour.
+        assert!(svg.contains("width=\"76.5\" height=\"14.0\" fill=\"url(#slower)\""));
+        assert!(svg.contains("<pattern id=\"slower\""));
+        assert!(svg.contains("fill=\"#bc4c00\" fill-opacity"));
         assert!(svg.contains("c &lt;&amp;&gt; d"));
         // The unmeasured row keeps its label and says so, with no bar.
         assert!(svg.contains(">e vs f</text>"));
@@ -291,6 +387,78 @@ mod tests {
         assert!(svg.ends_with("</svg>\n"));
         assert_eq!(svg, super::svg(&panel(), &LIGHT, "desc & more"));
         assert_ne!(svg, super::svg(&panel(), &DARK, "desc & more"));
+    }
+
+    #[test]
+    fn the_scale_ignores_bars_past_the_cut() {
+        assert_eq!(scale([1.2, 0.28]), (1.5, 0.5));
+        assert_eq!(scale([1.1, 0.79, 3.1, 7.3, 63.0]), (3.5, 0.5));
+        // Up to the cut every bar fits.
+        assert_eq!(scale([0.5, 4.0]), (4.0, 0.5));
+        assert_eq!(scale([f64::NAN, f64::INFINITY]), (1.5, 0.5));
+        assert_eq!(scale([]), (1.5, 0.5));
+    }
+
+    fn outliers() -> Vec<Panel> {
+        let bar = |label: &str, v: f64| Bar {
+            label: label.to_owned(),
+            value: Some(v),
+            text: format!("{v}×"),
+        };
+        vec![
+            Panel {
+                title: "first".to_owned(),
+                bars: vec![bar("a", 1.1), bar("b", 0.79)],
+            },
+            Panel {
+                title: "second, with a long heading".to_owned(),
+                bars: vec![bar("c", 3.1), bar("d", 63.0)],
+            },
+        ]
+    }
+
+    #[test]
+    fn an_outlier_is_cut_and_does_not_set_the_scale() {
+        let svg = svg(&outliers(), &LIGHT, "");
+        // Axis 0–3.5× over 410 px: wins and losses stay apart.
+        assert!(svg.contains(">3.5×</text>"));
+        assert!(!svg.contains(">4.0×</text>"));
+        assert!(svg.contains("width=\"128.9\" height=\"14.0\" fill=\"#0969da\""));
+        assert!(svg.contains("width=\"92.5\" height=\"14.0\" fill=\"url(#slower)\""));
+        assert!(svg.contains("width=\"363.1\" height=\"14.0\" fill=\"#0969da\""));
+        // The 63× bar ends 22 px past the axis end, broken by two gaps, and
+        // keeps its value; the caption says bars are cut.
+        assert!(svg.contains("width=\"432.0\" height=\"14.0\" fill=\"#0969da\""));
+        assert_eq!(svg.matches("stroke-width=\"2.5\"").count(), 2);
+        assert!(svg.contains(">63×</text>"));
+        assert!(svg.contains("bars longer than 3.5× run past the axis end"));
+        // Without an outlier there is no cut and no caption line.
+        let plain = super::svg(&panel(), &LIGHT, "");
+        assert!(!plain.contains("stroke-width=\"2.5\""));
+        assert!(!plain.contains("run past the axis end"));
+    }
+
+    #[test]
+    fn the_parity_line_spans_each_panel_rows_only() {
+        let svg = svg(&outliers(), &LIGHT, "");
+        // TOP 58 + caption 18; each panel: a 24 px heading, then its rows.
+        let parity: Vec<&str> = svg
+            .lines()
+            .filter(|l| l.contains("stroke-dasharray"))
+            .collect();
+        assert_eq!(parity.len(), 2);
+        assert!(
+            parity[0].contains("y1=\"100.0\" x2=\"367.1\" y2=\"144.0\""),
+            "{}",
+            parity[0]
+        );
+        assert!(
+            parity[1].contains("y1=\"178.0\" x2=\"367.1\" y2=\"222.0\""),
+            "{}",
+            parity[1]
+        );
+        // The second heading sits between them, clear of both.
+        assert!(svg.contains("<text x=\"16\" y=\"171.0\""));
     }
 
     #[test]

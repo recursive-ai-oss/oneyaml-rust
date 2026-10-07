@@ -57,6 +57,11 @@ pub(crate) struct Sc<'de> {
     pub(crate) value: Cow<'de, str>,
     /// Plain and untagged: may be read as its text by string targets.
     pub(crate) lenient: bool,
+    /// A plain string under a schema that reads YAML 1.1's extra bool words
+    /// (`yes`, `off`, …) as strings: a bool target's type mismatch on such
+    /// a word explains the 1.2 reading. The word itself is only checked on
+    /// that error path.
+    pub(crate) yaml11_hint: bool,
     /// The resolver for a custom-tagged scalar's content, when a typed enum
     /// would read it resolved (`Settings::resolve_tagged_variant_content`,
     /// see [`Resolver::variant_content`]); `None`: the content is a string.
@@ -101,10 +106,12 @@ impl<'de> Sc<'de> {
             },
         };
         let lenient = plain && tag == Tag::Absent;
+        let yaml11_hint = lenient && matches!(kind, Kind::Str) && r.strings_may_be_yaml11_bools();
         Ok(Self {
             kind,
             value,
             lenient,
+            yaml11_hint,
             variant_content,
             span,
             depth: 0,
@@ -164,6 +171,32 @@ impl<'de> Sc<'de> {
         de::Error::invalid_type(self.unexpected(), exp)
     }
 
+    /// The type mismatch of a YAML 1.1 bool word (`yes`, `off`, …) read
+    /// into a bool: YAML 1.2 reads it as a string, the most common surprise
+    /// for YAML 1.1 users, so the message says why and the help how to fix it.
+    fn yaml11_bool_mismatch(&self, meant: bool, exp: &dyn de::Expected) -> Error {
+        let word = &*self.value;
+        let msg = crate::error::message(format_args!(
+            "invalid type: string {word:?}, expected {exp}; YAML 1.2 reads `{word}` as a string (its booleans are `true` and `false`)"
+        ));
+        let help = format!(
+            "write `{meant}` instead of `{word}`, or read the YAML 1.1 booleans (y/n, yes/no, on/off) as booleans with Settings::yaml11_booleans(true) or the Compat::yaml_1_1() preset"
+        );
+        let mut e = Error::new(code::TYPE_MISMATCH, msg, None).with_help(help);
+        // The fix replaces the span with the boolean, so it is offered only
+        // when the span is exactly the word. It is not
+        // machine-applicable: the rest of the file may rely on the 1.1
+        // reading in ways only the author knows.
+        if self.span.end.checked_sub(self.span.start) == Some(word.len()) {
+            e = e.with_suggestion(oneyaml_core::Suggestion::new(
+                format!("write the YAML 1.2 boolean `{meant}`"),
+                vec![oneyaml_core::Replacement::new(self.span, meant.to_string())],
+                oneyaml_core::Applicability::MaybeIncorrect,
+            ));
+        }
+        e
+    }
+
     fn out_of_range(&self, target: &str) -> Error {
         Error::new(
             code::INTEGER_OUT_OF_RANGE,
@@ -185,7 +218,13 @@ impl<'de> Sc<'de> {
             Hint::Any | Hint::Ignored => self.visit_any(v),
             Hint::Bool => match self.kind {
                 Kind::Bool(b) => v.visit_bool(b),
-                _ => Err(self.mismatch(&v)),
+                _ => match self
+                    .yaml11_hint
+                    .then(|| crate::resolve::yaml11_bool_word(&self.value))
+                {
+                    Some(Some(b)) => Err(self.yaml11_bool_mismatch(b, &v)),
+                    _ => Err(self.mismatch(&v)),
+                },
             },
             Hint::Int(ty) => self.visit_int(ty, v),
             Hint::Float => match &self.kind {
@@ -512,6 +551,7 @@ impl<'de> de::EnumAccess<'de> for TaggedScalar<'de> {
             kind: Kind::Str,
             value,
             lenient: false,
+            yaml11_hint: false,
             variant_content: variant_content.filter(|_| self.typed_enum),
             span,
             depth,

@@ -13,7 +13,7 @@ use super::block::HeadMode;
 use super::flow::{Flow, Kind, Pause, Slot, State as FlowStep};
 use super::flow_node::attach_props;
 use super::polish::{self, Place};
-use super::scan::{indicator_at, key_too_long, skip_white};
+use super::scan::{byte, indicator_at, key_too_long, line_end, skip_white};
 use super::{Frame, MapPhase, Parser, State};
 use crate::event::{CollectionStyle, Event, EventKind, Indicator, Properties, TriviaKind};
 
@@ -259,7 +259,9 @@ impl<'a> Parser<'a> {
     fn flow_failed(&mut self, code: Code, message: &'static str) {
         // The C2SP rule: point at where the multi-line key starts.
         let key_open = self.flow.multiline_key.then_some(self.flow.open);
-        let unclosed = self.unclosed_flow(code);
+        let dedent = self.dedent(code);
+        let unclosed = self.unclosed_flow(code, dedent);
+        let message = dedent.map_or(message, |d| self.dedent_message(d));
         // Polish of a failed flow node at the scan position (a key's
         // text may end at its `:`).
         // A key position (a mapping key, or a sequence entry that may be a
@@ -334,12 +336,74 @@ impl<'a> Parser<'a> {
         });
     }
 
+    /// How the less-indented line that stopped a flow collection
+    /// (`INVALID_INDENTATION`) relates to it; `None` for other errors.
+    fn dedent(&self, code: Code) -> Option<Dedent> {
+        if code != INVALID_INDENTATION {
+            return None;
+        }
+        let st = &self.flow;
+        let open = st.stack.iter().filter(|f| f.kind != Kind::Pair).count();
+        let own = match st.stack.iter().rev().find(|f| f.kind != Kind::Pair)?.kind {
+            Kind::Seq => b']',
+            _ => b'}',
+        };
+        Some(match byte(self.src, st.pos) {
+            Some(c) if c == own => Dedent::Closer(c),
+            // A bracket of the other kind closes nothing here: the
+            // collection is still open at this line.
+            Some(b']' | b'}') => Dedent::Open,
+            _ if closes_on_line(self.src, st.pos, open) => Dedent::Closes,
+            _ => Dedent::Open,
+        })
+    }
+
+    /// The message for a less-indented line inside a flow collection. The
+    /// plain message is all many readers see, so it tells a closing
+    /// bracket or a line that is only short of indentation (common in
+    /// JSON-style YAML) from a collection still open there (often a
+    /// forgotten bracket).
+    fn dedent_message(&self, dedent: Dedent) -> &'static str {
+        let seq = self
+            .flow
+            .stack
+            .iter()
+            .rev()
+            .find(|f| f.kind != Kind::Pair)
+            .is_some_and(|f| f.kind == Kind::Seq);
+        match (dedent, seq) {
+            (Dedent::Closer(b']'), _) => {
+                "the closing `]` of a flow sequence is not indented more than the sequence's block parent"
+            }
+            (Dedent::Closer(_), _) => {
+                "the closing `}` of a flow mapping is not indented more than the mapping's block parent"
+            }
+            (Dedent::Closes, true) => {
+                "this line of a flow sequence is not indented more than the sequence's block parent"
+            }
+            (Dedent::Closes, false) => {
+                "this line of a flow mapping is not indented more than the mapping's block parent"
+            }
+            (Dedent::Open, true) => {
+                "a flow sequence is still open at this line, which is not indented more than its block parent; a `]` may be missing before it"
+            }
+            (Dedent::Open, false) => {
+                "a flow mapping is still open at this line, which is not indented more than its block parent; a `}` may be missing before it"
+            }
+        }
+    }
+
     /// Polish for a flow collection that runs into the end of the
     /// input, a document marker, or a dedented line: a label at the
     /// innermost open bracket, and the closing brackets to insert after
     /// the last token (machine-applicable at the end of the input, where
-    /// nothing else can close them).
-    fn unclosed_flow(&self, code: Code) -> Option<(Label, Suggestion, Option<&'static str>)> {
+    /// nothing else can close them). A dedented line that closes the
+    /// collection itself is offered the indentation it lacks instead.
+    fn unclosed_flow(
+        &self,
+        code: Code,
+        dedent: Option<Dedent>,
+    ) -> Option<(Label, Suggestion, Option<&'static str>)> {
         if code != UNTERMINATED_FLOW_COLLECTION && code != INVALID_INDENTATION {
             return None;
         }
@@ -350,6 +414,31 @@ impl<'a> Parser<'a> {
             .rev()
             .find(|f| f.kind != Kind::Pair)
             .map(|f| (f.open, f.kind))?;
+        let (bracket, what) = if kind == Kind::Seq {
+            ("`[`", "sequence")
+        } else {
+            ("`{`", "mapping")
+        };
+        if let (Some(Dedent::Closer(_) | Dedent::Closes), Some(min)) = (dedent, st.min) {
+            // The collection is closed on this line: only its indentation
+            // is short, by `min + 1 - line_indent` spaces.
+            let missing = min.saturating_add(1).saturating_sub(st.line_indent).max(1);
+            let fix = Suggestion::new(
+                "indent the line",
+                vec![Replacement::new(
+                    Span::empty(st.line_start),
+                    " ".repeat(missing),
+                )],
+                Applicability::MaybeIncorrect,
+            );
+            let label = Label::new(
+                Span::new(open, open.saturating_add(1)),
+                format!("the flow {what} opened here"),
+            );
+            let help = "every line of a flow collection, its closing bracket included, \
+                        must be indented more than the block collection it is in";
+            return Some((label, fix, Some(help)));
+        }
         let closers: String = st
             .stack
             .iter()
@@ -362,11 +451,6 @@ impl<'a> Parser<'a> {
             .collect();
         let at_end = st.pos >= self.src.len();
         let insert = st.out_pos;
-        let (bracket, what) = if kind == Kind::Seq {
-            ("`[`", "sequence")
-        } else {
-            ("`{`", "mapping")
-        };
         let label = if code == INVALID_INDENTATION {
             format!("the flow {what} opened here is still open")
         } else {
@@ -397,4 +481,69 @@ impl<'a> Parser<'a> {
             *phase = MapPhase::Value;
         }
     }
+}
+
+/// How a less-indented line relates to the flow collection it stopped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Dedent {
+    /// The line starts with this closing bracket: the collection ends
+    /// here, but its closer is short of indentation.
+    Closer(u8),
+    /// The line continues the collection and closes it: only its
+    /// indentation is short.
+    Closes,
+    /// The collection is still open at the end of the line.
+    Open,
+}
+
+/// Whether the line from `from` closes all `open` flow collections. Quoted
+/// scalars are skipped and a comment ends the line; the scan never leaves
+/// the line, so a diagnostic costs O(its line).
+fn closes_on_line(src: &str, from: usize, mut open: usize) -> bool {
+    let end = line_end(src, from);
+    let mut i = from;
+    // The start of the content counts as white space before it.
+    let mut prev = b' ';
+    while i < end {
+        let Some(b) = byte(src, i) else {
+            return false;
+        };
+        match b {
+            b'\'' | b'"' if matches!(prev, b' ' | b'\t' | b'[' | b'{' | b',' | b':') => {
+                // A quoted scalar: skip to its closing quote on this line.
+                let mut j = i.saturating_add(1);
+                loop {
+                    if j >= end {
+                        return false;
+                    }
+                    match byte(src, j) {
+                        Some(b'\\') if b == b'"' => j = j.saturating_add(2),
+                        Some(c)
+                            if c == b
+                                && b == b'\''
+                                && byte(src, j.saturating_add(1)) == Some(b'\'') =>
+                        {
+                            j = j.saturating_add(2);
+                        }
+                        Some(c) if c == b => break,
+                        Some(_) => j = j.saturating_add(1),
+                        None => return false,
+                    }
+                }
+                i = j;
+            }
+            b'#' if matches!(prev, b' ' | b'\t') => return false,
+            b'[' | b'{' => open = open.saturating_add(1),
+            b']' | b'}' => {
+                open = open.saturating_sub(1);
+                if open == 0 {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+        prev = byte(src, i).unwrap_or(b' ');
+        i = i.saturating_add(1);
+    }
+    false
 }

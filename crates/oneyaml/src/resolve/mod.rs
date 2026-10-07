@@ -14,6 +14,13 @@
 
 pub(crate) mod conflict;
 mod scan;
+
+/// The bool YAML 1.1 gave `text` when it is one of 1.1's extra bool words
+/// (`y`, `yes`, `on`, `n`, `no`, `off` in their 1.1 casings), which YAML
+/// 1.2's Core schema reads as strings.
+pub(crate) fn yaml11_bool_word(text: &str) -> Option<bool> {
+    scan::yaml11_only_bool(text)
+}
 #[cfg(test)]
 mod tests;
 
@@ -464,5 +471,13 @@ impl Resolver {
     /// change scalar resolution.
     pub(crate) fn plain_is_core(&self) -> bool {
         matches!(self.active, Active::Core(Core { ext }) if ext == Ext::default())
+    }
+
+    /// Whether a plain scalar this resolver reads as a string may be one of
+    /// YAML 1.1's extra bool words (`yes`, `off`, …; [`yaml11_bool_word`]):
+    /// the Core schema is active without `yaml11_booleans`. Only feeds the
+    /// help of a type mismatch; it never changes what a node means.
+    pub(crate) fn strings_may_be_yaml11_bools(&self) -> bool {
+        matches!(self.active, Active::Core(Core { ext }) if !ext.booleans)
     }
 }

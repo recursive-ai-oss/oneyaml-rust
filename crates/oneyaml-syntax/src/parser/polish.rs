@@ -400,19 +400,50 @@ fn unclosed_quote(src: &str, code: Code, at: usize, q: u8) -> Polish {
     }
 }
 
+/// What is glued to the closing quote of a quoted scalar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Glued {
+    /// A `#` with no white space before it.
+    Comment,
+    /// Text that runs to the same quote again on this line (`'it's'`): an
+    /// unescaped quote meant to be inside the scalar.
+    InnerQuote(u8),
+    /// Any other text (`'a'b c`, `"a"[x]`).
+    Text(u8),
+}
+
+/// What is glued at `pos` to the closing quote of the quoted scalar
+/// `qs..qe` (block context); `None` when nothing is. A pure function of
+/// the source, scanning at most the rest of the line.
+pub(super) fn glued(src: &str, (qs, qe): (usize, usize), pos: usize) -> Option<Glued> {
+    let q = byte(src, qs).filter(|q| matches!(q, b'\'' | b'"'))?;
+    if qe != pos || qe <= qs {
+        return None;
+    }
+    if byte(src, pos) == Some(b'#') {
+        return Some(Glued::Comment);
+    }
+    let single_line = src.get(qs..qe).is_some_and(|t| !t.contains(['\n', '\r']));
+    let (rest_end, _) = value_end(src, pos, false, false);
+    let closes = byte(src, rest_end.saturating_sub(1)) == Some(q);
+    Some(if single_line && rest_end > pos && closes {
+        Glued::InnerQuote(q)
+    } else {
+        Glued::Text(q)
+    })
+}
+
 /// Content at `pos` glued to the closing quote of the quoted scalar
-/// `qs..qe` (block context): an unescaped quote inside it (`'it's'`) or a
-/// comment without white space before `#`. `None` when not glued.
+/// `qs..qe` (block context): an unescaped quote inside it (`'it's'`), a
+/// comment without white space before `#`, or other text. `None` when not
+/// glued.
 pub(super) fn after_quote(
     src: &str,
     (qs, qe): (usize, usize),
     pos: usize,
     parent: Option<usize>,
 ) -> Option<Polish> {
-    let q = byte(src, qs).filter(|q| matches!(q, b'\'' | b'"'))?;
-    if qe != pos || qe <= qs {
-        return None;
-    }
+    let kind = glued(src, (qs, qe), pos)?;
     let place = Place {
         key: false,
         key_only: false,
@@ -424,37 +455,49 @@ pub(super) fn after_quote(
         Span::new(qe.saturating_sub(1), qe),
         "the quoted scalar ends here",
     );
-    if byte(src, pos) == Some(b'#') {
-        let settled = !continues(src, pos, place);
-        return Some(Polish {
-            labels: vec![closing],
-            help: Some("a comment needs white space before its `#` (§6.6)"),
-            fixes: vec![Suggestion::new(
-                "separate the comment from the value",
-                vec![Replacement::new(Span::empty(pos), " ")],
-                how(settled),
-            )],
-        });
-    }
+    let q = match kind {
+        Glued::InnerQuote(q) => q,
+        Glued::Text(_) => {
+            return Some(Polish {
+                labels: vec![closing],
+                help: Some(
+                    "only white space or a comment may follow a quoted scalar on its line; \
+                     to keep the text, move it inside the quotes",
+                ),
+                fixes: Vec::new(),
+            });
+        }
+        Glued::Comment => {
+            let settled = !continues(src, pos, place);
+            return Some(Polish {
+                labels: vec![closing],
+                help: Some("a comment needs white space before its `#` (§6.6)"),
+                fixes: vec![Suggestion::new(
+                    "separate the comment from the value",
+                    vec![Replacement::new(Span::empty(pos), " ")],
+                    how(settled),
+                )],
+            });
+        }
+    };
     let double = q == b'"';
-    let single_line = src.get(qs..qe).is_some_and(|t| !t.contains(['\n', '\r']));
     let (rest_end, _) = value_end(src, pos, false, false);
     let inner_end = rest_end.saturating_sub(1);
+    // `glued` found the same quote again at `inner_end` on this line.
     // As `quote_fix`: a byte order mark in the glued text after
     // the closing quote is misplaced (`Y0032`, with its own fix), never
     // content, so the fix leaves it out rather than quoting an invisible
     // mark into the value. One inside the original quotes is the value's
     // (`nb-json`) and is kept.
-    let fix = (single_line && rest_end > pos && byte(src, inner_end) == Some(q))
-        .then(|| {
-            let quoted = src.get(qs.saturating_add(1)..pos)?;
-            let glued = src.get(pos..inner_end)?;
+    let fix = src
+        .get(qs.saturating_add(1)..pos)
+        .zip(src.get(pos..inner_end))
+        .map(|(quoted, glued)| {
             let mut inner = String::with_capacity(quoted.len().saturating_add(glued.len()));
             inner.push_str(quoted);
             inner.extend(glued.chars().filter(|c| *c != '\u{feff}'));
-            Some(inner)
+            inner
         })
-        .flatten()
         .map(|inner| {
             let mut text = String::with_capacity(inner.len().saturating_add(4));
             text.push(char::from(q));

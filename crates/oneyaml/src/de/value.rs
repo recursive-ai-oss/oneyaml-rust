@@ -411,6 +411,7 @@ impl<'a, 'm, 'de, M: Text<'a, 'de>> ValueDe<'a, 'm, 'de, M> {
                 kind,
                 value: text,
                 lenient: false,
+                yaml11_hint: false,
                 variant_content: None,
                 // A placeholder: `finish` drops it (a `Value` has no span).
                 span: Span::empty(0),
@@ -858,6 +859,7 @@ impl<'a, 'm, 'de, M: Text<'a, 'de>> de::VariantAccess<'de> for TaggedScalar<'a, 
             kind,
             value: M::text(self.text),
             lenient: true,
+            yaml11_hint: false,
             variant_content: None,
             // A placeholder: `finish` drops it (a `Value` has no span).
             span: Span::empty(0),

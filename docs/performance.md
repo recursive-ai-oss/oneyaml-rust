@@ -79,9 +79,10 @@ it):
   feature-complete writer on every input, typed and untyped
   ([Serde write](#serde-write)).
 - **Serde reads** use fewer instructions than the fastest
-  feature-complete reader on most `value` and `typed` rows, and are
-  within the 1.25× target on every row but one
-  ([Serde read](#serde-read)).
+  feature-complete reader on most `value` and `typed` rows, and at most
+  1.25× its instructions on every row but one
+  ([Serde read](#serde-read); the targets are in
+  [Targets and results](#targets-and-results)).
 - **`Document`.** Parsing a `Document` costs fewer instructions than
   yaml-edit's parse on every input, although oneyaml's parse also checks
   the document's meaning (duplicate keys, merge keys, aliases) and
@@ -106,9 +107,9 @@ it):
 
 **Where oneyaml loses or is at parity**
 
-- **Typed reads of files with merge keys miss the 1.25× target.**
+- **Typed reads of files with merge keys cost the most.**
   compose-merge `typed` takes 1.26× serde_yaml_ng's instructions, the
-  one serde row over the target. Merged mappings are buffered so that
+  one serde row above 1.25×. Merged mappings are buffered so that
   later keys can override merged ones, and that costs instructions,
   allocations and more wall-clock time than instructions suggest.
 - **`sparse` reads** (a struct that reads a few fields) cost more than
@@ -124,7 +125,8 @@ it):
   cost more than yaml-edit's: each edit has a fixed cost for deciding
   which entry owns each nearby comment and checking that the edited text
   still reads as the tree says, which exceeds yaml-edit's whole-document
-  cost on a small file. This is a known loss, accepted for 1.0.
+  cost on a small file. That cost doesn't grow with the document, so
+  the loss is limited to small files.
 - **Comment- and whitespace-heavy inputs** (helm-values, comment-heavy,
   whitespace) cost slightly more instructions to parse than the fastest
   event parser, which skips comments and spaces; oneyaml produces an

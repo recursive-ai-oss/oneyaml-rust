@@ -53,6 +53,13 @@ use oneyaml::{
 /// tree of that change (this file run with `ONEYAML_DOC_BASELINE_WRITE` to a
 /// scratch file, that one line copied in; every other line was
 /// byte-identical and kept). A `#` line in the file says so.
+///
+/// The groups holding a reworded `Y0005`, `Y0007`, `Y0011` or `Y0017`
+/// message (whose one-line form now names the likely cause) were
+/// re-recorded the same way, in both files, after an item-by-item
+/// `ONEYAML_DOC_DUMP` comparison with the previous release showed that only
+/// those diagnostics changed; a `#` line says so. The code is written in
+/// the recorded `Code(5)` form (`recorded`).
 const SOURCE: &str = "crates/bench/data/doc-diagnostics-baseline.tsv";
 
 /// The groups of mutations that contain a byte order mark (U+FEFF). Treating a
@@ -106,9 +113,19 @@ fn settings() -> Vec<(&'static str, Settings)> {
     ]
 }
 
+/// `d`'s `Debug` form with the code written as the recording wrote it
+/// (`Code(5)`), whatever `Code`'s own `Debug` prints.
+fn recorded(d: &Diagnostic) -> String {
+    format!("{d:?}").replacen(
+        &format!("code: {}", d.code),
+        &format!("code: Code({})", d.code.get()),
+        1,
+    )
+}
+
 fn diags(out: &mut String, what: &str, list: &[Diagnostic]) {
     for d in list {
-        let _ = writeln!(out, "  {what} {d:?}");
+        let _ = writeln!(out, "  {what} {}", recorded(d));
     }
 }
 

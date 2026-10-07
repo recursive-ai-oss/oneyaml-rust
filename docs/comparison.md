@@ -80,18 +80,20 @@ yaml-edit on every workload above a few kilobytes.
 
 - **Wall-clock serde reads.** oneyaml's typed reads use fewer
   instructions than `serde_yaml_ng` and `serde_norway` on most workloads,
-  but in wall-clock time those two are as fast or faster on every
-  workload of the README table, and clearly faster on merge-key files.
+  but in wall-clock time oneyaml is slower on four of the five
+  workloads of the README table, and clearly slower on merge-key files;
+  only on the largest (k8s-multi) is it level or ahead.
   If wall-clock read speed is what you are optimising, measure on your
   own files.
 - **Merge-key files.** Typed reads of docker-compose-shaped files with
-  merge keys take more instructions in oneyaml than in `serde_yaml_ng`;
-  this is the one serde row that misses oneyaml's own ≤ 1.25× target.
+  merge keys take more instructions in oneyaml than in `serde_yaml_ng`,
+  the widest gap of any serde read: oneyaml buffers each merged mapping
+  so that later keys can override merged ones.
 - **Edits on small documents.** Below a few kilobytes, yaml-edit's edit
   script costs fewer instructions: oneyaml pays a fixed cost per edit to
   decide which entry owns each nearby comment and to check that the
-  edited text still reads as the tree says. This is a known loss,
-  accepted for 1.0.
+  edited text still reads as the tree says. That cost doesn't grow with
+  the document, which is why oneyaml wins on larger files.
 - **Partial libraries.** serde_yaml2 is cheaper on some reads, but it
   reads only the first document and has no merge keys, so it isn't
   ranked.

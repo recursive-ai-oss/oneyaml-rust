@@ -21,7 +21,8 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use oneyaml_syntax::event::EventKind;
+use oneyaml_core::Diagnostic;
+use oneyaml_syntax::event::{CollectionStyle, EventKind};
 
 const BASELINE: &str = "event-baseline.txt";
 
@@ -92,21 +93,107 @@ const LATER: &[&str] = &[
     "extra/36", "extra/37", "extra/38", "extra/39", "extra/40", "extra/41",
 ];
 
+/// The message the baseline revision gave for a message reworded since,
+/// so that the one-line form names the likely cause (a quote or bracket
+/// that may be missing, a closer short of indentation, a quote inside
+/// quotes, a value that became a key). Only the wording changed (the same
+/// code, severity, span and events). Several new messages replace one old
+/// one, so each is translated only when the source agrees with the case it
+/// names (the byte at or before the primary span, or the innermost open
+/// flow collection, `innermost`: `]` or `}`); otherwise it stays as it is
+/// and the case no longer matches the baseline. Telling a line that closes
+/// its collection from one that leaves it open would repeat the parser's
+/// own scan, so those two are told apart only by the collection's kind.
+fn recorded_message(src: &str, d: &Diagnostic, innermost: Option<u8>) -> Option<&'static str> {
+    let start = d.primary.span.start;
+    let at = src.as_bytes().get(start).copied();
+    let before = start
+        .checked_sub(1)
+        .and_then(|i| src.as_bytes().get(i))
+        .copied();
+    let text = src.get(start..d.primary.span.end).unwrap_or("");
+    const FLOW: &str = "flow content must be indented more than its block parent";
+    const QUOTED: &str = "quoted scalar continuation line is not indented enough";
+    const GLUED: &str = "unexpected content after a node";
+    let (ok, then) = match d.message.as_str() {
+        "the closing `]` of a flow sequence is not indented more than the sequence's block parent" => {
+            (at == Some(b']') && innermost == at, FLOW)
+        }
+        "the closing `}` of a flow mapping is not indented more than the mapping's block parent" => {
+            (at == Some(b'}') && innermost == at, FLOW)
+        }
+        "this line of a flow sequence is not indented more than the sequence's block parent"
+        | "a flow sequence is still open at this line, which is not indented more than its block parent; a `]` may be missing before it" => {
+            (at != innermost && innermost == Some(b']'), FLOW)
+        }
+        "this line of a flow mapping is not indented more than the mapping's block parent"
+        | "a flow mapping is still open at this line, which is not indented more than its block parent; a `}` may be missing before it" => {
+            (at != innermost && innermost == Some(b'}'), FLOW)
+        }
+        "a single-quoted scalar is still open at a line that is not indented more than its parent; a closing `'` may be missing" => {
+            (at == Some(b'\''), QUOTED)
+        }
+        "a double-quoted scalar is still open at a line that is not indented more than its parent; a closing `\"` may be missing" => {
+            (at == Some(b'"'), QUOTED)
+        }
+        "a `'` inside a single-quoted scalar ends it early" => {
+            (before == Some(b'\'') && text.ends_with('\''), GLUED)
+        }
+        "a `\"` inside a double-quoted scalar ends it early" => {
+            (before == Some(b'"') && text.ends_with('"'), GLUED)
+        }
+        "a `#` right after a closing quote does not start a comment" => (
+            matches!(before, Some(b'\'' | b'"')) && at == Some(b'#'),
+            GLUED,
+        ),
+        "unexpected text right after the closing quote of a quoted scalar" => (
+            matches!(before, Some(b'\'' | b'"'))
+                && at != Some(b'#')
+                && !before.is_some_and(|q| text.ends_with(char::from(q))),
+            GLUED,
+        ),
+        "this plain scalar runs onto the next line and is followed by `:`, so it reads as a key, and a key must be on one line" => {
+            (
+                d.code == oneyaml_core::code::MULTILINE_IMPLICIT_KEY,
+                "an implicit key must be on one line",
+            )
+        }
+        _ => return None,
+    };
+    ok.then_some(then)
+}
+
 /// The stream of `src` in a stable text form, without what the polish may
 /// add (secondary labels, help, suggestions).
 fn dump(src: &str) -> String {
     let mut out = String::new();
+    // The closer of each open collection: `]`/`}` for flow ones.
+    let mut open: Vec<Option<u8>> = Vec::new();
     for e in oneyaml_syntax::parse(src).events() {
         let span = e.span();
         match e.kind() {
             EventKind::Error(d) | EventKind::Warning(d) => {
+                let innermost = open.iter().rev().find_map(|c| *c);
+                let message = recorded_message(src, d, innermost).unwrap_or(d.message.as_str());
                 let _ = writeln!(
                     out,
                     "!{} {:?} {:?} {:?} @{:?}",
-                    d.code, d.severity, d.message, d.primary.span, span
+                    d.code, d.severity, message, d.primary.span, span
                 );
             }
             kind => {
+                match kind {
+                    EventKind::SequenceStart { style, .. } => {
+                        open.push((*style == CollectionStyle::Flow).then_some(b']'));
+                    }
+                    EventKind::MappingStart { style, .. } => {
+                        open.push((*style == CollectionStyle::Flow).then_some(b'}'));
+                    }
+                    EventKind::SequenceEnd | EventKind::MappingEnd => {
+                        open.pop();
+                    }
+                    _ => {}
+                }
                 let _ = writeln!(out, "{kind:?} @{span:?}");
             }
         }

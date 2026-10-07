@@ -2,11 +2,12 @@
 # mutations-bom/json re-recorded after a quoting fix that leaves a misplaced mark out
 # mutations-bom/default (an X38W mutation, Y1013 now) and mutations-bom/last_wins (two inline-colon fixes
 # now quote the text glued after a misplaced mark, maybe-incorrect) re-recorded
-mutations-bom/default	82	321a666451e6bfd9
-mutations-bom/merge_keys	93	9f7749f21a30cccf
-mutations-bom/last_wins	83	f83b71e8112bded4
-mutations-bom/json	111	f20b76de75327c40
-mutations-bom/failsafe	98	8eba16ad9e45d805
-mutations-bom/yaml_1_1	98	49480cab057bc1ca
-mutations-bom/serde_yaml	93	5b593280576761cd
-mutations-bom/honor_lenient	99	6f0082bb2b780606
+# Re-recorded later: the groups holding a reworded Y0005, Y0007, Y0011 or Y0017 message. Only those diagnostics changed (their message, and for some their label, help and fix), checked item by item against the previous release with ONEYAML_DOC_DUMP
+mutations-bom/default	82	ad38ed84fdc2879d
+mutations-bom/merge_keys	93	cce9df5f60703b34
+mutations-bom/last_wins	83	d2e2394870e98698
+mutations-bom/json	111	12fc4a459908c991
+mutations-bom/failsafe	98	4f99720a4b225b42
+mutations-bom/yaml_1_1	98	a2dcc546e8c69fcd
+mutations-bom/serde_yaml	93	3d4e935ca9dc5e22
+mutations-bom/honor_lenient	99	f155f1646c97a752

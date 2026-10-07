@@ -37,7 +37,7 @@ use oneyaml_core::code::{
 use oneyaml_core::{Applicability, Code, Diagnostic, Label, Replacement, Span, Suggestion};
 
 use super::block::HeadMode;
-use super::polish::{self, Place};
+use super::polish::{self, Glued, Place};
 use super::scalar::Count;
 use super::scan::{
     anchor_end, break_or_end, byte, indicator_at, is_nb_json, is_plain_first, key_too_long,
@@ -453,8 +453,19 @@ impl<'a> Parser<'a> {
                 if f.multiline && indicator_at(src, skip_white(src, f.end), b':') {
                     // A multi-line plain scalar cannot be a key (production
                     // 154); report before emitting it (timing convention T3).
-                    let message = "an implicit key must be on one line";
-                    self.fail(MULTILINE_IMPLICIT_KEY, message, true);
+                    // It began as a node (`a: b` then `  c: d`), so the
+                    // message says how the node became a key.
+                    let message = "this plain scalar runs onto the next line and is followed by `:`, so it reads as a key, and a key must be on one line";
+                    let nested = ctx.parent.is_some();
+                    self.fail_with(MULTILINE_IMPLICIT_KEY, message, true, |d| {
+                        if nested {
+                            d.with_help(
+                                "a value cannot also have nested entries; put the nested entries under a key of their own, or quote the value if the `:` is part of it",
+                            )
+                        } else {
+                            d
+                        }
+                    });
                     return false;
                 }
                 if !self.scalar_len_ok(f.len) {
@@ -650,7 +661,7 @@ impl<'a> Parser<'a> {
     /// is glued to the closing quote of the quoted scalar just parsed
     /// (`'it's'`, `"a"#c`).
     pub(super) fn unexpected_content(&mut self) {
-        let message = "unexpected content after a node";
+        let message = self.glued_to_quote_message();
         let parent = match self.stack.last() {
             Some(Frame::Map { indent, .. } | Frame::Seq { indent }) => Some(*indent),
             _ => None,
@@ -658,6 +669,22 @@ impl<'a> Parser<'a> {
         match polish::after_quote(self.src, self.last_quoted, self.pos, parent) {
             Some(p) => self.fail_with(UNEXPECTED_CONTENT, message, false, |d| p.apply(d)),
             None => self.fail(UNEXPECTED_CONTENT, message, false),
+        }
+    }
+
+    /// The message for content right after a node. For text glued to the
+    /// closing quote of the quoted scalar just parsed it names the cause
+    /// (an inner quote only when the text runs to the same quote again),
+    /// as most readers never see the labels; the help says what to write.
+    fn glued_to_quote_message(&self) -> &'static str {
+        match polish::glued(self.src, self.last_quoted, self.pos) {
+            Some(Glued::Comment) => "a `#` right after a closing quote does not start a comment",
+            Some(Glued::InnerQuote(b'\'')) => "a `'` inside a single-quoted scalar ends it early",
+            Some(Glued::InnerQuote(_)) => "a `\"` inside a double-quoted scalar ends it early",
+            Some(Glued::Text(_)) => {
+                "unexpected text right after the closing quote of a quoted scalar"
+            }
+            None => "unexpected content after a node",
         }
     }
 

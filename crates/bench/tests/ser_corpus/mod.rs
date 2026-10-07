@@ -379,7 +379,9 @@ impl Outcome {
         match r {
             Ok(t) => Outcome::Ok(t),
             Err(e) => Outcome::Err {
-                code: format!("{:?}", e.code()),
+                // The form the recorded baseline hashes (`Code(3015)`), kept
+                // independent of how `Code` prints itself.
+                code: format!("Code({})", e.code().get()),
                 path: e.path().map(ToString::to_string),
             },
         }

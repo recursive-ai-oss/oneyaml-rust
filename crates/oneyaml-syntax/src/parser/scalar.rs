@@ -354,7 +354,12 @@ pub(super) type QuotedError = (Code, &'static str);
 /// Checks a continuation line of a quoted scalar (`s-flow-line-prefix`,
 /// production 69): not the end of input, not a document marker, and
 /// indented more than `parent`, with no badly indented empty line before it.
-fn check_line(src: &str, line: &NextLine, parent: Option<usize>) -> Result<(), QuotedError> {
+fn check_line(
+    src: &str,
+    line: &NextLine,
+    parent: Option<usize>,
+    double: bool,
+) -> Result<(), QuotedError> {
     if line.bad_empty {
         return Err((
             QUOTED_SCALAR_INDENTATION,
@@ -371,10 +376,14 @@ fn check_line(src: &str, line: &NextLine, parent: Option<usize>) -> Result<(), Q
         ));
     }
     if parent.is_some_and(|n| line.spaces <= n) {
-        return Err((
-            QUOTED_SCALAR_INDENTATION,
-            "quoted scalar continuation line is not indented enough",
-        ));
+        // Often a forgotten closing quote, which only the labels would
+        // show, so the message says the scalar is still open.
+        let message = if double {
+            "a double-quoted scalar is still open at a line that is not indented more than its parent; a closing `\"` may be missing"
+        } else {
+            "a single-quoted scalar is still open at a line that is not indented more than its parent; a closing `'` may be missing"
+        };
+        return Err((QUOTED_SCALAR_INDENTATION, message));
     }
     Ok(())
 }
@@ -425,7 +434,7 @@ pub(super) fn quoted<S: Sink>(
                     // s-double-escaped (production 112): no folding space.
                     multiline = true;
                     let line = next_line(src, e, parent);
-                    check_line(src, &line, parent)?;
+                    check_line(src, &line, parent, double)?;
                     o.push_repeat('\n', line.empties);
                     i = line.content;
                 } else {
@@ -454,7 +463,7 @@ pub(super) fn quoted<S: Sink>(
                 };
                 ws_mark = None;
                 let line = next_line(src, i, parent);
-                check_line(src, &line, parent)?;
+                check_line(src, &line, parent, double)?;
                 push_fold(&mut o, line.empties);
                 out = Some(o);
                 i = line.content;

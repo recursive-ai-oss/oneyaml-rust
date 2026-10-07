@@ -798,7 +798,7 @@ fn errors_have_the_same_codes() {
         let check = |what: &str, got: Outcome, want: Option<oneyaml::Code>| {
             assert_eq!(
                 code_of(&got),
-                want.map(|c| format!("{c:?}")),
+                want.map(|c| format!("Code({})", c.get())),
                 "{what} {label}"
             );
         };

@@ -14,6 +14,53 @@ MSRV change is always announced here (the MSRV policy is in the
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/docs/migrating-from-serde-yaml.md).
 
+## Unreleased
+
+### Changed
+
+- Reading a YAML 1.1 boolean word (`y`, `yes`, `on`, `n`, `no`, `off` and
+  their capitalised forms) into a `bool` explains the YAML 1.2 reading:
+  the message says the word is a string in YAML 1.2, the help says to
+  write `true` or `false` or to turn on `Settings::yaml11_booleans` (or
+  use `Compat::yaml_1_1()`), and a suggested fix writes the 1.2 boolean.
+  The code is unchanged (`Y3000`), and so is what is accepted.
+- Clearer plain messages for parse errors whose old one-line form hid
+  the likely cause; codes and spans are unchanged:
+  - a line inside a flow collection that is not indented more than the
+    collection's block parent: when the line is the closing bracket, or
+    closes the collection itself (common in JSON-style YAML), the message
+    says that only its indentation is short and the suggested fix indents
+    it (it used to suggest a second closing bracket); when the collection
+    is still open at that line, the message says a `]` or `}` may be
+    missing before it;
+  - a quoted scalar still open at a less-indented line says a closing
+    quote may be missing;
+  - text glued to a closing quote names the cause: a quote inside the
+    scalar (`'it's'`) only when the text runs to the same quote again, a
+    `#` without the space a comment needs (`"a"#c`), or other text, whose
+    help no longer suggests escaping a quote;
+  - a plain value that runs onto the next line and is then followed by
+    `:` says how it became a key, with help.
+- `Debug` for `Code` prints the `Y####` form (`Y0005`), as `Display`
+  does, so codes read the same inside a derived `Debug` such as a
+  `Diagnostic`'s.
+- The benchmark chart is readable at a glance: its axis covers the bars
+  up to 4×, and a longer bar is drawn broken past the axis end with its
+  value printed, so one large ratio no longer squashes the others;
+  slower bars are hatched as well as coloured; the parity line no longer
+  crosses the group headings. Same measurements as 1.0.1.
+- The benchmark summary gives its numbers as text everywhere: the
+  repository README now carries the same tables as the crate README,
+  each table has a wall-clock “× faster” column from the measured
+  medians, the note under them names every row where oneyaml is slower in
+  wall-clock time, and the chart's alt text is a short summary pointing
+  at the tables (the chart file keeps the full per-bar description).
+- Documentation: the README says up front what the benchmark ratios
+  measure (CPU instructions, not elapsed time) and where wall-clock time
+  disagrees (serde reads), and a new *Diagnostics* section shows a
+  rendered error with its suggested fix. The repository's front page now
+  has the quick start.
+
 ## 1.0.1 — 2026-10-06
 
 `oneyaml` 1.0.1, `oneyaml-core` 1.0.1, `oneyaml-syntax` 0.1.1.
