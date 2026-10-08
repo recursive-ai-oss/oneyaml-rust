@@ -42,13 +42,25 @@ pub mod build {
     /// in one codegen unit (the workspace `Cargo.toml`).
     pub const MEASURE: &str = "measure";
 
-    /// How the `environment` section describes this build: the measuring
-    /// one in full, any other by its profile.
+    /// What the build script saw of the build's settings that may move
+    /// counts (an optimization level other than 3, profile overrides by
+    /// environment variable, extra compiler flags); empty when it saw
+    /// none. Overrides through `--config` or a config file are invisible
+    /// to it.
+    pub const NOTES: &str = env!("BENCH_BUILD_NOTES");
+
+    /// How the `environment` section describes this build: the profile's
+    /// name, and what [`NOTES`] saw. It never states the profile's
+    /// settings, which a build can override where this binary can't see.
     pub fn description() -> String {
-        if PROFILE == MEASURE {
-            format!("`{MEASURE}` profile (release settings, one codegen unit)")
+        describe(PROFILE, NOTES)
+    }
+
+    pub(crate) fn describe(profile: &str, notes: &str) -> String {
+        if notes.is_empty() {
+            format!("`{profile}` profile")
         } else {
-            format!("`{PROFILE}` profile")
+            format!("`{profile}` profile ({notes})")
         }
     }
 
@@ -78,6 +90,15 @@ pub mod build {
     #[cfg(test)]
     mod tests {
         #![allow(clippy::unwrap_used)]
+
+        #[test]
+        fn the_build_is_named_with_what_was_seen() {
+            assert_eq!(super::describe("measure", ""), "`measure` profile");
+            assert_eq!(
+                super::describe("measure", "opt-level 2"),
+                "`measure` profile (opt-level 2)"
+            );
+        }
 
         #[test]
         fn only_the_measure_build_may_measure() {

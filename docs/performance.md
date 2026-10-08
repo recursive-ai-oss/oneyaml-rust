@@ -50,6 +50,18 @@ This page covers:
   different result, or can't do the equivalent work gets a `rejects`,
   `differs` or `n/a` cell instead of a number.
 
+**Which build measured a table matters.** Tables measured up to and
+including oneyaml 1.0.1 come from the default release build; their
+`environment` table has no `Build` row. Later tables come from the
+`measure` build (release settings in a single codegen unit, see
+[Regenerate](#regenerate)). One codegen unit changes how the compiler
+optimizes every library, the comparators included, so the switch alone
+moves counts by several percent on some rows: serde_yaml_ng's typed read
+of compose-merge takes about 5.5% more instructions (1,521,971 →
+1,606,108) while oneyaml's stays within 0.2%, which lowers that row's
+ratio by about 5% with no change to oneyaml. Compare numbers only
+between tables whose `environment` table records the same `Build`.
+
 The run's provenance (the README summary's method strip is read from
 it):
 
@@ -176,10 +188,17 @@ target/measure/bench readme                                      # README summar
 - **Measure with the `measure` build only.** The `measure` profile
   (workspace `Cargo.toml`) is the release profile in a single codegen
   unit, so what the compiler inlines, and with it the instruction counts,
-  doesn't shift when unrelated code changes; in a default release build
-  some rows move by up to about 1% for that reason alone. `probe`, `time`,
-  `table` and `update` refuse to run from any other build, and the
-  `environment` table records the build.
+  doesn't shift when unrelated code changes; in the default release
+  build such a change moved some rows by up to about 1%. Switching to
+  this build also changes the counts themselves, every library's, by
+  several percent on some rows, so tables from different builds aren't
+  comparable (see the note above the `environment` table). `probe`,
+  `time`, `table` and `update` refuse to run from any other build. The
+  `environment` table's `Build` row names the profile and any override
+  the tool can see (an optimization level other than 3,
+  `CARGO_PROFILE_MEASURE_*` variables, `RUSTFLAGS`); it can't see
+  overrides passed with `--config` or set in a Cargo config file, so
+  don't measure with those.
 - Every table sits between `<!-- bench:NAME:begin/end -->` markers.
   `update` rewrites only what's between them, one section at a time
   (every section, in document order, without `--section`), and writes
