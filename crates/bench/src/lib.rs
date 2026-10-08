@@ -59,10 +59,10 @@ pub mod build {
     pub const MEASURE: &str = "measure";
 
     /// What the build script saw of the build's settings that may move
-    /// counts (an optimization level other than 3, the profile's
-    /// `CARGO_PROFILE_*` variables, extra compiler flags); empty when it
-    /// saw none. Overrides through `--config` or a config file are
-    /// invisible to it.
+    /// counts (an optimization level other than 3, any `CARGO_PROFILE_*`
+    /// variable, extra compiler flags; `build_notes`); empty when it saw
+    /// none. Overrides through `--config` or a config file are invisible
+    /// to it.
     pub const NOTES: &str = env!("BENCH_BUILD_NOTES");
 
     /// The command that makes the build tables come from.
@@ -168,6 +168,41 @@ pub mod build {
             assert!(e.contains("never for tables"), "{e}");
         }
 
+        /// `cargo build --profile bench` builds into the `release`
+        /// directory with the `bench` profile, which inherits `release`:
+        /// its overrides are seen, and refused for tables, as are those
+        /// of any profile.
+        #[test]
+        fn any_profile_variable_is_refused_for_tables() {
+            let vars = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+                pairs
+                    .iter()
+                    .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                    .collect()
+            };
+            let plain = crate::build_notes::notes(
+                Some("3"),
+                vars(&[("HOME", "/h"), ("CARGO_PKG_NAME", "bench")]),
+                "",
+            );
+            assert_eq!(plain, "");
+            assert!(super::check_tables_of("release", &plain).is_ok());
+            for var in [
+                "CARGO_PROFILE_BENCH_CODEGEN_UNITS",
+                "CARGO_PROFILE_RELEASE_CODEGEN_UNITS",
+                "CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_OPT_LEVEL",
+                "CARGO_PROFILE_DEV_OPT_LEVEL",
+            ] {
+                let notes = crate::build_notes::notes(Some("3"), vars(&[(var, "1")]), "");
+                assert!(notes.contains(&format!("{var}=1")), "{notes}");
+                let e = super::check_tables_of("release", &notes).unwrap_err();
+                assert!(e.contains(var), "{e}");
+            }
+            let notes = crate::build_notes::notes(Some("2"), vars(&[]), "-C\u{1f}codegen-units=1");
+            assert_eq!(notes, "opt-level 2; compiler flags: -C codegen-units=1");
+            assert!(super::check_tables_of("release", &notes).is_err());
+        }
+
         #[test]
         fn probes_run_from_release_or_measure() {
             assert!(super::check_probes_of("release").is_ok());
@@ -180,6 +215,8 @@ pub mod build {
     }
 }
 
+#[cfg(test)]
+mod build_notes;
 pub mod chart;
 pub mod corpus;
 pub mod document;

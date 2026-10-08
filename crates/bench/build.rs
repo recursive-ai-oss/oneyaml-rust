@@ -2,38 +2,54 @@
 //! publish tables from any build but the default release build, and keep
 //! the `measure` profile (see the workspace `Cargo.toml`) to comparing
 //! oneyaml with itself; and records with the numbers what it can see of
-//! the build's settings.
+//! the build's settings (`src/build_notes.rs`).
 //!
 //! Cargo does not tell a build script the profile's name; the output
 //! directory does: `<target>/[<triple>/]<profile>/build/<package>/out`.
 //! Nor does it pass every setting: overrides through `--config` or a
-//! config file are invisible here. What is visible (an optimization level
-//! other than 3, `CARGO_PROFILE_*` variables of the profile, extra
-//! compiler flags) is recorded; a publishing command refuses a build with
-//! any of it.
+//! config file are invisible here. Profile overrides by environment
+//! variable are visible, and Cargo accepts them only in the documented
+//! forms `CARGO_PROFILE_<profile>_<key>` and
+//! `CARGO_PROFILE_<profile>_BUILD_OVERRIDE_<key>` (not per package), so
+//! the script reruns when any of those changes for a profile that builds
+//! into the `release` or `measure` directory: a note is never stale for a
+//! build that may produce tables or probes.
 
 use std::path::Path;
 
-/// The profile settings that can be overridden by environment variable.
-const PROFILE_KEYS: [&str; 10] = [
+#[path = "src/build_notes.rs"]
+mod build_notes;
+
+/// Every profile setting Cargo reads from an environment variable.
+const PROFILE_KEYS: [&str; 13] = [
     "CODEGEN_UNITS",
-    "OPT_LEVEL",
-    "LTO",
     "DEBUG",
+    "SPLIT_DEBUGINFO",
     "DEBUG_ASSERTIONS",
-    "OVERFLOW_CHECKS",
     "INCREMENTAL",
+    "LTO",
+    "OVERFLOW_CHECKS",
+    "OPT_LEVEL",
     "PANIC",
+    "RPATH",
     "STRIP",
     "INHERITS",
+    "TRIM_PATHS",
 ];
+
+/// The profiles whose variables can reach a build in the `release` or
+/// `measure` directory: `release`, `bench` (which builds into
+/// `release`), and `measure`.
+const PROFILES: [&str; 3] = ["RELEASE", "BENCH", "MEASURE"];
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/build_notes.rs");
     println!("cargo:rerun-if-env-changed=CARGO_ENCODED_RUSTFLAGS");
-    for profile in ["RELEASE", "MEASURE"] {
+    for profile in PROFILES {
         for key in PROFILE_KEYS {
             println!("cargo:rerun-if-env-changed=CARGO_PROFILE_{profile}_{key}");
+            println!("cargo:rerun-if-env-changed=CARGO_PROFILE_{profile}_BUILD_OVERRIDE_{key}");
         }
     }
     let out = std::env::var("OUT_DIR").unwrap_or_default();
@@ -45,34 +61,8 @@ fn main() {
         .unwrap_or("unknown")
         .to_owned();
     println!("cargo:rustc-env=BENCH_BUILD_PROFILE={profile}");
-
-    // The variables that reach this profile: its own, and `release`'s,
-    // which `measure` inherits.
-    let prefixes: &[&str] = match profile.as_str() {
-        "release" => &["CARGO_PROFILE_RELEASE_"],
-        "measure" => &["CARGO_PROFILE_RELEASE_", "CARGO_PROFILE_MEASURE_"],
-        _ => &[],
-    };
-    let mut notes = Vec::new();
-    match std::env::var("OPT_LEVEL") {
-        Ok(level) if level == "3" => {}
-        Ok(level) => notes.push(format!("opt-level {level}")),
-        Err(_) => notes.push("opt-level unknown".to_owned()),
-    }
-    let mut overrides: Vec<String> = std::env::vars()
-        .filter(|(k, _)| prefixes.iter().any(|p| k.starts_with(p)))
-        .map(|(k, v)| format!("{k}={v}"))
-        .collect();
-    overrides.sort();
-    if !overrides.is_empty() {
-        notes.push(format!("overridden: {}", overrides.join(" ")));
-    }
+    let opt_level = std::env::var("OPT_LEVEL").ok();
     let flags = std::env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
-    let flags: Vec<&str> = flags.split('\u{1f}').filter(|f| !f.is_empty()).collect();
-    if !flags.is_empty() {
-        notes.push(format!("compiler flags: {}", flags.join(" ")));
-    }
-    // One line: `|` and newlines would break the table cell.
-    let notes = notes.join("; ").replace(['|', '\n', '\r'], " ");
+    let notes = build_notes::notes(opt_level.as_deref(), std::env::vars(), &flags);
     println!("cargo:rustc-env=BENCH_BUILD_NOTES={notes}");
 }

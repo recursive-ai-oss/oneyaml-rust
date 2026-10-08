@@ -176,11 +176,12 @@ target/release/bench readme                                      # README summar
 - **Tables come from the default release build**, the one users compile
   oneyaml and the comparators with, so every library's numbers are the
   ones its users get. `update` and `table` refuse any other build, and a
-  release build with an override they can see (an optimization level
-  other than 3, `CARGO_PROFILE_RELEASE_*` variables, `RUSTFLAGS`); they
-  can't see overrides passed with `--config` or set in a Cargo config
-  file, so don't measure with those. The `environment` table's `Build`
-  row records the build.
+  build with an override they can see: an optimization level other than
+  3, any `CARGO_PROFILE_*` variable in the build's environment (the
+  `bench` profile's included: `cargo build --profile bench` writes to
+  `target/release` too), or `RUSTFLAGS`. They can't see overrides passed
+  with `--config` or set in a Cargo config file, so don't measure with
+  those. The `environment` table's `Build` row records the build.
 - **Comparing oneyaml with itself** (probe counts before and after a
   change) can use the `measure` profile instead:
   `cargo build -p bench --profile measure`, then
