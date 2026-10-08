@@ -41,6 +41,7 @@ use std::collections::HashMap;
 use oneyaml_core::{Diagnostic, DuplicateKeys, Settings, Span};
 use oneyaml_syntax::tree::SyntaxTree;
 
+use super::Src;
 use crate::construct::build::{Cx, build_from};
 use crate::construct::expand::{recursive_alias, undefined_alias};
 use crate::construct::keys::{KeyMap, KeyRepr, Merge, duplicate_at, invalid_merge, key_text};
@@ -57,6 +58,9 @@ use crate::value::{Mapping, Sequence, Tag, TaggedValue, Value};
 thread_local! {
     /// Events read by [`plan`] on this thread (the linear-scaling test).
     pub(crate) static PLANNED_EVENTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// `<<` values planned by a walk on this thread (the others were
+    /// replayed source mappings, only buffered).
+    pub(crate) static PLANNED_MERGE_VALUES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     /// Where expansion counts saturate on this thread (a test
     /// sets `u32::MAX` to check a 64-bit build as a 32-bit target counts).
     pub(crate) static COUNT_CAP: std::cell::Cell<usize> = const { std::cell::Cell::new(usize::MAX) };
@@ -1421,6 +1425,393 @@ fn plan_step<'de>(
     Ok(false)
 }
 
+/// The merge sources of one mapping that streams (merge keys on, duplicate
+/// keys refused): its explicit entries go to the target as they are read,
+/// and only the value of each `<<` is buffered here. The merged entries
+/// whose keys are not explicit follow the explicit ones at the mapping's
+/// end ([`MergeSources::merged`]), as the `Value` builder orders them.
+///
+/// A `<<` value is planned (nested merges and every mapping inside it
+/// included), except the common `<<: *base`: the alias of a mapping this
+/// read delivered where it was anchored, and so checked then, is only
+/// buffered, its top-level keys resolved for their identity, and its
+/// entries reach the target as written (nested mappings then stream as
+/// any other). A per-node read replays anchors from outside the node,
+/// which it never delivered: their aliases are planned.
+pub(crate) struct MergeSources<'de> {
+    /// The streaming mapping's state as a planned mapping's root: its
+    /// merged entries, and whether a `<<` was seen (a repeated one is a
+    /// duplicate key).
+    root: Box<MapState<'de>>,
+    items: Vec<Item>,
+    events: Vec<Ev<'de>>,
+    #[allow(clippy::vec_box)]
+    pool: Vec<Box<MapState<'de>>>,
+    /// The entries of a replayed source mapping read without planning:
+    /// key identity, first event, and end (exclusive) in `events`.
+    replayed: Vec<(KeyRepr<'de>, usize, usize)>,
+}
+
+impl<'de> MergeSources<'de> {
+    pub(crate) fn new() -> Box<Self> {
+        Box::new(Self {
+            root: Box::default(),
+            items: Vec::new(),
+            events: Vec::new(),
+            pool: Vec::new(),
+            replayed: Vec::new(),
+        })
+    }
+
+    /// Reads the value of the `<<` key at `span` (just read) from `p` as a
+    /// merge source: checked as the `Value` builder checks it, in its
+    /// order (the value's own errors, then a repeated `<<`, then the
+    /// value's shape), with the builder's paths below `<<`.
+    pub(crate) fn read_value<P: Pull<'de>>(
+        &mut self,
+        p: &mut Src<'de, P>,
+        span: Span,
+        replayed: bool,
+        resolver: Resolver,
+        warnings: &mut crate::diag_cap::Capped,
+    ) -> Result<(), Error> {
+        #[cfg(test)]
+        let before = self.events.len();
+        let result = match self.read_replayed(p, span, replayed, resolver, warnings) {
+            Ok(true) => Ok(()),
+            Ok(false) => self.plan_value(p, span, replayed, resolver, warnings),
+            Err(e) => Err(e),
+        };
+        #[cfg(test)]
+        PLANNED_EVENTS.with(|c| {
+            c.set(
+                c.get()
+                    .saturating_add(self.events.len().saturating_sub(before)),
+            );
+        });
+        result
+    }
+
+    /// `<<: *base`: an alias of an untagged mapping that this read
+    /// delivered (and so checked) where it was anchored, every event of the
+    /// replay at a replayed position, each top-level key a scalar other
+    /// than `<<`. Its events are buffered and its top-level keys resolved;
+    /// nothing else needs checking. Anything else (an inline value, an
+    /// anchor from outside a per-node read, which this read never
+    /// checked): what was read goes back to `p`, and `false` (the value is
+    /// planned).
+    fn read_replayed<P: Pull<'de>>(
+        &mut self,
+        p: &mut Src<'de, P>,
+        span: Span,
+        replayed: bool,
+        resolver: Resolver,
+        warnings: &mut crate::diag_cap::Capped,
+    ) -> Result<bool, Error> {
+        // The path the `Value` builder reports below `<<`.
+        let first_ev = p.peek().map_err(|e| e.in_key("<<"))?;
+        if !matches!(first_ev.node, Node::MapStart { tag: EvTag::Absent })
+            || !p.peeked_delivered_replay()
+        {
+            return Ok(false);
+        }
+        let start = self.events.len();
+        let entries = self.replayed.len();
+        // Collections open inside the source mapping (0: at its top level,
+        // where the next event is a key, or a value when `key` is set).
+        let mut depth = 0usize;
+        let mut key: Option<(KeyRepr<'de>, usize)> = None;
+        let mut first = true;
+        loop {
+            let ev = match p.next() {
+                Ok(ev) => ev,
+                Err(e) => {
+                    return Err(self.path_at(start, span, replayed, resolver, e));
+                }
+            };
+            let at = self.events.len();
+            let step = match &ev.node {
+                // The source mapping's own start and end (its edges stand
+                // at the alias).
+                Node::MapStart { .. } if first => Scan::Go,
+                Node::MapEnd if depth == 0 && key.is_none() => {
+                    self.events.push(ev);
+                    break;
+                }
+                _ if !ev.replayed => Scan::Plan,
+                Node::Scalar { value, plain, tag } if depth == 0 && key.is_none() => {
+                    if is_merge_key(&resolver, tag, *plain, value) {
+                        Scan::Plan
+                    } else {
+                        let r = resolve(&resolver, tag, *plain, value, ev.span)
+                            .map_err(|e| e.in_key("<<"))?;
+                        key = Some((scalar_key(r, value, tag), at));
+                        Scan::Go
+                    }
+                }
+                // A complex key.
+                Node::SeqStart { .. } | Node::MapStart { .. } if depth == 0 && key.is_none() => {
+                    Scan::Plan
+                }
+                Node::SeqStart { .. } | Node::MapStart { .. } => {
+                    depth = depth.saturating_add(1);
+                    Scan::Go
+                }
+                Node::SeqEnd | Node::MapEnd => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        Scan::EntryEnds
+                    } else {
+                        Scan::Go
+                    }
+                }
+                Node::Scalar { .. } if depth == 0 => Scan::EntryEnds,
+                Node::Scalar { .. } => Scan::Go,
+                _ => Scan::Plan,
+            };
+            first = false;
+            self.events.push(ev);
+            match step {
+                Scan::Go => {}
+                Scan::EntryEnds => {
+                    if let Some((k, from)) = key.take() {
+                        self.replayed.push((k, from, at.saturating_add(1)));
+                    }
+                }
+                Scan::Plan => {
+                    let read: Vec<Ev<'de>> = self.events.drain(start..).collect();
+                    self.replayed.truncate(entries);
+                    p.push_front_all(read, false);
+                    return Ok(false);
+                }
+            }
+        }
+        // As the builder: a repeated `<<` (after the value, which has no
+        // error of its own); the shape is a mapping.
+        self.root
+            .merge
+            .key(span, replayed, DuplicateKeys::Error, warnings)?;
+        Ok(true)
+    }
+
+    /// `e`, met reading a `<<` value whose events from `start` were
+    /// buffered, with the path the `Value` builder reports there: the
+    /// buffered events replayed through a walk.
+    fn path_at(
+        &self,
+        start: usize,
+        span: Span,
+        replayed: bool,
+        resolver: Resolver,
+        e: Error,
+    ) -> Error {
+        let mut root: Box<MapState<'de>> = Box::default();
+        root.pending = Some(Pending::Merge(span, replayed));
+        // Its events were checked when they were first read: nothing is
+        // reported again.
+        let mut quiet = crate::diag_cap::Capped::with_keep(0);
+        let mut w = Walker {
+            record: true,
+            inline: false,
+            anchors: None,
+            serial: 0,
+            copies: AliasMeter::new(&oneyaml_core::Limits::default()),
+            replay: None,
+            tree: None,
+            history: HashMap::new(),
+            resolver,
+            policy: DuplicateKeys::Error,
+            warnings: &mut quiet,
+            stack: vec![Frame {
+                start: None,
+                span,
+                replayed,
+                custom: false,
+                merge_part: false,
+                in_key: false,
+                count: (0, 0),
+                extra: None,
+                body: Body::Map(root),
+            }],
+            items: Vec::new(),
+            pool: Vec::new(),
+        };
+        for (i, ev) in self.events.iter().enumerate().skip(start) {
+            let done = match ev.node {
+                Node::Scalar { .. } => w.scalar(i, ev),
+                Node::SeqStart { .. } | Node::MapStart { .. } => w.open(Some(i), ev).map(|()| None),
+                Node::SeqEnd | Node::MapEnd => w.close(Some(i)).map(Some),
+                _ => Ok(None),
+            };
+            let delivered = match done {
+                Ok(Some(d)) => w.deliver(d).map(|_| ()),
+                Ok(None) => Ok(()),
+                Err(x) => Err(x),
+            };
+            if delivered.is_err() {
+                // Checked content never fails the walk; should it, the
+                // error keeps the segment it surely has.
+                return e.in_key("<<");
+            }
+        }
+        w.with_path(e)
+    }
+
+    /// Plans the value of the `<<` key at `span` from `p` (see
+    /// [`MergeSources::read_value`]).
+    fn plan_value(
+        &mut self,
+        p: &mut impl Pull<'de>,
+        span: Span,
+        replayed: bool,
+        resolver: Resolver,
+        warnings: &mut crate::diag_cap::Capped,
+    ) -> Result<(), Error> {
+        #[cfg(test)]
+        PLANNED_MERGE_VALUES.with(|c| c.set(c.get().saturating_add(1)));
+        let mut root = std::mem::take(&mut self.root);
+        root.pending = Some(Pending::Merge(span, replayed));
+        let mut w = Walker {
+            record: true,
+            inline: false,
+            anchors: None,
+            serial: 0,
+            copies: AliasMeter::new(&oneyaml_core::Limits::default()),
+            replay: None,
+            tree: None,
+            history: HashMap::new(),
+            resolver,
+            // Only mappings that refuse duplicates stream.
+            policy: DuplicateKeys::Error,
+            warnings,
+            stack: vec![Frame {
+                start: None,
+                span,
+                replayed,
+                custom: false,
+                merge_part: false,
+                in_key: false,
+                count: (0, 0),
+                extra: None,
+                body: Body::Map(root),
+            }],
+            items: std::mem::take(&mut self.items),
+            pool: std::mem::take(&mut self.pool),
+        };
+        let result = loop {
+            match merge_step(&mut w, p, &mut self.events) {
+                Ok(true) => break Ok(()),
+                Ok(false) => {}
+                // The path the `Value` builder reports.
+                Err(e) => break Err(w.with_path(e)),
+            }
+        };
+        let root = match w.stack.drain(..).next() {
+            Some(Frame {
+                body: Body::Map(m), ..
+            }) => m,
+            _ => return Err(Error::internal("merge root", Some(span))),
+        };
+        self.root = root;
+        self.items = std::mem::take(&mut w.items);
+        self.pool = std::mem::take(&mut w.pool);
+        result
+    }
+
+    /// The merged entries whose keys `explicit` does not hold, earlier
+    /// sources first, and whether they are planned (no `<<`, no
+    /// duplicates, nested mappings rewritten); a replayed source's entries
+    /// are as written.
+    pub(crate) fn merged(
+        self,
+        explicit: impl Fn(&KeyRepr<'de>) -> bool,
+    ) -> Result<(Vec<Ev<'de>>, bool), Error> {
+        let Self {
+            mut root,
+            mut items,
+            events,
+            replayed,
+            ..
+        } = self;
+        if !replayed.is_empty() {
+            // One source (a second `<<` is refused): its entries in order,
+            // each a run of events.
+            let mut kept = replayed
+                .into_iter()
+                .filter(|(k, _, _)| !explicit(k))
+                .map(|(_, from, to)| (from, to))
+                .peekable();
+            let mut out = Vec::new();
+            for (i, ev) in events.into_iter().enumerate() {
+                while kept.peek().is_some_and(|&(_, to)| i >= to) {
+                    kept.next();
+                }
+                match kept.peek() {
+                    Some(&(from, _)) if from <= i => out.push(ev),
+                    Some(_) => {}
+                    None => break,
+                }
+            }
+            return Ok((out, false));
+        }
+        let mut kids = Vec::new();
+        if let Some(merged) = std::mem::take(&mut root.merge).into_merged() {
+            for (key, ent) in merged.into_entries() {
+                if !explicit(&key) {
+                    kids.push(ent.k);
+                    kids.push(ent.v);
+                }
+            }
+        }
+        if kids.is_empty() {
+            return Ok((Vec::new(), true));
+        }
+        items.push(Item::Coll {
+            start: None,
+            end: None,
+            kids,
+        });
+        let at = items.len().saturating_sub(1);
+        flatten(items, at, events).map(|evs| (evs, true))
+    }
+}
+
+/// What [`MergeSources::read_replayed`] does with an event.
+enum Scan {
+    Go,
+    /// The value of a top-level entry completed with this event.
+    EntryEnds,
+    /// Not a replayed source mapping: the value is planned instead.
+    Plan,
+}
+
+/// Reads and plans one event of a `<<` value; `true` once the value is
+/// complete (delivered to the streaming mapping's root).
+fn merge_step<'de>(
+    w: &mut Walker<'de, '_>,
+    p: &mut impl Pull<'de>,
+    entries: &mut Vec<Ev<'de>>,
+) -> Result<bool, Error> {
+    let ev = p.next()?;
+    let i = entries.len();
+    let done = match ev.node {
+        Node::Scalar { .. } => w.scalar(i, &ev)?,
+        Node::SeqStart { .. } | Node::MapStart { .. } => {
+            w.open(Some(i), &ev)?;
+            None
+        }
+        Node::SeqEnd | Node::MapEnd => Some(w.close(Some(i))?),
+        _ => return Err(Error::internal("node expected", Some(ev.span))),
+    };
+    entries.push(ev);
+    if let Some(d) = done {
+        if w.deliver(d)?.is_some() {
+            return Err(Error::internal("unbalanced merge value", None));
+        }
+    }
+    Ok(w.stack.len() == 1)
+}
+
 /// What [`check_unexpanded`] found.
 pub(crate) struct Unexpanded {
     /// Warnings of the meaning checks (tolerated duplicates), the first
@@ -2063,22 +2454,86 @@ mod tests {
         super::COUNT_CAP.with(|c| c.set(usize::MAX));
     }
 
+    /// `depth` mappings nested under key `n`, each with `width - 1` other
+    /// entries and a `<<: {m: d}` entry; the innermost is `{}`.
+    fn nested_merging(width: usize, depth: usize) -> String {
+        let mut s = "{}".to_owned();
+        for d in 0..depth {
+            let entries: Vec<String> = (0..width.saturating_sub(1))
+                .map(|i| format!("k{i}: {i}"))
+                .collect();
+            s = format!("{{{}, <<: {{m: {d}}}, n: {s}}}", entries.join(", "));
+        }
+        s
+    }
+
+    #[test]
+    fn replayed_source_mappings_are_buffered_not_planned() {
+        use super::PLANNED_MERGE_VALUES;
+        use std::collections::{BTreeMap, HashMap};
+        let s = Settings::new().merge_keys(true);
+        for (src, walks) in [
+            // `<<: *base`: buffered as replayed.
+            ("b: &b {x: 1, y: {z: 2}}\nm: {y: 0, <<: *b}\n", 0),
+            ("b: &b {}\nm: {<<: *b}\n", 0),
+            // A source whose entries hold merges of their own.
+            ("b: &b {x: 1}\nc: &c {k: {<<: *b}}\nm: {<<: *c}\n", 0),
+            // Planned: inline, a sequence, a tagged anchor, a `<<` or a
+            // complex key at the source's top level.
+            ("b: {}\nm: {<<: {x: 1}}\n", 1),
+            ("b: {}\nm: {<<: {}}\n", 1),
+            ("b: &b {x: 1}\nm: {<<: [*b]}\n", 1),
+            ("b: &b !!map {x: 1}\nm: {<<: *b}\n", 1),
+            ("c: &c {w: 3}\nb: &b {x: 1, <<: *c}\nm: {<<: *b}\n", 1),
+            ("b: &b {[1]: 1}\nm: {<<: *b}\n", 1),
+        ] {
+            PLANNED_MERGE_VALUES.with(|c| c.set(0));
+            type M = HashMap<crate::Value, crate::Value>;
+            let t: BTreeMap<String, M> = crate::from_str_with(src, &s).unwrap();
+            assert_eq!(
+                PLANNED_MERGE_VALUES.with(std::cell::Cell::get),
+                walks,
+                "{src:?}"
+            );
+            let v: crate::Value = crate::from_str_with(src, &s).unwrap();
+            let want: M = v["m"].as_mapping().unwrap().clone().into_iter().collect();
+            assert_eq!(t["m"], want, "{src:?}");
+        }
+        // A node read replays the anchor from outside the node, which it
+        // never read: planned (and so checked).
+        let doc = crate::Document::parse_with("b: &b {x: 1}\nm: {y: 2, <<: *b}\n", &s).unwrap();
+        PLANNED_MERGE_VALUES.with(|c| c.set(0));
+        let t: HashMap<crate::Value, crate::Value> = doc.get("m").unwrap().deserialize().unwrap();
+        assert_eq!(PLANNED_MERGE_VALUES.with(std::cell::Cell::get), 1);
+        assert_eq!(t.len(), 2);
+    }
+
     #[test]
     fn planning_is_linear_in_nesting() {
-        // With merge keys or LastWins, each mapping is planned once,
-        // however deep, so a typed target that visits every level reads
-        // each event through the planner exactly once (it was
-        // O(n × depth)).
+        // Under LastWins each mapping is planned once, however deep, so a
+        // typed target that visits every level reads each event through
+        // the planner exactly once (it was O(n × depth)). With merge keys
+        // alone mappings stream: only `<<` values are buffered, each
+        // event at most once, so nothing is buffered without a `<<`.
         std::thread::Builder::new()
             .stack_size(64 * 1024 * 1024)
             .spawn(|| {
                 let width = 20usize;
-                for settings in [Compat::serde_yaml(), Settings::new().merge_keys(true)] {
-                    for depth in [1usize, 10, 60, 120] {
-                        let events =
-                            depth.saturating_mul(width.saturating_mul(2).saturating_add(1));
-                        assert_eq!(planned(&nested(width, depth), &settings), events);
-                    }
+                let lastwins = Compat::serde_yaml();
+                let merge = Settings::new().merge_keys(true);
+                for depth in [1usize, 10, 60, 120] {
+                    let events = depth.saturating_mul(width.saturating_mul(2).saturating_add(1));
+                    assert_eq!(planned(&nested(width, depth), &lastwins), events);
+                    assert_eq!(planned(&nested(width, depth), &merge), 0);
+                    // `{m: d}`: four events per level.
+                    let src = nested_merging(width, depth);
+                    assert_eq!(planned(&src, &merge), 4 * depth, "depth {depth}");
+                    // A chain: the outer `<<` value holds every other
+                    // level, each of its events buffered once.
+                    let keys = 50usize;
+                    let chain = merge_chain(keys, depth, false);
+                    let events = 2 + 2 * keys + 3 * (depth - 1);
+                    assert_eq!(planned(&chain, &merge), events, "chain {depth}");
                 }
                 // Without merge keys or LastWins, nothing is planned.
                 assert_eq!(planned(&nested(width, 60), &Settings::new()), 0);

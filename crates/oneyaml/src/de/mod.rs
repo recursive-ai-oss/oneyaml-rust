@@ -17,9 +17,10 @@
 //! alias expansions that would nest deeper (`Y2000`). Everything that is
 //! *not* dictated by the target type is iterative: checking and skipping
 //! ignored content, building `Value`s (`from_str::<Value>` and `Value`
-//! fields never recurse), planning mappings for merge keys and tolerated
-//! duplicates (one explicit-stack pass per outermost buffered mapping,
-//! nested merge sources included, see `plan`), alias replay, and dropping.
+//! fields never recurse), planning mappings for tolerated duplicates and
+//! the values of merge keys (one explicit-stack pass per outermost buffered
+//! mapping or `<<` value, nested merge sources included, see `plan`),
+//! alias replay, and dropping.
 //!
 //! # Agreement with `Value`
 //!
@@ -197,6 +198,11 @@ impl<'de, P: Pull<'de>> Pull<'de> for Src<'de, P> {
     fn last_end(&self) -> usize {
         self.last_end
     }
+
+    fn peeked_delivered_replay(&self) -> bool {
+        // An event pushed back is not the source's.
+        self.queue.is_empty() && self.p.peeked_delivered_replay()
+    }
 }
 
 impl<'de, P> Src<'de, P> {
@@ -338,8 +344,10 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
         self.src.poison(span);
     }
 
-    /// Mappings must be buffered and planned (keys.rs rules) when merge
-    /// keys are on or duplicates are tolerated; otherwise they stream.
+    /// Mappings must be buffered and planned (keys.rs rules) when
+    /// duplicates are tolerated, and an enum's variant mapping also when
+    /// merge keys are on; otherwise they stream (with merge keys on, only
+    /// the value of each `<<` is buffered).
     fn needs_plan(&self) -> bool {
         self.resolver.merge_keys() || self.policy == DuplicateKeys::LastWins
     }

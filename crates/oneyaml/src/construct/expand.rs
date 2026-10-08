@@ -139,6 +139,11 @@ struct Cursor {
     /// The alias itself was replayed (an alias inside an anchored node):
     /// the edges then stand at a replayed position too ([`Ev::replayed`]).
     alias_replayed: bool,
+    /// This read delivered the anchored node where it was defined (so its
+    /// readers checked it): not anchored content from outside a per-node
+    /// read ([`Source::take_preload`]), unless reached through a node this
+    /// read delivered.
+    delivered: bool,
 }
 
 /// An alias to no anchor defined before it (Y1015). Shared with
@@ -209,6 +214,9 @@ pub(crate) struct Expander<'a, S> {
     shared: SharedRead,
     /// Where the current document starts in the source.
     base: usize,
+    /// The tape before this index holds anchored content from outside the
+    /// read ([`Source::take_preload`]), never delivered by it.
+    preloaded: usize,
 }
 
 impl<'a, S: Source<'a>> Expander<'a, S> {
@@ -230,6 +238,7 @@ impl<'a, S: Source<'a>> Expander<'a, S> {
             nodes_before: None,
             shared: ReadShared::new(limits),
             base: 0,
+            preloaded: 0,
         }
     }
 
@@ -246,6 +255,16 @@ impl<'a, S: Source<'a>> Expander<'a, S> {
     /// The end offset of the last event returned by [`Expander::next`].
     pub(crate) fn last_end(&self) -> usize {
         self.last_end
+    }
+
+    /// Whether the last event produced (the one peeked, or else the last
+    /// returned) is the first event of an alias's replay whose anchored
+    /// node this read delivered where it was defined, so every event of
+    /// the replay was checked by this read's readers then.
+    pub(crate) fn starts_delivered_replay(&self) -> bool {
+        self.replay
+            .last()
+            .is_some_and(|c| c.delivered && c.pos == c.start.saturating_add(1))
     }
 
     /// The next event, without consuming it.
@@ -338,6 +357,7 @@ impl<'a, S: Source<'a>> Expander<'a, S> {
             for pre in self.src.take_preload()? {
                 self.preload(pre)?;
             }
+            self.preloaded = self.tape.len();
         }
         self.shared
             .meter
@@ -462,12 +482,15 @@ impl<'a, S: Source<'a>> Expander<'a, S> {
                 // Refused here when the whole replay would be.
                 self.check_nodes(self.expanded.saturating_add(size.nodes), alias)?;
                 self.shared.meter.check(size.bytes, Some(alias))?;
+                let delivered = start >= self.preloaded
+                    || (alias_replayed && self.replay.last().is_some_and(|c| c.delivered));
                 self.replay.push(Cursor {
                     start,
                     pos: start,
                     end,
                     alias,
                     alias_replayed,
+                    delivered,
                 });
                 Ok(())
             }

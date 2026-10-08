@@ -7,14 +7,16 @@ use serde::de::{self, DeserializeSeed, Unexpected, Visitor};
 use super::access::{EnumState, MapAccess, MapEnum, SeqAccess, TaggedCollection, scalar_key};
 use std::rc::Rc;
 
+use super::plan::MergeSources;
 use super::scalar::{IntTy, Kind, Sc, Variants, variant_name};
 use super::{Core, Hint, is_target_error};
 use crate::construct::build::{Cx, build_from};
 use crate::construct::keys::{KeyRepr, KeySet, duplicate_at, key_text};
-use crate::construct::scalar::resolve_collection;
+use crate::construct::scalar::{is_merge_key, resolve_collection};
 use crate::construct::{Ev, Node, Pull, Tag};
 use crate::error::Error;
 use crate::resolve::{CollectionKind, ResolvedCollection};
+use oneyaml_core::DuplicateKeys;
 
 impl<'de, P: Pull<'de>> Core<'de, P> {
     /// A custom-tagged scalar gets the read's memo (a typed enum
@@ -358,6 +360,12 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
     /// per the shared rules (keys.rs), in one pass. The output has no `<<`
     /// and no duplicates and is marked planned, so nested mappings are not
     /// buffered again (O(n), not O(n × depth)).
+    ///
+    /// Mappings read through a typed visitor need it only under tolerated
+    /// duplicates (a later value replaces an earlier one in place); with
+    /// merge keys alone they stream (see `MergeSources`). An enum's
+    /// variant mapping is always planned: its single key is judged after
+    /// merges apply.
     fn plan_mapping(&mut self) -> Result<(), Error> {
         if self.needs_plan() && !self.src.last_planned {
             let planned = super::plan::plan(
@@ -372,8 +380,14 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
     }
 
     fn visit_mapping<V: Visitor<'de>>(&mut self, v: V) -> Result<V::Value, Error> {
-        self.plan_mapping()?;
-        let mut access = MapAccess::new(self);
+        let merging = if self.policy == DuplicateKeys::LastWins {
+            self.plan_mapping()?;
+            false
+        } else {
+            // Planned output has no `<<` left.
+            self.resolver.merge_keys() && !self.src.last_planned
+        };
+        let mut access = MapAccess::new(self, merging);
         match v.visit_map(&mut access) {
             // The visitor stopped before the end: the rest is ignored,
             // checked as the builder checks it (duplicates of the keys read
@@ -396,8 +410,17 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
     /// policy. The builder's order: a value's errors before its key's
     /// duplicate error.
     ///
-    /// Returns how many entries it read.
-    pub(crate) fn finish_mapping(&mut self, keys: &mut KeySet<'de>) -> Result<usize, Error> {
+    /// `merging`: merge keys apply as the mapping streams; a `<<` entry's
+    /// value is read into `sources` (and checked) as when the target reads
+    /// it.
+    ///
+    /// Returns how many entries it read (`<<` entries not counted).
+    pub(crate) fn finish_mapping(
+        &mut self,
+        keys: &mut KeySet<'de>,
+        merging: bool,
+        sources: &mut Option<Box<MergeSources<'de>>>,
+    ) -> Result<usize, Error> {
         self.check_unpoisoned()?;
         let mut entries = 0usize;
         loop {
@@ -405,6 +428,20 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
             let (span, replayed) = (ev.span, ev.replayed);
             let (repr, text) = match ev.node {
                 Node::MapEnd => return Ok(entries),
+                Node::Scalar {
+                    ref value,
+                    plain,
+                    ref tag,
+                } if merging && is_merge_key(&self.resolver, tag, plain, value) => {
+                    sources.get_or_insert_with(MergeSources::new).read_value(
+                        &mut self.src,
+                        span,
+                        replayed,
+                        self.resolver,
+                        &mut self.warnings,
+                    )?;
+                    continue;
+                }
                 Node::Scalar { value, plain, tag } => {
                     let sc = Sc::classify(&self.resolver, tag, plain, value, span)?;
                     let text = sc.value.clone().into_owned();
@@ -470,7 +507,7 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
                     self.src.next()?;
                     return Ok(value);
                 }
-                let entries = self.finish_mapping(&mut keys)?;
+                let entries = self.finish_mapping(&mut keys, false, &mut None)?;
                 // A variant key left unread (a collection, refused and
                 // ignored) is one of these entries: a single one is the
                 // whole mapping, as `from_value` counts it.
@@ -489,8 +526,8 @@ impl<'de, P: Pull<'de>> Core<'de, P> {
                     Some(name) => self
                         .skip_node()
                         .map_err(|e| e.in_key(&name))
-                        .and_then(|()| self.finish_mapping(&mut keys)),
-                    None => self.finish_mapping(&mut keys),
+                        .and_then(|()| self.finish_mapping(&mut keys, false, &mut None)),
+                    None => self.finish_mapping(&mut keys, false, &mut None),
                 };
                 match rest {
                     Ok(_) => Err(e),

@@ -8,11 +8,13 @@ use std::borrow::Cow;
 use serde::de::value::StrDeserializer;
 use serde::de::{self, DeserializeSeed, IntoDeserializer, Visitor};
 
+use super::plan::MergeSources;
 use super::scalar::{Sc, ScalarDe};
 use super::{Core, Hint};
 use crate::construct::build::{Cx, build_from};
 use crate::construct::keys::{KeyRepr, KeySet, duplicate_at, key_text, on_duplicate};
-use crate::construct::{Node, Pull, Recording};
+use crate::construct::scalar::is_merge_key;
+use crate::construct::{Ev, Node, Pull, Recording};
 use crate::error::Error;
 
 pub(crate) struct SeqAccess<'c, 'de, P> {
@@ -79,10 +81,17 @@ pub(crate) struct MapAccess<'c, 'de, P> {
     /// rest of a failed read starts with).
     value_due: bool,
     done: bool,
+    /// Merge keys apply to this mapping as it streams: a `<<` entry is
+    /// read into `sources`, not handed to the target.
+    merging: bool,
+    /// The merge sources read so far (created on the first `<<`).
+    sources: Option<Box<MergeSources<'de>>>,
 }
 
 impl<'c, 'de, P: Pull<'de>> MapAccess<'c, 'de, P> {
-    pub(crate) fn new(core: &'c mut Core<'de, P>) -> Self {
+    /// `merging`: the mapping streams with merge keys applied (see
+    /// [`MergeSources`]).
+    pub(crate) fn new(core: &'c mut Core<'de, P>, merging: bool) -> Self {
         Self {
             core,
             keys: KeySet::default(),
@@ -90,6 +99,8 @@ impl<'c, 'de, P: Pull<'de>> MapAccess<'c, 'de, P> {
             pending: None,
             value_due: false,
             done: false,
+            merging,
+            sources: None,
         }
     }
 
@@ -114,7 +125,9 @@ impl<'c, 'de, P: Pull<'de>> MapAccess<'c, 'de, P> {
         }
         self.duplicate()?;
         self.done = true;
-        self.core.finish_mapping(&mut self.keys).map(|_| ())
+        self.core
+            .finish_mapping(&mut self.keys, self.merging, &mut self.sources)
+            .map(|_| ())
     }
 
     /// The current key's text, for paths and messages.
@@ -229,11 +242,58 @@ impl<'de, P: Pull<'de>> MapAccess<'_, 'de, P> {
         self.duplicate()
     }
 
+    /// The next key or end event of a mapping that streams with merge
+    /// keys: a `<<` entry's value is read into the merge sources (its
+    /// entries come at the end), and at the end the merged entries whose
+    /// keys are not explicit are read first, then the end again.
+    fn next_entry_event(&mut self) -> Result<Ev<'de>, Error> {
+        loop {
+            let ev = self.core.src.next()?;
+            match &ev.node {
+                Node::Scalar { value, plain, tag }
+                    if is_merge_key(&self.core.resolver, tag, *plain, value) =>
+                {
+                    // A `<<` entry: its value is read as a
+                    // merge source; its entries come at the end.
+                    let core = &mut *self.core;
+                    self.sources
+                        .get_or_insert_with(MergeSources::new)
+                        .read_value(
+                            &mut core.src,
+                            ev.span,
+                            ev.replayed,
+                            core.resolver,
+                            &mut core.warnings,
+                        )?;
+                }
+                Node::MapEnd => match self.sources.take() {
+                    // The merged entries whose keys are not explicit,
+                    // then the end again.
+                    Some(sources) => {
+                        let keys = &self.keys;
+                        let (merged, planned) = (*sources).merged(|k| keys.first(k).is_some())?;
+                        if merged.is_empty() {
+                            return Ok(ev);
+                        }
+                        self.core.src.push_front(ev);
+                        self.core.src.push_front_all(merged, planned);
+                    }
+                    None => return Ok(ev),
+                },
+                _ => return Ok(ev),
+            }
+        }
+    }
+
     fn next_key_unchecked<K: DeserializeSeed<'de>>(
         &mut self,
         seed: K,
     ) -> Result<Option<K::Value>, Error> {
-        let ev = self.core.src.next()?;
+        let ev = if self.merging {
+            self.next_entry_event()?
+        } else {
+            self.core.src.next()?
+        };
         let (span, replayed) = (ev.span, ev.replayed);
         if !matches!(ev.node, Node::MapEnd) {
             self.value_due = true;

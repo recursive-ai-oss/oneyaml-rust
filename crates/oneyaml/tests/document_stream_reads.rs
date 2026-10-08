@@ -108,8 +108,22 @@ fn strict_and_typed_errors_carry_the_path() {
     ] {
         let serde = oneyaml::from_str_with::<Value>(src, &s).unwrap_err();
         let strict = Document::parse_with(src, &s).unwrap_err();
-        let typed = oneyaml::from_str_with::<BTreeMap<String, BTreeMap<String, Value>>>(src, &s)
+        // A typed read reports the first error it meets: with `a: 1`
+        // first, a map target's type error at `a`, as with merge keys off.
+        let nested = oneyaml::from_str_with::<BTreeMap<String, BTreeMap<String, Value>>>(src, &s)
             .unwrap_err();
+        if src.starts_with("a: 1") {
+            assert_eq!(
+                nested.code(),
+                oneyaml::code::TYPE_MISMATCH,
+                "{src:?}: {nested}"
+            );
+            assert_eq!(nested.path().unwrap().to_string(), "a");
+        } else {
+            assert_eq!(nested.to_string(), serde.to_string());
+        }
+        let typed =
+            oneyaml::from_str_with::<BTreeMap<String, serde_json::Value>>(src, &s).unwrap_err();
         for e in [&serde, &strict, &typed] {
             assert_eq!(e.path().unwrap().to_string(), path, "{src:?}: {e}");
             assert!(e.to_string().contains(&format!(" at {path} (")), "{e}");

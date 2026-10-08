@@ -60,6 +60,25 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
   disagrees (serde reads), and a new *Diagnostics* section shows a
   rendered error with its suggested fix. The repository's front page now
   has the quick start.
+- Typed reads with `Settings::merge_keys` on (and duplicate keys refused,
+  the default) no longer buffer each mapping before handing it to the
+  target: entries stream as they are read, and only the value of each
+  `<<` is held until the mapping ends. Typed reads of files with merge
+  keys are faster and use less memory. The same inputs are accepted and
+  rejected, with the same values. What changes is which error a typed
+  read reports when an input has more than one problem: it is now
+  the first one met while reading, as with merge keys off. For example,
+  `a: x` followed later by a duplicate key, read into a struct with
+  `a: u32`, now reports the type error at `a` rather than the duplicate
+  key. Error paths use the key as written (`~`, `0x10`), as with merge
+  keys off. An error in content the target skips (an unknown field, the
+  rest of a mapping after the target stops) carries the path of the
+  entry being skipped rather than the full path into it, as with merge
+  keys off. A target that ignores an error in the input now gets
+  `Y3018` on its next read, as with merge keys off. An error inside a
+  `<<` value is reported when that value is read, at a path through
+  `<<` (for example `services.web.<<.ports[0]`). `Value` reads,
+  `Document`, and reads with `DuplicateKeys::LastWins` are unchanged.
 
 ## 1.0.1 — 2026-10-06
 

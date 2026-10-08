@@ -463,6 +463,12 @@ pub(crate) trait Pull<'a> {
     fn peek(&mut self) -> Result<&Ev<'a>, Error>;
     /// The end offset of the last event returned by [`Pull::next`].
     fn last_end(&self) -> usize;
+    /// Whether the event just peeked starts an alias's replay of a node
+    /// this read delivered (and so checked) where it was defined; `false`
+    /// when that is not known.
+    fn peeked_delivered_replay(&self) -> bool {
+        false
+    }
 }
 
 impl<'a, S: Source<'a>> Pull<'a> for expand::Expander<'a, S> {
@@ -474,6 +480,9 @@ impl<'a, S: Source<'a>> Pull<'a> for expand::Expander<'a, S> {
     }
     fn last_end(&self) -> usize {
         expand::Expander::last_end(self)
+    }
+    fn peeked_delivered_replay(&self) -> bool {
+        self.starts_delivered_replay()
     }
 }
 
