@@ -589,7 +589,7 @@ fn check_generated(root: &Path, from: &str, to: &str, changes: &[Change]) -> Res
             return Err(format!(
                 "the `bench:{section}` region of {path} is not what `bench readme` generates \
                  from {}; regenerate it at the ref the published links name now with \
-                 `cargo run -p bench --release -- readme --ref {from}`, then pin",
+                 `cargo run -p bench --profile measure -- readme --ref {from}`, then pin",
                 readme::PERFORMANCE
             ));
         }

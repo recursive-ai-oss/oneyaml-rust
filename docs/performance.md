@@ -160,19 +160,26 @@ You need valgrind 3.27 or later on `PATH` (or pass `--valgrind PATH`)
 and, for the wall-clock tables, a machine as quiet as you can get.
 
 ```sh
-cargo build -p bench --release
-target/release/bench update docs/performance.md --timeout 300    # every table (~24 min with --jobs 4)
-target/release/bench update docs/performance.md --section wall   # one section
-target/release/bench table scaling                               # print a table, don't write
-target/release/bench probe yaml-edit deep-flow 10                # one parser, one input
-target/release/bench serde-check serde_yaml2 value gha-workflow  # one read-guard verdict
-target/release/bench ser-check serde-saphyr typed k8s-multi      # one write-guard verdict (+ output bytes)
-target/release/bench probe serde:oneyaml:typed openapi-10m 1     # one serde read probe
-target/release/bench probe ser:oneyaml:typed openapi-10m 1       # one serde write probe
-target/release/bench probe doc:yaml-edit:script openapi-100k 1   # one Document probe
-target/release/bench readme                                      # README summary + chart only, from the tables below
+cargo build -p bench --profile measure
+target/measure/bench update docs/performance.md --timeout 300    # every table (~24 min with --jobs 4)
+target/measure/bench update docs/performance.md --section wall   # one section
+target/measure/bench table scaling                               # print a table, don't write
+target/measure/bench probe yaml-edit deep-flow 10                # one parser, one input
+target/measure/bench serde-check serde_yaml2 value gha-workflow  # one read-guard verdict
+target/measure/bench ser-check serde-saphyr typed k8s-multi      # one write-guard verdict (+ output bytes)
+target/measure/bench probe serde:oneyaml:typed openapi-10m 1     # one serde read probe
+target/measure/bench probe ser:oneyaml:typed openapi-10m 1       # one serde write probe
+target/measure/bench probe doc:yaml-edit:script openapi-100k 1   # one Document probe
+target/measure/bench readme                                      # README summary + chart only, from the tables below
 ```
 
+- **Measure with the `measure` build only.** The `measure` profile
+  (workspace `Cargo.toml`) is the release profile in a single codegen
+  unit, so what the compiler inlines, and with it the instruction counts,
+  doesn't shift when unrelated code changes; in a default release build
+  some rows move by up to about 1% for that reason alone. `probe`, `time`,
+  `table` and `update` refuse to run from any other build, and the
+  `environment` table records the build.
 - Every table sits between `<!-- bench:NAME:begin/end -->` markers.
   `update` rewrites only what's between them, one section at a time
   (every section, in document order, without `--section`), and writes
@@ -192,14 +199,14 @@ target/release/bench readme                                      # README summar
   cell of those tables or the ratio of two, so the README can't disagree
   with this file.
 - The `environment` table records the run's revision, date, CPU, OS,
-  rustc, valgrind and the comparator versions (from `Cargo.lock`).
+  rustc, build, valgrind and the comparator versions (from `Cargo.lock`).
   `update` re-records it whenever it re-measures a table the summary
   reads. `--revision TEXT`, `--revision-note TEXT` and
   `--date YYYY-MM-DD` override what it records.
 - **Releases pin the links.** The READMEs' chart URLs and links to this
   file name a git ref, `main` by default. A published crate's README is
   frozen at release, so a release runs
-  `cargo run -p bench --release -- pin-links <tag>` on the release
+  `cargo run -p bench --profile measure -- pin-links <tag>` on the release
   commit to point every repository link of the published docs at the
   tag (`--dry-run` shows what would change), and `pin-links main`
   afterwards to point them back.

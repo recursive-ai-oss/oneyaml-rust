@@ -18,13 +18,78 @@
 //! same probes; the `document` and `edits` sections ([`document`]) measure
 //! `Document` parse, emit and edits against yaml-edit.
 //!
-//! `target/release/bench update docs/performance.md` regenerates every table,
+//! `target/measure/bench update docs/performance.md` regenerates every table,
 //! then the README summary and its chart ([`readme`]); `bench readme`
 //! regenerates only the latter, from the tables already in the file.
 //! `bench pin-links <ref>` ([`pin`]) repoints every repository link of the
 //! published docs (generated regions included) to a release tag, and back
 //! to `main`.
+//!
+//! Numbers come only from the `measure` build (`cargo build -p bench
+//! --profile measure`, [`build::check`]): release settings in a single
+//! codegen unit, so what the compiler inlines, and with it the counts,
+//! does not shift when unrelated code changes.
 #![forbid(unsafe_code)]
+
+pub mod build {
+    //! Which build this `bench` binary is, and the one that may measure.
+
+    /// The Cargo profile that built this binary (`release`, `debug`,
+    /// `measure`, …), recorded by the build script.
+    pub const PROFILE: &str = env!("BENCH_BUILD_PROFILE");
+
+    /// The profile every published number comes from: release settings
+    /// in one codegen unit (the workspace `Cargo.toml`).
+    pub const MEASURE: &str = "measure";
+
+    /// How the `environment` section describes this build: the measuring
+    /// one in full, any other by its profile.
+    pub fn description() -> String {
+        if PROFILE == MEASURE {
+            format!("`{MEASURE}` profile (release settings, one codegen unit)")
+        } else {
+            format!("`{PROFILE}` profile")
+        }
+    }
+
+    /// The command that makes the measuring build.
+    pub const COMMAND: &str = "cargo build -p bench --profile measure";
+
+    /// `Ok` when this binary may measure: built with [`MEASURE`].
+    ///
+    /// # Errors
+    /// Any other build, with the command that makes the right one: its
+    /// counts move with how the compiler splits and inlines code.
+    pub fn check() -> Result<(), String> {
+        check_profile(PROFILE)
+    }
+
+    pub(crate) fn check_profile(profile: &str) -> Result<(), String> {
+        if profile == MEASURE {
+            return Ok(());
+        }
+        Err(format!(
+            "this bench binary was built with the `{profile}` profile; numbers come only \
+             from the `{MEASURE}` profile, whose single codegen unit keeps them from \
+             moving with unrelated code: run `{COMMAND}`, then `target/{MEASURE}/bench`"
+        ))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        #![allow(clippy::unwrap_used)]
+
+        #[test]
+        fn only_the_measure_build_may_measure() {
+            assert!(super::check_profile("measure").is_ok());
+            for other in ["release", "debug", "unknown"] {
+                let e = super::check_profile(other).unwrap_err();
+                assert!(e.contains("cargo build -p bench --profile measure"), "{e}");
+                assert!(e.contains(other), "{e}");
+            }
+        }
+    }
+}
 
 pub mod chart;
 pub mod corpus;

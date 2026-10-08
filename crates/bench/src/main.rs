@@ -38,6 +38,10 @@
 //! runs under valgrind: generate one input, drain it once, print a summary.
 //! `time` prints `<median-ns> <samples>` for the wall-clock tables. Both exit
 //! with `EXIT_REJECTED` if the parser reports an error.
+//!
+//! `probe`, `time`, `table` and `update` refuse to run from any build but
+//! the `measure` profile (`bench::build`), so no number, and no table, comes
+//! from a build whose inlining differs.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -254,6 +258,10 @@ fn run(args: &[String]) -> Result<(), Stop> {
     let Some((command, rest)) = args.split_first() else {
         return Err(Stop::Usage(usage()));
     };
+    // Every number comes from the one build that keeps it stable.
+    if matches!(command.as_str(), "probe" | "time" | "table" | "update") {
+        bench::build::check()?;
+    }
     match command.as_str() {
         "probe" => probe(rest),
         "time" => time(rest),

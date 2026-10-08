@@ -197,6 +197,7 @@ pub fn environment_section(p: &Provenance) -> Result<String, String> {
             format!("{} ({})", detect_os(), std::env::consts::ARCH),
         ),
         ("rustc", command_line("rustc", &["-V"])),
+        ("Build", crate::build::description()),
         ("valgrind", command_line("valgrind", &["--version"])),
         ("Comparators", versions.join(", ")),
     ]);
@@ -1640,6 +1641,11 @@ mod tests {
         let env = environment(&doc).unwrap();
         assert_eq!(env_value(&env, "Revision").unwrap(), "`abc1234`");
         assert_eq!(env_value(&env, "Date").unwrap(), "2026-10-03");
+        // The build the numbers come from.
+        assert_eq!(
+            env_value(&env, "Build").unwrap(),
+            crate::build::description()
+        );
         // Every comparator, as `name version` with a dotted numeric
         // version (whatever `Cargo.lock` holds today).
         let recorded = env_value(&env, "Comparators").unwrap();
