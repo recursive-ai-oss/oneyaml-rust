@@ -48,7 +48,9 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
   up to 4×, and a longer bar is drawn broken past the axis end with its
   value printed, so one large ratio no longer squashes the others;
   slower bars are hatched as well as coloured; the parity line no longer
-  crosses the group headings. Same measurements as 1.0.1.
+  crosses the group headings. The tables and the chart are re-measured
+  on the current code, so they include the faster typed reads with
+  merge keys described below.
 - The benchmark summary gives its numbers as text everywhere: the
   repository README now carries the same tables as the crate README,
   each table has a wall-clock “× faster” column from the measured

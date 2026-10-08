@@ -56,11 +56,12 @@ it):
 <!-- bench:environment:begin -->
 | Measured | |
 |---|---|
-| Revision | oneyaml 1.0.1 release tree |
-| Date | 2026-10-06 |
+| Revision | unreleased tree after oneyaml 1.0.1 |
+| Date | 2026-10-08 |
 | CPU | AMD Ryzen 9 7950X3D 16-Core Processor |
 | OS | Ubuntu 26.04 LTS (x86_64) |
 | rustc | rustc 1.97.1 (8bab26f4f 2026-07-14) |
+| Build | `release` profile |
 | valgrind | valgrind-3.27.1 |
 | Comparators | serde_yaml_ng 0.10.0, serde_norway 0.9.42, serde-saphyr 1.3.0, serde_yaml2 0.1.3, serde_json 1.0.151, yaml-edit 0.3.2, saphyr-parser 0.1.0, yaml-rust2 0.13.0, unsafe-libyaml 0.2.11 |
 <!-- bench:environment:end -->
@@ -79,8 +80,9 @@ it):
   feature-complete writer on every input, typed and untyped
   ([Serde write](#serde-write)).
 - **Serde reads** use fewer instructions than the fastest
-  feature-complete reader on most `value` and `typed` rows, and at most
-  1.25× its instructions on every row but one
+  feature-complete reader on most `value` and `typed` rows, typed reads
+  of a file with merge keys (compose-merge) included, and at most 1.25×
+  its instructions on every row
   ([Serde read](#serde-read); the targets are in
   [Targets and results](#targets-and-results)).
 - **`Document`.** Parsing a `Document` costs fewer instructions than
@@ -107,18 +109,19 @@ it):
 
 **Where oneyaml loses or is at parity**
 
-- **Typed reads of files with merge keys cost the most.**
-  compose-merge `typed` takes 1.26× serde_yaml_ng's instructions, the
-  one serde row above 1.25×. Merged mappings are buffered so that
-  later keys can override merged ones, and that costs instructions,
-  allocations and more wall-clock time than instructions suggest.
+- **Some serde reads are at parity.** `value` reads of the file with
+  merge keys (compose-merge) and `typed` reads of the OpenAPI inputs
+  take a few percent more instructions than the fastest feature-complete
+  reader ([Instructions](#instructions-1)).
 - **`sparse` reads** (a struct that reads a few fields) cost more than
-  serde_yaml_ng on several rows: oneyaml still resolves and checks the
-  content a struct ignores (duplicate keys, merge keys), so a typed read
-  accepts exactly the documents a `Value` read accepts.
+  serde_yaml_ng on the k8s-manifest and OpenAPI rows: oneyaml still
+  resolves and checks the content a struct ignores (duplicate keys,
+  merge keys), so a typed read accepts exactly the documents a `Value`
+  read accepts.
 - **In wall-clock time, serde reads are at parity or slower** than
   serde_yaml_ng and serde_norway on most rows, including rows where
-  oneyaml uses fewer instructions
+  oneyaml uses fewer instructions, typed reads of the file with merge
+  keys among them
   ([serde wall-clock](#wall-clock-informational-only-1)). If wall-clock
   read speed is what matters most to you, measure on your own data.
 - **Edits on documents below a few kilobytes** (compose-merge, 2.4 KB)
@@ -143,7 +146,7 @@ target.
 
 | Target | Measured by | Result |
 |---|---|---|
-| Typed serde reads (`from_str::<T>`) ≤ 1.25× the instructions of the fastest feature-complete YAML serde library | [serde read instructions](#instructions-1), `typed` and `sparse` rows | **missed** on one row: compose-merge `typed` (merge keys) is 1.26×; met on every other row |
+| Typed serde reads (`from_str::<T>`) ≤ 1.25× the instructions of the fastest feature-complete YAML serde library | [serde read instructions](#instructions-1), `typed` and `sparse` rows | met on every row |
 | `from_str::<Value>` ≤ 1.25× | [serde read instructions](#instructions-1), `value` rows | met on every row |
 | `to_string` ≤ 1.25× | [serde write instructions](#instructions-write) | met on every row; cheaper than every feature-complete writer |
 | `Document` parse at parity with yaml-edit | [`Document`](#document), parse | met on every row |
@@ -230,7 +233,7 @@ How long each section took in this run (`--timeout 300 --jobs 4`):
 |---|---|
 | `environment` | < 0.1 s |
 | `corpus` | 0.4 s |
-| `instructions` | 211 s (one yaml-edit `deep-flow` probe dominates) |
+| `instructions` | 207 s (one yaml-edit `deep-flow` probe dominates) |
 | `allocations` | 112 s |
 | `collect` | 6 s |
 | `tree` | 14 s |
@@ -238,16 +241,16 @@ How long each section took in this run (`--timeout 300 --jobs 4`):
 | `wall` | 111 s |
 | `wall-scaling` | 41 s |
 | `serde-check` | 5 s |
-| `serde-instructions` | 91 s |
-| `serde-allocations` | 98 s |
-| `serde-wall` | 64 s |
+| `serde-instructions` | 89 s |
+| `serde-allocations` | 99 s |
+| `serde-wall` | 63 s |
 | `ser-check` | 5 s |
-| `ser-instructions` | 70 s |
+| `ser-instructions` | 71 s |
 | `ser-allocations` | 138 s |
 | `ser-wall` | 28 s |
-| `document` | 64 s |
+| `document` | 65 s |
 | `edits` | 63 s |
-| **total** | **23 min 45 s** |
+| **total** | **23 min 42 s** |
 
 valgrind 3.27.1 was built from source
 (`https://sourceware.org/pub/valgrind/valgrind-3.27.1.tar.bz2`, sha256
@@ -378,22 +381,22 @@ the three event parsers, and with yaml-edit.
 <!-- bench:instructions:begin -->
 | Case | Bytes | oneyaml Ir | oneyaml Ir/B | saphyr Ir/B | yaml-rust2 Ir/B | libyaml Ir/B | yaml-edit Ir/B | oneyaml ÷ fastest event parser | oneyaml ÷ yaml-edit |
 |---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | 5,633 | 955,520 | 169.6 | 265.1 | 215.1 | 243.9 | 842.5 | 0.79× | 0.20× |
-| gha-workflow | 3,078 | 403,175 | 131.0 | 198.2 | 163.6 | 215.6 | 665.3 | 0.80× | 0.20× |
-| compose-merge | 2,442 | 447,749 | 183.4 | 265.8 | 225.4 | 244.4 | 858.0 | 0.81× | 0.21× |
-| k8s-multi | 1,050,323 | 175,508,412 | 167.1 | 256.2 | 212.7 | 243.2 | 777.5 | 0.79× | 0.21× |
-| openapi-100k | 102,778 | 17,552,205 | 170.8 | 269.5 | 216.7 | 244.2 | 827.1 | 0.79× | 0.21× |
-| openapi-10m | 10,486,088 | 1,769,430,109 | 168.7 | 257.6 | 214.3 | 241.2 | 811.3 | 0.79× | 0.21× |
-| helm-values | 102,418 | 8,319,783 | 81.2 | 75.2 | 77.7 | 137.3 | 304.2 | 1.08× | 0.27× |
-| deep-block | 103,739 | 2,887,169 | 27.8 | 47.5 | 48.4 | 101.1 | rejects | 0.59× | – |
-| deep-flow | 102,402 | 71,302,195 | 696.3 | rejects | rejects | 26952.1 | rejects | 0.026× | – |
-| wide-map | 102,414 | 18,658,100 | 182.2 | 286.3 | 226.6 | 251.7 | 821.3 | 0.80× | 0.22× |
-| long-scalars | 102,444 | 4,687,049 | 45.8 | 63.2 | 71.6 | 144.5 | 209.6 | 0.72× | 0.22× |
-| block-scalars | 102,508 | 3,084,401 | 30.1 | 51.9 | 56.6 | 133.7 | 340.0 | 0.58× | 0.089× |
-| flow-heavy | 102,495 | 40,283,712 | 393.0 | 586.0 | 479.5 | 449.0 | 1669.5 | 0.88× | 0.24× |
-| comment-heavy | 102,400 | 9,762,728 | 95.3 | 84.4 | 87.2 | 138.3 | 361.6 | 1.13× | 0.26× |
-| anchors | 102,474 | 30,079,624 | 293.5 | 454.4 | 365.1 | 312.9 | 1338.9 | 0.94× | 0.22× |
-| whitespace | 102,456 | 16,470,838 | 160.8 | 158.0 | 150.5 | rejects | 752.2 | 1.07× | 0.21× |
+| k8s-manifest | 5,633 | 955,941 | 169.7 | 265.1 | 215.0 | 243.9 | 842.5 | 0.79× | 0.20× |
+| gha-workflow | 3,078 | 403,329 | 131.0 | 201.3 | 163.6 | 215.6 | 664.6 | 0.80× | 0.20× |
+| compose-merge | 2,442 | 448,492 | 183.7 | 265.8 | 225.3 | 244.3 | 856.5 | 0.82× | 0.21× |
+| k8s-multi | 1,050,323 | 175,630,933 | 167.2 | 256.2 | 212.8 | 243.2 | 777.5 | 0.79× | 0.22× |
+| openapi-100k | 102,778 | 17,558,909 | 170.8 | 259.1 | 216.7 | 244.3 | 827.1 | 0.79× | 0.21× |
+| openapi-10m | 10,486,088 | 1,770,124,946 | 168.8 | 243.0 | 214.2 | 241.2 | 811.3 | 0.79× | 0.21× |
+| helm-values | 102,418 | 8,323,188 | 81.3 | 78.5 | 77.7 | 137.3 | 304.2 | 1.05× | 0.27× |
+| deep-block | 103,739 | 2,888,496 | 27.8 | 47.5 | 48.4 | 101.1 | rejects | 0.59× | – |
+| deep-flow | 102,402 | 71,301,443 | 696.3 | rejects | rejects | 26952.1 | rejects | 0.026× | – |
+| wide-map | 102,414 | 18,690,067 | 182.5 | 286.3 | 226.6 | 251.7 | 821.3 | 0.81× | 0.22× |
+| long-scalars | 102,444 | 4,686,904 | 45.8 | 63.2 | 71.6 | 144.5 | 209.6 | 0.72× | 0.22× |
+| block-scalars | 102,508 | 3,084,238 | 30.1 | 51.9 | 56.6 | 133.7 | 340.0 | 0.58× | 0.089× |
+| flow-heavy | 102,495 | 40,283,549 | 393.0 | 586.0 | 479.5 | 449.0 | 1669.5 | 0.88× | 0.24× |
+| comment-heavy | 102,400 | 9,770,581 | 95.4 | 84.4 | 87.2 | 138.3 | 361.6 | 1.13× | 0.26× |
+| anchors | 102,474 | 30,086,007 | 293.6 | 454.4 | 365.2 | 312.9 | 1338.9 | 0.94× | 0.22× |
+| whitespace | 102,456 | 16,489,707 | 160.9 | 158.0 | 150.5 | rejects | 752.1 | 1.07× | 0.21× |
 <!-- bench:instructions:end -->
 
 ### Allocations
@@ -509,22 +512,22 @@ element, retain the most. "stream Ir/B" is the pull parser drained;
 <!-- bench:tree:begin -->
 | Case | Bytes | tree elements | elements ÷ byte | peak ÷ input | retained ÷ input | stream Ir/B | tree Ir/B | tree ÷ stream |
 |---|---|---|---|---|---|---|---|---|
-| k8s-manifest | 5,633 | 2,053 | 0.36 | 10.64 | 4.31 | 169.6 | 232.7 | 1.37× |
+| k8s-manifest | 5,633 | 2,053 | 0.36 | 10.64 | 4.31 | 169.7 | 232.8 | 1.37× |
 | gha-workflow | 3,078 | 793 | 0.26 | 7.84 | 3.48 | 131.0 | 177.2 | 1.35× |
-| compose-merge | 2,442 | 997 | 0.41 | 9.92 | 4.67 | 183.4 | 251.6 | 1.37× |
-| k8s-multi | 1,050,323 | 378,253 | 0.36 | 6.56 | 4.27 | 167.1 | 222.8 | 1.33× |
-| openapi-100k | 102,778 | 38,392 | 0.37 | 8.16 | 4.36 | 170.8 | 233.1 | 1.37× |
-| openapi-10m | 10,486,088 | 3,860,896 | 0.37 | 5.93 | 4.31 | 168.7 | 224.3 | 1.33× |
-| helm-values | 102,418 | 16,215 | 0.16 | 4.50 | 2.42 | 81.2 | 107.8 | 1.33× |
+| compose-merge | 2,442 | 997 | 0.41 | 9.92 | 4.67 | 183.7 | 251.7 | 1.37× |
+| k8s-multi | 1,050,323 | 378,253 | 0.36 | 6.56 | 4.27 | 167.2 | 223.0 | 1.33× |
+| openapi-100k | 102,778 | 38,392 | 0.37 | 8.16 | 4.36 | 170.8 | 230.6 | 1.35× |
+| openapi-10m | 10,486,088 | 3,860,896 | 0.37 | 5.93 | 4.31 | 168.8 | 224.4 | 1.33× |
+| helm-values | 102,418 | 16,215 | 0.16 | 4.50 | 2.42 | 81.3 | 107.8 | 1.33× |
 | deep-block | 103,739 | 2,717 | 0.03 | 2.51 | 1.24 | 27.8 | 33.6 | 1.21× |
-| deep-flow | 102,402 | 153,605 | 1.50 | 81.36 | 14.50 | 696.3 | 919.7 | 1.32× |
-| wide-map | 102,414 | 37,488 | 0.37 | 7.86 | 4.29 | 182.2 | 238.8 | 1.31× |
+| deep-flow | 102,402 | 153,605 | 1.50 | 81.36 | 14.50 | 696.3 | 916.4 | 1.32× |
+| wide-map | 102,414 | 37,488 | 0.37 | 7.86 | 4.29 | 182.5 | 239.1 | 1.31× |
 | long-scalars | 102,444 | 31 | 0.00 | 2.02 | 1.00 | 45.8 | 46.9 | 1.02× |
 | block-scalars | 102,508 | 2,155 | 0.02 | 2.74 | 1.34 | 30.1 | 35.4 | 1.18× |
 | flow-heavy | 102,495 | 97,158 | 0.95 | 13.68 | 9.53 | 393.0 | 534.8 | 1.36× |
-| comment-heavy | 102,400 | 21,045 | 0.21 | 4.98 | 2.85 | 95.3 | 130.0 | 1.36× |
-| anchors | 102,474 | 70,918 | 0.69 | 13.63 | 7.23 | 293.5 | 402.2 | 1.37× |
-| whitespace | 102,456 | 44,411 | 0.43 | 7.86 | 4.90 | 160.8 | 233.3 | 1.45× |
+| comment-heavy | 102,400 | 21,045 | 0.21 | 4.98 | 2.85 | 95.4 | 130.1 | 1.36× |
+| anchors | 102,474 | 70,918 | 0.69 | 13.63 | 7.23 | 293.6 | 402.3 | 1.37× |
+| whitespace | 102,456 | 44,411 | 0.43 | 7.86 | 4.90 | 160.9 | 233.5 | 1.45× |
 <!-- bench:tree:end -->
 
 ### Linear scaling
@@ -532,15 +535,15 @@ element, retain the most. "stream Ir/B" is the pull parser drained;
 <!-- bench:scaling:begin -->
 | Shape | Bytes 1× / 10× / 100× | oneyaml Ir at 100× | oneyaml (10× / 100×) | saphyr (10× / 100×) | yaml-rust2 (10× / 100×) | libyaml (10× / 100×) | yaml-edit (10× / 100×) |
 |---|---|---|---|---|---|---|---|
-| deep-block | 10,730 / 103,739 / 1,028,894 | 21,778,545 | 0.58 / 0.44 | 0.55 / 0.41 | 0.63 / 0.51 | 0.84 / 0.78 | rejects at 10× |
-| deep-flow | 10,242 / 102,402 / 1,024,002 | 708,610,222 | 0.88 / 0.87 | rejects at 1× | rejects at 1× | 1.09 / 1.10 | rejects at 1× |
-| wide-map | 10,249 / 102,414 / 1,024,009 | 186,515,875 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 0.98 / 0.97 |
-| long-scalars | 10,301 / 102,444 / 1,024,061 | 46,726,757 | 0.97 / 0.97 | 0.97 / 0.96 | 0.97 / 0.97 | 0.99 / 0.99 | 0.98 / 0.97 |
-| block-scalars | 10,329 / 102,508 / 1,024,352 | 30,378,509 | 0.98 / 0.96 | 0.99 / 0.97 | 0.98 / 0.96 | 0.99 / 0.99 | 0.97 / 0.95 |
-| flow-heavy | 10,240 / 102,495 / 1,024,082 | 399,850,329 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 0.99 | 0.98 / 0.97 |
-| comment-heavy | 10,356 / 102,400 / 1,024,179 | 97,200,804 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 1.00 | 0.97 / 0.96 |
-| anchors | 10,268 / 102,474 / 1,024,001 | 275,392,757 | 0.91 / 0.83 | 0.95 / 0.92 | 0.91 / 0.83 | 0.93 / 0.88 | 0.90 / 0.82 |
-| whitespace | 10,276 / 102,456 / 1,024,028 | 160,891,464 | 0.97 / 0.95 | 0.98 / 0.96 | 0.98 / 0.96 | rejects at 1× | 0.97 / 0.94 |
+| deep-block | 10,730 / 103,739 / 1,028,894 | 21,779,884 | 0.57 / 0.44 | 0.55 / 0.41 | 0.63 / 0.51 | 0.84 / 0.78 | rejects at 10× |
+| deep-flow | 10,242 / 102,402 / 1,024,002 | 708,609,241 | 0.88 / 0.87 | rejects at 1× | rejects at 1× | 1.09 / 1.10 | rejects at 1× |
+| wide-map | 10,249 / 102,414 / 1,024,009 | 186,836,970 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 0.98 / 0.97 |
+| long-scalars | 10,301 / 102,444 / 1,024,061 | 46,726,612 | 0.97 / 0.97 | 0.97 / 0.96 | 0.97 / 0.97 | 0.99 / 0.99 | 0.98 / 0.97 |
+| block-scalars | 10,329 / 102,508 / 1,024,352 | 30,378,346 | 0.98 / 0.96 | 0.99 / 0.97 | 0.98 / 0.96 | 0.99 / 0.99 | 0.97 / 0.95 |
+| flow-heavy | 10,240 / 102,495 / 1,024,082 | 399,850,166 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 0.99 | 0.98 / 0.97 |
+| comment-heavy | 10,356 / 102,400 / 1,024,179 | 97,280,297 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 0.99 | 0.99 / 1.00 | 0.97 / 0.96 |
+| anchors | 10,268 / 102,474 / 1,024,001 | 275,451,736 | 0.91 / 0.83 | 0.95 / 0.92 | 0.91 / 0.83 | 0.93 / 0.88 | 0.91 / 0.82 |
+| whitespace | 10,276 / 102,456 / 1,024,028 | 161,075,933 | 0.97 / 0.95 | 0.98 / 0.96 | 0.98 / 0.96 | rejects at 1× | 0.97 / 0.94 |
 <!-- bench:scaling:end -->
 
 ### Wall-clock (informational only)
@@ -550,45 +553,45 @@ Higher MB/s is better. The ratio columns are time ratios, so lower is
 better for oneyaml.
 
 <!-- bench:wall:begin -->
-Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 3.28 / 4.50 / 4.36. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
+Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 3.69 / 4.06 / 3.97. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
 
 | Case | Bytes | oneyaml MB/s | saphyr MB/s | yaml-rust2 MB/s | libyaml MB/s | yaml-edit MB/s | oneyaml time ÷ fastest event parser | oneyaml time ÷ yaml-edit |
 |---|---|---|---|---|---|---|---|---|
-| k8s-manifest@1× | 5,633 | 98 | 56 | 66 | 81 | 23 | 0.83× | 0.23× |
-| gha-workflow@1× | 3,078 | 129 | 78 | 92 | 102 | 27 | 0.79× | 0.21× |
-| compose-merge@1× | 2,442 | 95 | 54 | 61 | 94 | 23 | 1.00× | 0.24× |
-| k8s-multi@1× | 1,050,323 | 104 | 57 | 68 | 91 | 22 | 0.88× | 0.21× |
-| openapi-100k@1× | 102,778 | 98 | 56 | 64 | 96 | 22 | 0.98× | 0.23× |
-| openapi-10m@1× | 10,486,088 | 105 | 60 | 68 | 97 | 19 | 0.92× | 0.18× |
-| helm-values@1× | 102,418 | 234 | 212 | 217 | 185 | 61 | 0.93× | 0.26× |
-| deep-block@100× | 1,028,894 | 973 | 637 | 581 | 333 | rejects | 0.66× | – |
-| deep-flow@100× | 1,024,002 | 20 | rejects | rejects | 1 | timeout (> 75 s) | 0.044× | – |
-| wide-map@100× | 1,024,009 | 99 | 60 | 70 | 86 | 21 | 0.87× | 0.21× |
-| long-scalars@100× | 1,024,061 | 528 | 473 | 377 | 170 | 116 | 0.90× | 0.22× |
-| block-scalars@100× | 1,024,352 | 879 | 463 | 388 | 211 | 69 | 0.53× | 0.078× |
-| flow-heavy@100× | 1,024,082 | 45 | 25 | 30 | 49 | 11 | 1.10× | 0.24× |
-| comment-heavy@100× | 1,024,179 | 208 | 169 | 187 | 195 | 52 | 0.93× | 0.25× |
-| anchors@100× | 1,024,001 | 66 | 30 | 40 | 77 | 13 | 1.16× | 0.19× |
-| whitespace@100× | 1,024,028 | 115 | 90 | 107 | rejects | 27 | 0.93× | 0.23× |
+| k8s-manifest@1× | 5,633 | 100 | 58 | 62 | 89 | 22 | 0.89× | 0.22× |
+| gha-workflow@1× | 3,078 | 129 | 80 | 80 | 104 | 30 | 0.81× | 0.23× |
+| compose-merge@1× | 2,442 | 93 | 56 | 60 | 89 | 23 | 0.96× | 0.25× |
+| k8s-multi@1× | 1,050,323 | 100 | 59 | 62 | 93 | 22 | 0.93× | 0.22× |
+| openapi-100k@1× | 102,778 | 101 | 55 | 61 | 94 | 22 | 0.93× | 0.22× |
+| openapi-10m@1× | 10,486,088 | 102 | 58 | 60 | 97 | 20 | 0.95× | 0.19× |
+| helm-values@1× | 102,418 | 234 | 216 | 198 | 197 | 64 | 0.92× | 0.27× |
+| deep-block@100× | 1,028,894 | 1182 | 658 | 585 | 345 | rejects | 0.56× | – |
+| deep-flow@100× | 1,024,002 | 19 | rejects | rejects | 1 | timeout (> 75 s) | 0.048× | – |
+| wide-map@100× | 1,024,009 | 95 | 59 | 60 | 85 | 19 | 0.89× | 0.19× |
+| long-scalars@100× | 1,024,061 | 482 | 472 | 383 | 179 | 118 | 0.98× | 0.24× |
+| block-scalars@100× | 1,024,352 | 874 | 441 | 390 | 195 | 68 | 0.50× | 0.078× |
+| flow-heavy@100× | 1,024,082 | 45 | 26 | 31 | 49 | 11 | 1.09× | 0.25× |
+| comment-heavy@100× | 1,024,179 | 204 | 163 | 176 | 193 | 52 | 0.95× | 0.25× |
+| anchors@100× | 1,024,001 | 64 | 31 | 36 | 76 | 12 | 1.19× | 0.19× |
+| whitespace@100× | 1,024,028 | 120 | 88 | 98 | rejects | 27 | 0.81× | 0.22× |
 <!-- bench:wall:end -->
 
 Each stress shape's throughput at 1×, 10× and 100× (10 KB, 100 KB and
 1 MB):
 
 <!-- bench:wall-scaling:begin -->
-Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 2.87 / 4.02 / 4.20. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
+Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 3.16 / 3.76 / 3.87. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
 
 | Shape | oneyaml MB/s 1× / 10× / 100× | saphyr MB/s 1× / 10× / 100× | yaml-rust2 MB/s 1× / 10× / 100× | libyaml MB/s 1× / 10× / 100× | yaml-edit MB/s 1× / 10× / 100× |
 |---|---|---|---|---|---|
-| deep-block | 369 / 695 / 997 | 183 / 366 / 622 | 197 / 411 / 585 | 227 / 310 / 344 | 16 / rejects at 10× |
-| deep-flow | 12 / 19 / 20 | rejects at 1× | rejects at 1× | 1 / 1 / 1 | rejects at 1× |
-| wide-map | 102 / 102 / 102 | 62 / 58 / 61 | 67 / 70 / 68 | 87 / 80 / 87 | 27 / 25 / 21 |
-| long-scalars | 480 / 527 / 539 | 418 / 468 / 471 | 351 / 383 / 383 | 167 / 173 / 169 | 111 / 94 / 110 |
-| block-scalars | 830 / 834 / 861 | 428 / 430 / 440 | 368 / 396 / 411 | 215 / 210 / 207 | 67 / 69 / 69 |
-| flow-heavy | 45 / 40 / 47 | 26 / 26 / 25 | 30 / 30 / 31 | 49 / 44 / 49 | 12 / 11 / 11 |
-| comment-heavy | 210 / 206 / 203 | 164 / 161 / 161 | 183 / 186 / 180 | 193 / 198 / 198 | 60 / 54 / 50 |
-| anchors | 56 / 58 / 65 | 28 / 29 / 30 | 33 / 37 / 40 | 69 / 72 / 74 | 13 / 13 / 12 |
-| whitespace | 108 / 113 / 116 | 84 / 85 / 79 | 102 / 105 / 103 | rejects at 1× | 25 / 25 / 28 |
+| deep-block | 375 / 702 / 1166 | 189 / 398 / 645 | 196 / 389 / 578 | 229 / 303 / 333 | 16 / rejects at 10× |
+| deep-flow | 12 / 18 / 20 | rejects at 1× | rejects at 1× | 1 / 1 / 1 | rejects at 1× |
+| wide-map | 95 / 96 / 93 | 60 / 60 / 58 | 60 / 62 / 62 | 87 / 86 / 87 | 27 / 24 / 21 |
+| long-scalars | 469 / 489 / 495 | 424 / 462 / 476 | 348 / 384 / 387 | 170 / 167 / 170 | 113 / 93 / 120 |
+| block-scalars | 811 / 847 / 870 | 411 / 451 / 457 | 361 / 371 / 399 | 205 / 210 / 211 | 68 / 70 / 69 |
+| flow-heavy | 45 / 47 / 46 | 26 / 25 / 23 | 30 / 31 / 31 | 50 / 49 / 50 | 11 / 11 / 11 |
+| comment-heavy | 198 / 207 / 205 | 168 / 175 / 168 | 170 / 172 / 175 | 192 / 198 / 194 | 58 / 55 / 52 |
+| anchors | 54 / 61 / 67 | 28 / 30 / 32 | 33 / 35 / 39 | 69 / 75 / 78 | 13 / 13 / 13 |
+| whitespace | 117 / 118 / 121 | 86 / 87 / 80 | 96 / 99 / 101 | rejects at 1× | 25 / 25 / 27 |
 <!-- bench:wall-scaling:end -->
 
 ## Serde read
@@ -699,27 +702,27 @@ and with serde_json.
 <!-- bench:serde-instructions:begin -->
 | Case | Workload | Bytes | oneyaml Ir/B | serde_yaml_ng Ir/B | serde_norway Ir/B | serde_yaml2 Ir/B | serde-saphyr Ir/B | serde_json Ir/B | oneyaml ÷ fastest feature-complete (target applies) | fastest feature-complete | target ≤ 1.25× | oneyaml ÷ serde_yaml2 (partial, no target) | oneyaml ÷ serde_json |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | value | 5,633 | 414.9 | 457.3 | 458.5 | n/a | 729.7 | 70.2 | 0.91× | serde_yaml_ng | met | – | 5.91× |
-| k8s-manifest | typed | 5,633 | 376.6 | 423.1 | 423.1 | n/a | 819.1 | 65.0 | 0.89× | serde_norway | met | – | 5.80× |
-| k8s-manifest | sparse | 5,633 | 339.0 | 309.9 | 309.9 | n/a | 722.8 | 16.1 | 1.09× | serde_yaml_ng | met | – | 21.03× |
-| gha-workflow | value | 3,078 | 288.4 | 353.5 | 354.4 | differs | 499.4 | 46.3 | 0.82× | serde_yaml_ng | met | – | 6.22× |
-| gha-workflow | typed | 3,078 | 264.7 | 292.3 | 292.4 | 183.3 | 440.3 | rejects | 0.91× | serde_yaml_ng | met | 1.44× | – |
-| gha-workflow | sparse | 3,078 | 249.8 | 259.2 | 259.2 | 183.4 | 499.2 | 11.2 | 0.96× | serde_yaml_ng | met | 1.36× | 22.22× |
-| compose-merge | value | 2,442 | 614.8 | 593.2 | 595.4 | n/a | 1117.5 | 115.3 | 1.04× | serde_yaml_ng | met | – | 5.33× |
-| compose-merge | typed | 2,442 | 784.3 | 623.0 | 625.2 | n/a | 997.8 | 76.3 | 1.26× | serde_yaml_ng | **missed** | – | 10.28× |
-| compose-merge | sparse | 2,442 | 673.9 | 599.6 | 601.7 | n/a | 1069.9 | 29.6 | 1.12× | serde_yaml_ng | met | – | 22.76× |
-| k8s-multi | value | 1,050,323 | 410.7 | 457.5 | 458.8 | n/a | 721.5 | 70.3 | 0.90× | serde_yaml_ng | met | – | 5.84× |
-| k8s-multi | typed | 1,050,323 | 373.1 | 422.1 | 422.1 | n/a | 808.7 | 66.2 | 0.88× | serde_norway | met | – | 5.63× |
-| k8s-multi | sparse | 1,050,323 | 332.6 | 355.7 | 355.7 | n/a | 726.4 | 16.2 | 0.93× | serde_yaml_ng | met | – | 20.55× |
-| openapi-100k | value | 102,778 | 410.0 | 454.1 | 455.4 | 328.8 | 730.0 | 71.0 | 0.90× | serde_yaml_ng | met | 1.25× | 5.78× |
-| openapi-100k | typed | 102,778 | 362.9 | 349.5 | 348.4 | 244.0 | 649.2 | 44.2 | 1.04× | serde_norway | met | 1.49× | 8.22× |
-| openapi-100k | sparse | 102,778 | 335.1 | 298.3 | 298.3 | 247.1 | 752.4 | 12.9 | 1.12× | serde_yaml_ng | met | 1.36× | 25.93× |
-| openapi-10m | value | 10,486,088 | 404.2 | 447.6 | 448.9 | 324.4 | 720.6 | 70.9 | 0.90× | serde_yaml_ng | met | 1.25× | 5.70× |
-| openapi-10m | typed | 10,486,088 | 359.4 | 346.4 | 346.4 | 256.3 | 641.2 | 44.3 | 1.04× | serde_yaml_ng | met | 1.40× | 8.11× |
-| openapi-10m | sparse | 10,486,088 | 330.6 | 294.7 | 294.7 | 244.2 | 741.5 | 12.8 | 1.12× | serde_yaml_ng | met | 1.35× | 25.92× |
-| helm-values | value | 102,418 | 142.3 | 186.8 | 187.1 | 103.3 | 236.9 | 16.7 | 0.76× | serde_yaml_ng | met | 1.38× | 8.54× |
-| helm-values | typed | 102,418 | 134.2 | 174.7 | 174.8 | 96.7 | 263.2 | 11.9 | 0.77× | serde_yaml_ng | met | 1.39× | 11.26× |
-| helm-values | sparse | 102,418 | 127.1 | 151.2 | 151.2 | 84.7 | 245.1 | 3.1 | 0.84× | serde_yaml_ng | met | 1.50× | 40.41× |
+| k8s-manifest | value | 5,633 | 417.3 | 457.3 | 458.6 | n/a | 729.8 | 70.2 | 0.91× | serde_yaml_ng | met | – | 5.94× |
+| k8s-manifest | typed | 5,633 | 377.7 | 423.5 | 423.5 | n/a | 819.9 | 65.0 | 0.89× | serde_norway | met | – | 5.81× |
+| k8s-manifest | sparse | 5,633 | 339.0 | 309.9 | 309.9 | n/a | 723.5 | 16.1 | 1.09× | serde_yaml_ng | met | – | 21.03× |
+| gha-workflow | value | 3,078 | 289.9 | 353.4 | 354.3 | differs | 499.4 | 46.4 | 0.82× | serde_yaml_ng | met | – | 6.25× |
+| gha-workflow | typed | 3,078 | 265.4 | 292.2 | 292.2 | 184.0 | 440.7 | rejects | 0.91× | serde_yaml_ng | met | 1.44× | – |
+| gha-workflow | sparse | 3,078 | 249.7 | 259.1 | 259.1 | 184.8 | 499.7 | 11.2 | 0.96× | serde_yaml_ng | met | 1.35× | 22.21× |
+| compose-merge | value | 2,442 | 620.3 | 593.5 | 595.9 | n/a | 1117.5 | 115.3 | 1.05× | serde_yaml_ng | met | – | 5.38× |
+| compose-merge | typed | 2,442 | 558.2 | 623.1 | 625.4 | n/a | 999.2 | 76.2 | 0.90× | serde_yaml_ng | met | – | 7.32× |
+| compose-merge | sparse | 2,442 | 512.5 | 600.0 | 602.0 | n/a | 1070.1 | 29.6 | 0.85× | serde_yaml_ng | met | – | 17.31× |
+| k8s-multi | value | 1,050,323 | 413.1 | 457.5 | 458.8 | n/a | 721.5 | 70.3 | 0.90× | serde_yaml_ng | met | – | 5.87× |
+| k8s-multi | typed | 1,050,323 | 374.3 | 422.1 | 422.1 | n/a | 809.4 | 66.2 | 0.89× | serde_norway | met | – | 5.65× |
+| k8s-multi | sparse | 1,050,323 | 332.5 | 354.1 | 354.1 | n/a | 727.3 | 16.2 | 0.94× | serde_yaml_ng | met | – | 20.55× |
+| openapi-100k | value | 102,778 | 412.2 | 454.1 | 454.4 | 328.8 | 730.0 | 71.0 | 0.91× | serde_yaml_ng | met | 1.25× | 5.81× |
+| openapi-100k | typed | 102,778 | 363.8 | 348.4 | 348.4 | 245.8 | 649.7 | 44.2 | 1.04× | serde_norway | met | 1.48× | 8.24× |
+| openapi-100k | sparse | 102,778 | 334.7 | 297.3 | 297.3 | 249.1 | 752.9 | 12.9 | 1.13× | serde_yaml_ng | met | 1.34× | 25.90× |
+| openapi-10m | value | 10,486,088 | 406.3 | 447.6 | 448.9 | 324.4 | 720.6 | 70.9 | 0.91× | serde_yaml_ng | met | 1.25× | 5.73× |
+| openapi-10m | typed | 10,486,088 | 360.3 | 346.4 | 346.4 | 244.3 | 641.8 | 44.3 | 1.04× | serde_norway | met | 1.47× | 8.13× |
+| openapi-10m | sparse | 10,486,088 | 330.2 | 294.7 | 294.7 | 246.2 | 742.0 | 12.8 | 1.12× | serde_yaml_ng | met | 1.34× | 25.89× |
+| helm-values | value | 102,418 | 142.9 | 186.8 | 187.2 | 103.3 | 236.9 | 16.7 | 0.76× | serde_yaml_ng | met | 1.38× | 8.57× |
+| helm-values | typed | 102,418 | 134.5 | 174.8 | 174.7 | 96.8 | 263.4 | 11.9 | 0.77× | serde_norway | met | 1.39× | 11.28× |
+| helm-values | sparse | 102,418 | 127.0 | 151.3 | 151.3 | 85.2 | 245.3 | 3.1 | 0.84× | serde_yaml_ng | met | 1.49× | 40.39× |
 <!-- bench:serde-instructions:end -->
 
 ### Allocations
@@ -736,8 +739,8 @@ and with serde_json.
 | gha-workflow | typed | 3,078 | 201 | 1,031 | 1,031 | 698 | 337 | rejects | 0.60× | serde-saphyr | 0.29× |
 | gha-workflow | sparse | 3,078 | 58 | 914 | 914 | 802 | 718 | 10 | 0.081× | serde-saphyr | 0.072× |
 | compose-merge | value | 2,442 | 764 | 1,584 | 1,584 | n/a | 1,496 | 401 | 0.51× | serde-saphyr | – |
-| compose-merge | typed | 2,442 | 617 | 1,639 | 1,639 | n/a | 1,172 | 245 | 0.53× | serde-saphyr | – |
-| compose-merge | sparse | 2,442 | 366 | 1,585 | 1,585 | n/a | 1,506 | 30 | 0.24× | serde-saphyr | – |
+| compose-merge | typed | 2,442 | 488 | 1,639 | 1,639 | n/a | 1,172 | 245 | 0.42× | serde-saphyr | – |
+| compose-merge | sparse | 2,442 | 188 | 1,585 | 1,585 | n/a | 1,506 | 30 | 0.12× | serde-saphyr | – |
 | k8s-multi | value | 1,050,323 | 187,496 | 569,202 | 569,202 | n/a | 259,380 | 103,425 | 0.72× | serde-saphyr | – |
 | k8s-multi | typed | 1,050,323 | 110,628 | 515,008 | 515,008 | n/a | 423,621 | 83,517 | 0.26× | serde-saphyr | – |
 | k8s-multi | sparse | 1,050,323 | 10,563 | 443,118 | 443,118 | n/a | 313,574 | 4,436 | 0.034× | serde-saphyr | – |
@@ -762,8 +765,8 @@ and with serde_json.
 | gha-workflow | typed | 3,078 | 15.86 | 66.95 | 66.95 | 12.83 | 28.96 | rejects | 0.55× | serde-saphyr | 1.24× |
 | gha-workflow | sparse | 3,078 | 6.51 | 61.23 | 61.23 | 8.13 | 26.78 | 0.22 | 0.24× | serde-saphyr | 0.80× |
 | compose-merge | value | 2,442 | 66.94 | 110.24 | 110.24 | n/a | 163.34 | 15.95 | 0.61× | serde_norway | – |
-| compose-merge | typed | 2,442 | 238.26 | 116.54 | 116.54 | n/a | 153.33 | 7.49 | 2.04× | serde_norway | – |
-| compose-merge | sparse | 2,442 | 225.60 | 110.58 | 110.57 | n/a | 150.19 | 0.48 | 2.04× | serde_norway | – |
+| compose-merge | typed | 2,442 | 91.36 | 116.54 | 116.54 | n/a | 153.33 | 7.49 | 0.78× | serde_norway | – |
+| compose-merge | sparse | 2,442 | 69.89 | 110.58 | 110.57 | n/a | 150.19 | 0.48 | 0.63× | serde_norway | – |
 | k8s-multi | value | 1,050,323 | 35.67 | 66.09 | 66.09 | n/a | 44.57 | 15.28 | 0.80× | serde-saphyr | – |
 | k8s-multi | typed | 1,050,323 | 23.14 | 60.90 | 60.90 | n/a | 46.18 | 13.70 | 0.50× | serde-saphyr | – |
 | k8s-multi | sparse | 1,050,323 | 2.12 | 47.66 | 47.66 | n/a | 32.30 | 0.41 | 0.066× | serde-saphyr | – |
@@ -788,8 +791,8 @@ and with serde_json.
 | gha-workflow | typed | 3,078 | 3.50 | 9.67 | 45.44 | 45.44 | 7.48 | 14.23 | rejects | 0.68× | serde-saphyr | 1.29× |
 | gha-workflow | sparse | 3,078 | 3.50 | 5.02 | 40.35 | 40.35 | 3.50 | 9.41 | 3.50 | 0.53× | serde-saphyr | 1.43× |
 | compose-merge | value | 2,442 | 4.59 | 36.32 | 73.41 | 73.41 | n/a | 31.43 | 17.60 | 1.16× | serde-saphyr | – |
-| compose-merge | typed | 2,442 | 4.59 | 91.32 | 73.41 | 73.41 | n/a | 23.58 | 9.13 | 3.87× | serde-saphyr | – |
-| compose-merge | sparse | 2,442 | 4.59 | 91.32 | 73.42 | 73.41 | n/a | 17.42 | 4.59 | 5.24× | serde-saphyr | – |
+| compose-merge | typed | 2,442 | 4.59 | 19.72 | 73.41 | 73.41 | n/a | 23.58 | 9.13 | 0.84× | serde-saphyr | – |
+| compose-merge | sparse | 2,442 | 4.59 | 13.66 | 73.42 | 73.41 | n/a | 17.42 | 4.59 | 0.78× | serde-saphyr | – |
 | k8s-multi | value | 1,050,323 | 1.00 | 22.94 | 17.21 | 17.21 | n/a | 16.18 | 16.01 | 1.42× | serde-saphyr | – |
 | k8s-multi | typed | 1,050,323 | 1.00 | 7.02 | 7.08 | 7.08 | n/a | 7.02 | 6.85 | 1.00× | serde-saphyr | – |
 | k8s-multi | sparse | 1,050,323 | 1.00 | 1.25 | 1.32 | 1.32 | n/a | 1.26 | 1.86 | 0.99× | serde-saphyr | – |
@@ -811,31 +814,31 @@ Higher MB/s is better (per byte of YAML input, also for serde_json); the
 ratio columns are time ratios, lower is better for oneyaml.
 
 <!-- bench:serde-wall:begin -->
-Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 5.65 / 5.40 / 4.77. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
+Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 4.45 / 4.68 / 4.24. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
 
 | Case | Workload | Bytes | oneyaml MB/s | serde_yaml_ng MB/s | serde_norway MB/s | serde_yaml2 MB/s | serde-saphyr MB/s | serde_json MB/s | oneyaml ÷ fastest feature-complete | fastest feature-complete | oneyaml ÷ serde_yaml2 (partial) | oneyaml ÷ serde_json |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | value | 5,633 | 35 | 35 | 36 | n/a | 17 | 262 | 1.02× | serde_norway | – | 7.39× |
-| k8s-manifest | typed | 5,633 | 38 | 38 | 40 | n/a | 15 | 238 | 1.06× | serde_norway | – | 6.26× |
-| k8s-manifest | sparse | 5,633 | 46 | 59 | 60 | n/a | 18 | 1437 | 1.30× | serde_norway | – | 31.37× |
-| gha-workflow | value | 3,078 | 54 | 50 | 50 | differs | 26 | 360 | 0.94× | serde_yaml_ng | – | 6.69× |
-| gha-workflow | typed | 3,078 | 58 | 67 | 67 | 73 | 29 | rejects | 1.15× | serde_yaml_ng | 1.26× | – |
-| gha-workflow | sparse | 3,078 | 64 | 78 | 78 | 82 | 25 | 2214 | 1.22× | serde_yaml_ng | 1.28× | 34.61× |
-| compose-merge | value | 2,442 | 25 | 29 | 29 | n/a | 12 | 144 | 1.16× | serde_norway | – | 5.79× |
-| compose-merge | typed | 2,442 | 16 | 26 | 27 | n/a | 13 | 228 | 1.68× | serde_norway | – | 14.36× |
-| compose-merge | sparse | 2,442 | 18 | 29 | 27 | n/a | 13 | 731 | 1.65× | serde_yaml_ng | – | 41.76× |
-| k8s-multi | value | 1,050,323 | 30 | 33 | 34 | n/a | 15 | 98 | 1.12× | serde_norway | – | 3.28× |
-| k8s-multi | typed | 1,050,323 | 39 | 39 | 37 | n/a | 14 | 244 | 1.00× | serde_yaml_ng | – | 6.28× |
-| k8s-multi | sparse | 1,050,323 | 46 | 55 | 55 | n/a | 18 | 1558 | 1.19× | serde_norway | – | 33.74× |
-| openapi-100k | value | 102,778 | 39 | 43 | 44 | 45 | 18 | 276 | 1.12× | serde_norway | 1.16× | 7.10× |
-| openapi-100k | typed | 102,778 | 41 | 55 | 57 | 55 | 20 | 298 | 1.38× | serde_norway | 1.35× | 7.27× |
-| openapi-100k | sparse | 102,778 | 47 | 69 | 69 | 60 | 17 | 2176 | 1.47× | serde_norway | 1.27× | 46.26× |
-| openapi-10m | value | 10,486,088 | 31 | 29 | 30 | 42 | 15 | 124 | 0.98× | serde_norway | 1.38× | 4.02× |
-| openapi-10m | typed | 10,486,088 | 36 | 37 | 39 | 51 | 18 | 153 | 1.07× | serde_norway | 1.40× | 4.23× |
-| openapi-10m | sparse | 10,486,088 | 44 | 51 | 50 | 62 | 18 | 2233 | 1.15× | serde_yaml_ng | 1.42× | 50.72× |
-| helm-values | value | 102,418 | 119 | 114 | 115 | 151 | 58 | 1177 | 0.97× | serde_norway | 1.27× | 9.91× |
-| helm-values | typed | 102,418 | 122 | 129 | 131 | 168 | 52 | 1197 | 1.07× | serde_norway | 1.37× | 9.79× |
-| helm-values | sparse | 102,418 | 134 | 161 | 159 | 197 | 57 | 8702 | 1.20× | serde_yaml_ng | 1.47× | 64.93× |
+| k8s-manifest | value | 5,633 | 35 | 36 | 36 | n/a | 17 | 267 | 1.03× | serde_yaml_ng | – | 7.57× |
+| k8s-manifest | typed | 5,633 | 39 | 40 | 40 | n/a | 16 | 234 | 1.04× | serde_yaml_ng | – | 6.04× |
+| k8s-manifest | sparse | 5,633 | 45 | 59 | 59 | n/a | 18 | 1522 | 1.30× | serde_norway | – | 33.49× |
+| gha-workflow | value | 3,078 | 53 | 52 | 50 | differs | 26 | 388 | 0.97× | serde_yaml_ng | – | 7.26× |
+| gha-workflow | typed | 3,078 | 57 | 66 | 69 | 76 | 31 | rejects | 1.22× | serde_norway | 1.34× | – |
+| gha-workflow | sparse | 3,078 | 62 | 71 | 77 | 81 | 27 | 2012 | 1.24× | serde_norway | 1.31× | 32.35× |
+| compose-merge | value | 2,442 | 25 | 29 | 29 | n/a | 12 | 147 | 1.16× | serde_norway | – | 5.92× |
+| compose-merge | typed | 2,442 | 26 | 27 | 26 | n/a | 14 | 236 | 1.03× | serde_yaml_ng | – | 9.01× |
+| compose-merge | sparse | 2,442 | 29 | 28 | 29 | n/a | 13 | 727 | 1.01× | serde_norway | – | 25.40× |
+| k8s-multi | value | 1,050,323 | 29 | 33 | 34 | n/a | 16 | 100 | 1.17× | serde_norway | – | 3.47× |
+| k8s-multi | typed | 1,050,323 | 40 | 39 | 40 | n/a | 15 | 257 | 1.00× | serde_norway | – | 6.47× |
+| k8s-multi | sparse | 1,050,323 | 44 | 53 | 50 | n/a | 17 | 1521 | 1.20× | serde_yaml_ng | – | 34.55× |
+| openapi-100k | value | 102,778 | 37 | 42 | 43 | 45 | 18 | 280 | 1.15× | serde_norway | 1.20× | 7.56× |
+| openapi-100k | typed | 102,778 | 42 | 57 | 57 | 55 | 20 | 300 | 1.37× | serde_yaml_ng | 1.32× | 7.15× |
+| openapi-100k | sparse | 102,778 | 46 | 68 | 69 | 61 | 18 | 2204 | 1.50× | serde_norway | 1.33× | 47.71× |
+| openapi-10m | value | 10,486,088 | 32 | 31 | 31 | 44 | 15 | 127 | 0.98× | serde_norway | 1.38× | 3.96× |
+| openapi-10m | typed | 10,486,088 | 38 | 37 | 38 | 50 | 19 | 156 | 1.01× | serde_norway | 1.32× | 4.15× |
+| openapi-10m | sparse | 10,486,088 | 46 | 51 | 52 | 59 | 18 | 2335 | 1.12× | serde_norway | 1.29× | 50.57× |
+| helm-values | value | 102,418 | 115 | 117 | 121 | 157 | 60 | 1188 | 1.05× | serde_norway | 1.36× | 10.29× |
+| helm-values | typed | 102,418 | 122 | 131 | 130 | 170 | 52 | 1149 | 1.07× | serde_yaml_ng | 1.40× | 9.46× |
+| helm-values | sparse | 102,418 | 134 | 158 | 156 | 196 | 58 | 8416 | 1.18× | serde_yaml_ng | 1.46× | 62.77× |
 <!-- bench:serde-wall:end -->
 
 ## Serde write
@@ -900,8 +903,8 @@ size ÷ the input size.
 
 1. serde_yaml2, k8s-manifest value: no multi-document API (writes one document only)
 2. serde_yaml2, k8s-manifest typed: no multi-document API (writes one document only)
-3. serde_yaml2, gha-workflow value: output does not read back: unexpected content after a node at jobs.delta-0.steps[2].with (81:48)
-4. serde_yaml2, gha-workflow typed: output does not read back: unexpected content after a node at jobs.bravo-2.steps[2].with (95:48)
+3. serde_yaml2, gha-workflow value: output does not read back: a ''' inside a single-quoted scalar ends it early at jobs.delta-0.steps[2].with (81:48)
+4. serde_yaml2, gha-workflow typed: output does not read back: a ''' inside a single-quoted scalar ends it early at jobs.bravo-2.steps[2].with (95:48)
 5. serde_yaml2, compose-merge value: no merge-key support
 6. serde_yaml2, compose-merge typed: output does not read back: invalid type: unit value, expected a map at services.db.environment (75:18)
 7. serde_yaml2, k8s-multi value: no multi-document API (writes one document only)
@@ -921,20 +924,20 @@ Lower is better; columns as in the read table.
 <!-- bench:ser-instructions:begin -->
 | Case | Workload | Bytes | oneyaml Ir/B | serde_yaml_ng Ir/B | serde_norway Ir/B | serde_yaml2 Ir/B | serde-saphyr Ir/B | serde_json Ir/B | oneyaml ÷ fastest feature-complete (target applies) | fastest feature-complete | target ≤ 1.25× | oneyaml ÷ serde_yaml2 (partial, no target) | oneyaml ÷ serde_json |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | value | 5,633 | 123.5 | 230.0 | 230.0 | n/a | 195.0 | 16.4 | 0.63× | serde-saphyr | met | – | 7.51× |
-| k8s-manifest | typed | 5,633 | 143.5 | 248.0 | 248.0 | n/a | 216.6 | 14.5 | 0.66× | serde-saphyr | met | – | 9.87× |
-| gha-workflow | value | 3,078 | 88.0 | 184.3 | 184.3 | differs | 152.6 | 13.6 | 0.58× | serde-saphyr | met | – | 6.48× |
-| gha-workflow | typed | 3,078 | 127.7 | 242.8 | 242.8 | differs | 193.5 | 14.9 | 0.66× | serde-saphyr | met | – | 8.55× |
-| compose-merge | value | 2,442 | 191.0 | 369.1 | 369.1 | n/a | 335.5 | 26.4 | 0.57× | serde-saphyr | met | – | 7.23× |
-| compose-merge | typed | 2,442 | 234.4 | 363.4 | 363.4 | differs | 342.8 | 22.9 | 0.68× | serde-saphyr | met | – | 10.24× |
-| k8s-multi | value | 1,050,323 | 124.1 | 228.7 | 228.7 | n/a | 193.8 | 16.2 | 0.64× | serde-saphyr | met | – | 7.64× |
-| k8s-multi | typed | 1,050,323 | 141.5 | 246.1 | 246.1 | n/a | 215.0 | 13.7 | 0.66× | serde-saphyr | met | – | 10.33× |
-| openapi-100k | value | 102,778 | 106.1 | 226.0 | 226.0 | differs | 180.4 | 16.2 | 0.59× | serde-saphyr | met | – | 6.53× |
-| openapi-100k | typed | 102,778 | 217.7 | 425.5 | 425.5 | differs | 311.2 | 24.7 | 0.70× | serde-saphyr | met | – | 8.83× |
-| openapi-10m | value | 10,486,088 | 104.3 | 223.9 | 223.9 | differs | 178.2 | 15.7 | 0.59× | serde-saphyr | met | – | 6.66× |
-| openapi-10m | typed | 10,486,088 | 214.6 | 420.5 | 420.5 | differs | 307.3 | 23.2 | 0.70× | serde-saphyr | met | – | 9.26× |
-| helm-values | value | 102,418 | 26.4 | 56.1 | 56.1 | differs | 42.3 | 4.1 | 0.62× | serde-saphyr | met | – | 6.50× |
-| helm-values | typed | 102,418 | 32.1 | 55.1 | 55.1 | differs | 43.2 | 3.5 | 0.74× | serde-saphyr | met | – | 9.29× |
+| k8s-manifest | value | 5,633 | 123.7 | 230.0 | 230.0 | n/a | 195.0 | 16.4 | 0.63× | serde-saphyr | met | – | 7.53× |
+| k8s-manifest | typed | 5,633 | 143.9 | 248.1 | 248.1 | n/a | 208.8 | 14.5 | 0.69× | serde-saphyr | met | – | 9.90× |
+| gha-workflow | value | 3,078 | 88.1 | 184.3 | 184.3 | differs | 152.6 | 13.6 | 0.58× | serde-saphyr | met | – | 6.49× |
+| gha-workflow | typed | 3,078 | 128.0 | 242.8 | 242.8 | differs | 186.6 | 15.0 | 0.69× | serde-saphyr | met | – | 8.56× |
+| compose-merge | value | 2,442 | 191.2 | 369.1 | 369.1 | n/a | 335.5 | 26.4 | 0.57× | serde-saphyr | met | – | 7.24× |
+| compose-merge | typed | 2,442 | 234.5 | 363.5 | 363.5 | differs | 330.2 | 22.8 | 0.71× | serde-saphyr | met | – | 10.29× |
+| k8s-multi | value | 1,050,323 | 124.4 | 228.7 | 228.7 | n/a | 193.6 | 16.2 | 0.64× | serde-saphyr | met | – | 7.66× |
+| k8s-multi | typed | 1,050,323 | 141.9 | 246.1 | 246.1 | n/a | 206.9 | 13.7 | 0.69× | serde-saphyr | met | – | 10.37× |
+| openapi-100k | value | 102,778 | 106.4 | 225.8 | 225.8 | differs | 180.1 | 16.2 | 0.59× | serde-saphyr | met | – | 6.55× |
+| openapi-100k | typed | 102,778 | 217.7 | 425.5 | 425.5 | differs | 305.6 | 24.7 | 0.71× | serde-saphyr | met | – | 8.83× |
+| openapi-10m | value | 10,486,088 | 104.6 | 223.9 | 223.9 | differs | 178.2 | 15.7 | 0.59× | serde-saphyr | met | – | 6.68× |
+| openapi-10m | typed | 10,486,088 | 214.6 | 420.5 | 420.5 | differs | 301.7 | 23.2 | 0.71× | serde-saphyr | met | – | 9.26× |
+| helm-values | value | 102,418 | 26.5 | 56.1 | 56.1 | differs | 42.3 | 4.1 | 0.63× | serde-saphyr | met | – | 6.52× |
+| helm-values | typed | 102,418 | 32.0 | 55.1 | 55.1 | differs | 42.4 | 3.5 | 0.76× | serde-saphyr | met | – | 9.28× |
 <!-- bench:ser-instructions:end -->
 
 ### Allocations (write)
@@ -987,7 +990,7 @@ Lower is better; columns as in the read table.
 | gha-workflow | value | 3,078 | ≤ prep | ≤ prep | ≤ prep | differs | ≤ prep | 0.50 |
 | gha-workflow | typed | 3,078 | ≤ prep | 13.97 | 13.97 | differs | ≤ prep | ≤ prep |
 | compose-merge | value | 2,442 | ≤ prep | ≤ prep | ≤ prep | n/a | ≤ prep | 0.31 |
-| compose-merge | typed | 2,442 | ≤ prep | ≤ prep | ≤ prep | differs | ≤ prep | ≤ prep |
+| compose-merge | typed | 2,442 | ≤ prep | 10.81 | 10.81 | differs | ≤ prep | ≤ prep |
 | k8s-multi | value | 1,050,323 | 0.25 | 0.14 | 0.14 | n/a | 0.22 | 0.14 |
 | k8s-multi | typed | 1,050,323 | 0.30 | 0.25 | 0.25 | n/a | 0.98 | ≤ prep |
 | openapi-100k | value | 102,778 | 0.95 | ≤ prep | ≤ prep | differs | ≤ prep | 0.45 |
@@ -1012,24 +1015,24 @@ Higher MB/s is better (MB of YAML input, for every library); the ratio
 columns are time ratios.
 
 <!-- bench:ser-wall:begin -->
-Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 4.68 / 5.38 / 4.93. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
+Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 4.09 / 4.85 / 4.46. MB/s = 10⁶ bytes/s, median of ≥ 5 runs.
 
 | Case | Workload | Bytes | oneyaml MB/s | serde_yaml_ng MB/s | serde_norway MB/s | serde_yaml2 MB/s | serde-saphyr MB/s | serde_json MB/s | oneyaml ÷ fastest feature-complete | fastest feature-complete | oneyaml ÷ serde_yaml2 (partial) | oneyaml ÷ serde_json |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | value | 5,633 | 171 | 90 | 89 | n/a | 105 | 1307 | 0.61× | serde-saphyr | – | 7.64× |
-| k8s-manifest | typed | 5,633 | 131 | 83 | 84 | n/a | 94 | 1441 | 0.71× | serde-saphyr | – | 10.97× |
-| gha-workflow | value | 3,078 | 267 | 115 | 112 | differs | 130 | 1682 | 0.49× | serde-saphyr | – | 6.31× |
-| gha-workflow | typed | 3,078 | 155 | 86 | 86 | differs | 103 | 1380 | 0.66× | serde-saphyr | – | 8.92× |
-| compose-merge | value | 2,442 | 123 | 57 | 57 | n/a | 62 | 798 | 0.51× | serde-saphyr | – | 6.51× |
-| compose-merge | typed | 2,442 | 83 | 58 | 59 | differs | 61 | 898 | 0.74× | serde-saphyr | – | 10.77× |
-| k8s-multi | value | 1,050,323 | 134 | 83 | 66 | n/a | 84 | 1100 | 0.62× | serde-saphyr | – | 8.19× |
-| k8s-multi | typed | 1,050,323 | 137 | 84 | 85 | n/a | 97 | 1497 | 0.70× | serde-saphyr | – | 10.89× |
-| openapi-100k | value | 102,778 | 211 | 95 | 93 | differs | 115 | 1306 | 0.55× | serde-saphyr | – | 6.18× |
-| openapi-100k | typed | 102,778 | 94 | 47 | 49 | differs | 65 | 853 | 0.70× | serde-saphyr | – | 9.11× |
-| openapi-10m | value | 10,486,088 | 107 | 79 | 78 | differs | 62 | 286 | 0.73× | serde_yaml_ng | – | 2.67× |
-| openapi-10m | typed | 10,486,088 | 71 | 47 | 46 | differs | 58 | 442 | 0.81× | serde-saphyr | – | 6.21× |
-| helm-values | value | 102,418 | 912 | 392 | 388 | differs | 482 | 5924 | 0.53× | serde-saphyr | – | 6.49× |
-| helm-values | typed | 102,418 | 622 | 400 | 405 | differs | 464 | 5780 | 0.75× | serde-saphyr | – | 9.29× |
+| k8s-manifest | value | 5,633 | 184 | 85 | 86 | n/a | 106 | 1295 | 0.58× | serde-saphyr | – | 7.03× |
+| k8s-manifest | typed | 5,633 | 132 | 85 | 84 | n/a | 94 | 1341 | 0.71× | serde-saphyr | – | 10.19× |
+| gha-workflow | value | 3,078 | 265 | 112 | 110 | differs | 134 | 1888 | 0.50× | serde-saphyr | – | 7.13× |
+| gha-workflow | typed | 3,078 | 161 | 87 | 84 | differs | 108 | 1380 | 0.67× | serde-saphyr | – | 8.57× |
+| compose-merge | value | 2,442 | 118 | 57 | 55 | n/a | 62 | 795 | 0.53× | serde-saphyr | – | 6.75× |
+| compose-merge | typed | 2,442 | 84 | 58 | 60 | differs | 64 | 915 | 0.77× | serde-saphyr | – | 10.91× |
+| k8s-multi | value | 1,050,323 | 133 | 78 | 63 | n/a | 65 | 1239 | 0.58× | serde_yaml_ng | – | 9.29× |
+| k8s-multi | typed | 1,050,323 | 138 | 80 | 80 | n/a | 95 | 1522 | 0.69× | serde-saphyr | – | 11.01× |
+| openapi-100k | value | 102,778 | 213 | 95 | 94 | differs | 119 | 1341 | 0.56× | serde-saphyr | – | 6.29× |
+| openapi-100k | typed | 102,778 | 95 | 51 | 50 | differs | 69 | 859 | 0.73× | serde-saphyr | – | 9.06× |
+| openapi-10m | value | 10,486,088 | 106 | 80 | 78 | differs | 65 | 307 | 0.75× | serde_yaml_ng | – | 2.89× |
+| openapi-10m | typed | 10,486,088 | 72 | 49 | 47 | differs | 59 | 416 | 0.82× | serde-saphyr | – | 5.79× |
+| helm-values | value | 102,418 | 929 | 392 | 388 | differs | 486 | 5836 | 0.52× | serde-saphyr | – | 6.28× |
+| helm-values | typed | 102,418 | 639 | 406 | 405 | differs | 490 | 6413 | 0.77× | serde-saphyr | – | 10.03× |
 <!-- bench:ser-wall:end -->
 
 ## `Document`
@@ -1057,13 +1060,13 @@ default settings with `Limits::unlimited()`, as in the parser tables.
 
 | Case | Bytes | parse oneyaml | parse yaml-edit | parse ÷ yaml-edit | parity | emit oneyaml | emit yaml-edit | emit ÷ yaml-edit | parity | emit = input (oneyaml / yaml-edit) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | 5,633 | 432.7 | 495.2 | 0.87× | met | 47.2 | 442.9 | 0.11× | met | = / = |
-| gha-workflow | 3,078 | 319.4 | 418.1 | 0.76× | met | 34.8 | 322.9 | 0.11× | met | = / = |
-| compose-merge | 2,442 | 471.7 | 514.3 | 0.92× | met | 55.1 | 441.6 | 0.12× | met | = / = |
-| k8s-multi | 1,050,323 | 417.6 | 435.2 | 0.96× | met | 46.0 | 436.9 | 0.11× | met | = / = |
-| openapi-100k | 102,778 | 431.2 | 449.0 | 0.96× | met | 48.7 | 485.4 | 0.10× | met | = / = |
-| openapi-10m | 10,486,088 | 419.4 | 438.6 | 0.96× | met | 47.7 | 477.8 | 0.100× | met | = / = |
-| helm-values | 102,418 | 167.7 | 196.0 | 0.86× | met | 24.1 | 146.7 | 0.16× | met | = / = |
+| k8s-manifest | 5,633 | 436.6 | 495.2 | 0.88× | met | 47.2 | 442.9 | 0.11× | met | = / = |
+| gha-workflow | 3,078 | 322.1 | 417.5 | 0.77× | met | 34.8 | 322.8 | 0.11× | met | = / = |
+| compose-merge | 2,442 | 476.1 | 512.9 | 0.93× | met | 55.1 | 441.6 | 0.12× | met | = / = |
+| k8s-multi | 1,050,323 | 421.4 | 435.2 | 0.97× | met | 46.0 | 436.9 | 0.11× | met | = / = |
+| openapi-100k | 102,778 | 432.6 | 449.0 | 0.96× | met | 49.2 | 485.4 | 0.10× | met | = / = |
+| openapi-10m | 10,486,088 | 423.3 | 438.6 | 0.97× | met | 47.7 | 477.8 | 0.100× | met | = / = |
+| helm-values | 102,418 | 169.0 | 196.0 | 0.86× | met | 24.1 | 146.7 | 0.16× | met | = / = |
 
 **Memory (DHAT; parse allocations net of the input-generation baseline; retained = the parsed stream/file kept, net of the baseline's end-of-run heap, including the parser's copy of the input where it keeps one)**
 
@@ -1077,19 +1080,19 @@ default settings with `Limits::unlimited()`, as in the parser tables.
 | openapi-10m | 10,486,088 | 9,214 | 4,014,717 | 4.31 | 8.88 | met |
 | helm-values | 102,418 | 94 | 16,284 | 2.44 | 3.16 | met |
 
-Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 4.33 / 5.19 / 4.90. Median of ≥ 5 runs, in ms.
+Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 3.72 / 4.62 / 4.41. Median of ≥ 5 runs, in ms.
 
 **Wall-clock (informational only)**
 
 | Case | Bytes | parse ms oneyaml | parse ms yaml-edit | parse ÷ yaml-edit | emit ms oneyaml | emit ms yaml-edit | emit ÷ yaml-edit | emit ÷ parse (oneyaml) |
 |---|---|---|---|---|---|---|---|---|
-| k8s-manifest | 5,633 | 0.138 | 0.141 | 0.98× | 0.012 | 0.133 | 0.094× | 0.090× |
-| gha-workflow | 3,078 | 0.054 | 0.066 | 0.82× | 0.005 | 0.053 | 0.099× | 0.095× |
-| compose-merge | 2,442 | 0.064 | 0.063 | 1.02× | 0.007 | 0.055 | 0.12× | 0.10× |
-| k8s-multi | 1,050,323 | 28.385 | 26.555 | 1.07× | 2.200 | 25.478 | 0.086× | 0.078× |
-| openapi-100k | 102,778 | 2.531 | 2.623 | 0.96× | 0.220 | 2.780 | 0.079× | 0.087× |
-| openapi-10m | 10,486,088 | 279.430 | 320.958 | 0.87× | 22.308 | 279.914 | 0.080× | 0.080× |
-| helm-values | 102,418 | 0.914 | 1.123 | 0.81× | 0.115 | 0.733 | 0.16× | 0.13× |
+| k8s-manifest | 5,633 | 0.136 | 0.152 | 0.90× | 0.011 | 0.131 | 0.087× | 0.084× |
+| gha-workflow | 3,078 | 0.057 | 0.065 | 0.88× | 0.005 | 0.054 | 0.086× | 0.082× |
+| compose-merge | 2,442 | 0.065 | 0.063 | 1.04× | 0.006 | 0.055 | 0.11× | 0.094× |
+| k8s-multi | 1,050,323 | 27.234 | 27.143 | 1.00× | 2.078 | 26.413 | 0.079× | 0.076× |
+| openapi-100k | 102,778 | 2.692 | 2.583 | 1.04× | 0.222 | 2.726 | 0.081× | 0.082× |
+| openapi-10m | 10,486,088 | 270.929 | 334.613 | 0.81× | 22.395 | 292.772 | 0.076× | 0.083× |
+| helm-values | 102,418 | 0.857 | 1.083 | 0.79× | 0.108 | 0.721 | 0.15× | 0.13× |
 <!-- bench:document:end -->
 
 ### Edits
@@ -1115,25 +1118,25 @@ rowan CST).
 
 | Case | Bytes | script Ir oneyaml | script Ir yaml-edit | script ÷ yaml-edit | parity | round Ir/B oneyaml | round Ir/B yaml-edit | round ÷ yaml-edit | parity | output = input (oneyaml / yaml-edit) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| k8s-manifest | 5,633 | 567,325 | 1,058,947 | 0.54× | met | 586.4 | 1126.2 | 0.52× | met | = / = |
-| gha-workflow | 3,078 | 851,028 | 1,870,315 | 0.46× | met | 634.4 | 1349.4 | 0.47× | met | = / = |
-| compose-merge | 2,442 | 543,910 | 302,513 | 1.80× | **missed** | 756.5 | 1081.0 | 0.70× | met | = / = |
-| k8s-multi | 1,050,323 | 568,328 | 1,786,870 | 0.32× | met | 469.1 | 873.7 | 0.54× | met | = / = |
-| openapi-100k | 102,778 | 596,342 | 37,349,293 | 0.016× | met | 490.7 | 1297.3 | 0.38× | met | = / = |
-| openapi-10m | 10,486,088 | 597,514 | 3,717,124,522 | 0.00016× | met | 472.1 | 1270.6 | 0.37× | met | = / = |
-| helm-values | 102,418 | 1,620,284 | 11,823,172 | 0.14× | met | 209.6 | 457.5 | 0.46× | met | = / = |
+| k8s-manifest | 5,633 | 572,009 | 1,058,947 | 0.54× | met | 591.0 | 1126.2 | 0.52× | met | = / = |
+| gha-workflow | 3,078 | 854,225 | 1,870,115 | 0.46× | met | 636.6 | 1348.6 | 0.47× | met | = / = |
+| compose-merge | 2,442 | 547,020 | 302,397 | 1.81× | **missed** | 760.1 | 1079.5 | 0.70× | met | = / = |
+| k8s-multi | 1,050,323 | 568,694 | 1,786,870 | 0.32× | met | 472.8 | 873.7 | 0.54× | met | = / = |
+| openapi-100k | 102,778 | 595,054 | 37,349,309 | 0.016× | met | 492.6 | 1297.3 | 0.38× | met | = / = |
+| openapi-10m | 10,486,088 | 594,239 | 3,717,124,522 | 0.00016× | met | 476.0 | 1270.6 | 0.37× | met | = / = |
+| helm-values | 102,418 | 1,614,476 | 11,824,702 | 0.14× | met | 211.0 | 457.5 | 0.46× | met | = / = |
 
-Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 3.90 / 4.94 / 4.84. Median of ≥ 5 runs, in ms.
+Host: AMD Ryzen 9 7950X3D 16-Core Processor; load average (1/5/15 min) at start: 4.16 / 4.63 / 4.43. Median of ≥ 5 runs, in ms.
 
 **Wall-clock (informational only)**
 
 | Case | Bytes | script ms oneyaml | script ms yaml-edit | script ÷ yaml-edit | round ms oneyaml | round ms yaml-edit | round ÷ yaml-edit |
 |---|---|---|---|---|---|---|---|
-| k8s-manifest | 5,633 | 0.037 | 0.059 | 0.63× | 0.200 | 0.350 | 0.57× |
-| gha-workflow | 3,078 | 0.061 | 0.101 | 0.61× | 0.130 | 0.221 | 0.59× |
-| compose-merge | 2,442 | 0.037 | 0.017 | 2.15× | 0.118 | 0.136 | 0.86× |
-| k8s-multi | 1,050,323 | 0.040 | 0.161 | 0.25× | 28.245 | 53.445 | 0.53× |
-| openapi-100k | 102,778 | 0.041 | 2.008 | 0.020× | 2.908 | 7.208 | 0.40× |
-| openapi-10m | 10,486,088 | 0.042 | 212.907 | 0.00020× | 290.360 | 823.438 | 0.35× |
-| helm-values | 102,418 | 0.096 | 1.546 | 0.062× | 1.163 | 3.425 | 0.34× |
+| k8s-manifest | 5,633 | 0.038 | 0.059 | 0.65× | 0.201 | 0.361 | 0.56× |
+| gha-workflow | 3,078 | 0.060 | 0.099 | 0.61× | 0.133 | 0.227 | 0.59× |
+| compose-merge | 2,442 | 0.038 | 0.018 | 2.10× | 0.117 | 0.140 | 0.84× |
+| k8s-multi | 1,050,323 | 0.037 | 0.162 | 0.23× | 30.448 | 54.105 | 0.56× |
+| openapi-100k | 102,778 | 0.040 | 2.000 | 0.020× | 3.017 | 7.645 | 0.39× |
+| openapi-10m | 10,486,088 | 0.039 | 216.447 | 0.00018× | 283.756 | 819.302 | 0.35× |
+| helm-values | 102,418 | 0.095 | 1.495 | 0.063× | 1.139 | 3.416 | 0.33× |
 <!-- bench:edits:end -->
