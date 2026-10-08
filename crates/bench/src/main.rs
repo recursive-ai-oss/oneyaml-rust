@@ -39,9 +39,9 @@
 //! `time` prints `<median-ns> <samples>` for the wall-clock tables. Both exit
 //! with `EXIT_REJECTED` if the parser reports an error.
 //!
-//! `probe`, `time`, `table` and `update` refuse to run from any build but
-//! the `measure` profile (`bench::build`), so no number, and no table, comes
-//! from a build whose inlining differs.
+//! `table` and `update` run only from the default release build, with no
+//! override the binary can see; `probe` and `time` also from the `measure`
+//! build, for comparing oneyaml with itself (`bench::build`).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -258,9 +258,12 @@ fn run(args: &[String]) -> Result<(), Stop> {
     let Some((command, rest)) = args.split_first() else {
         return Err(Stop::Usage(usage()));
     };
-    // Every number comes from the one build that keeps it stable.
-    if matches!(command.as_str(), "probe" | "time" | "table" | "update") {
-        bench::build::check()?;
+    // Tables come only from the release build; single probes also from
+    // the `measure` build, for comparing oneyaml with itself.
+    match command.as_str() {
+        "table" | "update" => bench::build::check_tables()?,
+        "probe" | "time" => bench::build::check_probes()?,
+        _ => {}
     }
     match command.as_str() {
         "probe" => probe(rest),

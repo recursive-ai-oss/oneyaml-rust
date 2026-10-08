@@ -18,36 +18,55 @@
 //! same probes; the `document` and `edits` sections ([`document`]) measure
 //! `Document` parse, emit and edits against yaml-edit.
 //!
-//! `target/measure/bench update docs/performance.md` regenerates every table,
+//! `target/release/bench update docs/performance.md` regenerates every table,
 //! then the README summary and its chart ([`readme`]); `bench readme`
 //! regenerates only the latter, from the tables already in the file.
 //! `bench pin-links <ref>` ([`pin`]) repoints every repository link of the
 //! published docs (generated regions included) to a release tag, and back
 //! to `main`.
 //!
-//! Numbers come only from the `measure` build (`cargo build -p bench
-//! --profile measure`, [`build::check`]): release settings in a single
-//! codegen unit, so what the compiler inlines, and with it the counts,
-//! does not shift when unrelated code changes.
+//! Tables come only from the default release build ([`build`]), the one
+//! users compile every library with, so the comparators' numbers are
+//! theirs. The `measure` profile (one codegen unit) only probes, for
+//! comparing oneyaml with itself.
 #![forbid(unsafe_code)]
 
 pub mod build {
-    //! Which build this `bench` binary is, and the one that may measure.
+    //! Which build this `bench` binary is, and what it may do.
+    //!
+    //! * **`release`**, with no override this binary can see: everything,
+    //!   tables included. Users compile oneyaml and the comparators with
+    //!   the default release settings, so published numbers come from
+    //!   that build.
+    //! * **`measure`** (release settings in one codegen unit, the
+    //!   workspace `Cargo.toml`): `probe` and `time` only, for comparing
+    //!   oneyaml with itself before and after a change. In a release
+    //!   build, how the compiler splits code into codegen units moves some
+    //!   counts by up to about 1% when unrelated code changes; one unit
+    //!   removes that, but it also changes every library's counts, the
+    //!   comparators' by up to about 14%, so its numbers never go into a
+    //!   table.
+    //! * Any other build (`debug`, …): nothing that measures.
 
     /// The Cargo profile that built this binary (`release`, `debug`,
     /// `measure`, …), recorded by the build script.
     pub const PROFILE: &str = env!("BENCH_BUILD_PROFILE");
 
-    /// The profile every published number comes from: release settings
-    /// in one codegen unit (the workspace `Cargo.toml`).
+    /// The profile published tables come from.
+    pub const RELEASE: &str = "release";
+
+    /// The profile for comparing oneyaml with itself.
     pub const MEASURE: &str = "measure";
 
     /// What the build script saw of the build's settings that may move
-    /// counts (an optimization level other than 3, profile overrides by
-    /// environment variable, extra compiler flags); empty when it saw
-    /// none. Overrides through `--config` or a config file are invisible
-    /// to it.
+    /// counts (an optimization level other than 3, the profile's
+    /// `CARGO_PROFILE_*` variables, extra compiler flags); empty when it
+    /// saw none. Overrides through `--config` or a config file are
+    /// invisible to it.
     pub const NOTES: &str = env!("BENCH_BUILD_NOTES");
+
+    /// The command that makes the build tables come from.
+    pub const RELEASE_COMMAND: &str = "cargo build -p bench --release";
 
     /// How the `environment` section describes this build: the profile's
     /// name, and what [`NOTES`] saw. It never states the profile's
@@ -64,26 +83,55 @@ pub mod build {
         }
     }
 
-    /// The command that makes the measuring build.
-    pub const COMMAND: &str = "cargo build -p bench --profile measure";
-
-    /// `Ok` when this binary may measure: built with [`MEASURE`].
+    /// `Ok` when this binary may produce tables (`update`, `table`): the
+    /// release build, with no override it can see.
     ///
     /// # Errors
-    /// Any other build, with the command that makes the right one: its
-    /// counts move with how the compiler splits and inlines code.
-    pub fn check() -> Result<(), String> {
-        check_profile(PROFILE)
+    /// Any other build, or a release build with a visible override, with
+    /// the command that makes the right one.
+    pub fn check_tables() -> Result<(), String> {
+        check_tables_of(PROFILE, NOTES)
     }
 
-    pub(crate) fn check_profile(profile: &str) -> Result<(), String> {
-        if profile == MEASURE {
+    /// `Ok` when this binary may probe or time one input: the release
+    /// build, or the `measure` build for comparing oneyaml with itself.
+    ///
+    /// # Errors
+    /// Any other build, with the commands that make the right ones.
+    pub fn check_probes() -> Result<(), String> {
+        check_probes_of(PROFILE)
+    }
+
+    pub(crate) fn check_tables_of(profile: &str, notes: &str) -> Result<(), String> {
+        if profile == RELEASE && notes.is_empty() {
+            return Ok(());
+        }
+        let why = if profile == MEASURE {
+            format!(
+                "the `{MEASURE}` profile compiles every library in one codegen unit, which \
+                 changes the comparators' counts by up to about 14%; it is for comparing \
+                 oneyaml with itself (`probe`, `time`), never for tables"
+            )
+        } else if profile == RELEASE {
+            format!("this release build has settings that move counts ({notes})")
+        } else {
+            format!("this bench binary was built with the `{profile}` profile")
+        };
+        Err(format!(
+            "{why}; tables come only from the default release build, the one users \
+             compile every library with: run `{RELEASE_COMMAND}` with no profile \
+             overrides or extra compiler flags, then `target/{RELEASE}/bench`"
+        ))
+    }
+
+    pub(crate) fn check_probes_of(profile: &str) -> Result<(), String> {
+        if profile == RELEASE || profile == MEASURE {
             return Ok(());
         }
         Err(format!(
-            "this bench binary was built with the `{profile}` profile; numbers come only \
-             from the `{MEASURE}` profile, whose single codegen unit keeps them from \
-             moving with unrelated code: run `{COMMAND}`, then `target/{MEASURE}/bench`"
+            "this bench binary was built with the `{profile}` profile; probes run from \
+             the release build (`{RELEASE_COMMAND}`), or from the `{MEASURE}` build \
+             (`cargo build -p bench --profile {MEASURE}`) to compare oneyaml with itself"
         ))
     }
 
@@ -93,19 +141,39 @@ pub mod build {
 
         #[test]
         fn the_build_is_named_with_what_was_seen() {
-            assert_eq!(super::describe("measure", ""), "`measure` profile");
+            assert_eq!(super::describe("release", ""), "`release` profile");
             assert_eq!(
-                super::describe("measure", "opt-level 2"),
-                "`measure` profile (opt-level 2)"
+                super::describe("release", "opt-level 2"),
+                "`release` profile (opt-level 2)"
             );
         }
 
         #[test]
-        fn only_the_measure_build_may_measure() {
-            assert!(super::check_profile("measure").is_ok());
-            for other in ["release", "debug", "unknown"] {
-                let e = super::check_profile(other).unwrap_err();
-                assert!(e.contains("cargo build -p bench --profile measure"), "{e}");
+        fn tables_come_only_from_a_plain_release_build() {
+            assert!(super::check_tables_of("release", "").is_ok());
+            for (profile, notes) in [
+                ("measure", ""),
+                (
+                    "release",
+                    "overridden: CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1",
+                ),
+                ("release", "compiler flags: -C target-cpu=native"),
+                ("debug", "opt-level 0"),
+                ("unknown", ""),
+            ] {
+                let e = super::check_tables_of(profile, notes).unwrap_err();
+                assert!(e.contains("cargo build -p bench --release"), "{e}");
+            }
+            let e = super::check_tables_of("measure", "").unwrap_err();
+            assert!(e.contains("never for tables"), "{e}");
+        }
+
+        #[test]
+        fn probes_run_from_release_or_measure() {
+            assert!(super::check_probes_of("release").is_ok());
+            assert!(super::check_probes_of("measure").is_ok());
+            for other in ["debug", "unknown"] {
+                let e = super::check_probes_of(other).unwrap_err();
                 assert!(e.contains(other), "{e}");
             }
         }

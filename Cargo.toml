@@ -13,13 +13,15 @@ rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/recursive-ai-oss/oneyaml-rust"
 
-# The build every published benchmark number comes from:
+# For comparing oneyaml with itself only (`bench probe` before and after
+# a change): release settings in a single codegen unit, so counts don't
+# move when unrelated code changes how the compiler splits and inlines
+# code. It also changes every comparator's counts, so the benchmark
+# tables never come from it; they come from the default release build.
 #   cargo build -p bench --profile measure    # then target/measure/bench
-# Release settings in a single codegen unit, so what the compiler inlines,
-# and with it the instruction counts, does not move when
-# unrelated code changes. Workspace profiles never apply to the published
-# crates as a dependency, and everyday `cargo build` / `cargo test` keep
-# their defaults.
+# Workspace profiles never apply to the published crates as a
+# dependency, and everyday `cargo build` / `cargo test` keep their
+# defaults.
 [profile.measure]
 inherits = "release"
 codegen-units = 1

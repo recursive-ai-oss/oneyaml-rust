@@ -79,16 +79,6 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
   `<<` value is reported when that value is read, at a path through
   `<<` (for example `services.web.<<.ports[0]`). `Value` reads,
   `Document`, and reads with `DuplicateKeys::LastWins` are unchanged.
-- The benchmark tables in `docs/performance.md` (and the README summary
-  built from them) are now measured from a dedicated `measure` build
-  profile: release settings in a single codegen unit, so a change to
-  unrelated code no longer moves the counts. The build itself changes
-  the counts of every library, comparators included, by several percent
-  on some rows (serde_yaml_ng's typed read of compose-merge: about 5.5%
-  more instructions, while oneyaml's stays within 0.2%), so these tables
-  are not directly comparable with the 1.0.1 tables, which came from the
-  default release build. The `environment` table's `Build` row says
-  which build a table comes from.
 
 ## 1.0.1 — 2026-10-06
 

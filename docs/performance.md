@@ -50,18 +50,6 @@ This page covers:
   different result, or can't do the equivalent work gets a `rejects`,
   `differs` or `n/a` cell instead of a number.
 
-**Which build measured a table matters.** Tables measured up to and
-including oneyaml 1.0.1 come from the default release build; their
-`environment` table has no `Build` row. Later tables come from the
-`measure` build (release settings in a single codegen unit, see
-[Regenerate](#regenerate)). One codegen unit changes how the compiler
-optimizes every library, the comparators included, so the switch alone
-moves counts by several percent on some rows: serde_yaml_ng's typed read
-of compose-merge takes about 5.5% more instructions (1,521,971 →
-1,606,108) while oneyaml's stays within 0.2%, which lowers that row's
-ratio by about 5% with no change to oneyaml. Compare numbers only
-between tables whose `environment` table records the same `Build`.
-
 The run's provenance (the README summary's method strip is read from
 it):
 
@@ -172,33 +160,38 @@ You need valgrind 3.27 or later on `PATH` (or pass `--valgrind PATH`)
 and, for the wall-clock tables, a machine as quiet as you can get.
 
 ```sh
-cargo build -p bench --profile measure
-target/measure/bench update docs/performance.md --timeout 300    # every table (~24 min with --jobs 4)
-target/measure/bench update docs/performance.md --section wall   # one section
-target/measure/bench table scaling                               # print a table, don't write
-target/measure/bench probe yaml-edit deep-flow 10                # one parser, one input
-target/measure/bench serde-check serde_yaml2 value gha-workflow  # one read-guard verdict
-target/measure/bench ser-check serde-saphyr typed k8s-multi      # one write-guard verdict (+ output bytes)
-target/measure/bench probe serde:oneyaml:typed openapi-10m 1     # one serde read probe
-target/measure/bench probe ser:oneyaml:typed openapi-10m 1       # one serde write probe
-target/measure/bench probe doc:yaml-edit:script openapi-100k 1   # one Document probe
-target/measure/bench readme                                      # README summary + chart only, from the tables below
+cargo build -p bench --release
+target/release/bench update docs/performance.md --timeout 300    # every table (~24 min with --jobs 4)
+target/release/bench update docs/performance.md --section wall   # one section
+target/release/bench table scaling                               # print a table, don't write
+target/release/bench probe yaml-edit deep-flow 10                # one parser, one input
+target/release/bench serde-check serde_yaml2 value gha-workflow  # one read-guard verdict
+target/release/bench ser-check serde-saphyr typed k8s-multi      # one write-guard verdict (+ output bytes)
+target/release/bench probe serde:oneyaml:typed openapi-10m 1     # one serde read probe
+target/release/bench probe ser:oneyaml:typed openapi-10m 1       # one serde write probe
+target/release/bench probe doc:yaml-edit:script openapi-100k 1   # one Document probe
+target/release/bench readme                                      # README summary + chart only, from the tables below
 ```
 
-- **Measure with the `measure` build only.** The `measure` profile
-  (workspace `Cargo.toml`) is the release profile in a single codegen
-  unit, so what the compiler inlines, and with it the instruction counts,
-  doesn't shift when unrelated code changes; in the default release
-  build such a change moved some rows by up to about 1%. Switching to
-  this build also changes the counts themselves, every library's, by
-  several percent on some rows, so tables from different builds aren't
-  comparable (see the note above the `environment` table). `probe`,
-  `time`, `table` and `update` refuse to run from any other build. The
-  `environment` table's `Build` row names the profile and any override
-  the tool can see (an optimization level other than 3,
-  `CARGO_PROFILE_MEASURE_*` variables, `RUSTFLAGS`); it can't see
-  overrides passed with `--config` or set in a Cargo config file, so
-  don't measure with those.
+- **Tables come from the default release build**, the one users compile
+  oneyaml and the comparators with, so every library's numbers are the
+  ones its users get. `update` and `table` refuse any other build, and a
+  release build with an override they can see (an optimization level
+  other than 3, `CARGO_PROFILE_RELEASE_*` variables, `RUSTFLAGS`); they
+  can't see overrides passed with `--config` or set in a Cargo config
+  file, so don't measure with those. The `environment` table's `Build`
+  row records the build.
+- **Comparing oneyaml with itself** (probe counts before and after a
+  change) can use the `measure` profile instead:
+  `cargo build -p bench --profile measure`, then
+  `target/measure/bench probe …`. In a release build, how the compiler
+  splits code into codegen units moves some counts by up to about 1%
+  when unrelated code changes; the `measure` profile builds in a single
+  codegen unit, which removes that. It also changes how every library is
+  optimized: on every serde read row, serde_yaml_ng's counts rise by
+  about 6% to 14% and serde-saphyr's by about 2% to 6%, while oneyaml's
+  move by about 1% or less. That would flatter oneyaml's ratios, so `probe`
+  and `time` run from it, and `update` and `table` don't.
 - Every table sits between `<!-- bench:NAME:begin/end -->` markers.
   `update` rewrites only what's between them, one section at a time
   (every section, in document order, without `--section`), and writes
@@ -225,7 +218,7 @@ target/measure/bench readme                                      # README summar
 - **Releases pin the links.** The READMEs' chart URLs and links to this
   file name a git ref, `main` by default. A published crate's README is
   frozen at release, so a release runs
-  `cargo run -p bench --profile measure -- pin-links <tag>` on the release
+  `cargo run -p bench --release -- pin-links <tag>` on the release
   commit to point every repository link of the published docs at the
   tag (`--dry-run` shows what would change), and `pin-links main`
   afterwards to point them back.
