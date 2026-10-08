@@ -9,10 +9,10 @@ and event stream may change in a minor release). Default output bytes
 never change within a major version except to fix incorrect output,
 which is called out here. Breaking changes are flagged **Breaking**; an
 MSRV change is always announced here (the MSRV policy is in the
-[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/crates/oneyaml/README.md#minimum-supported-rust-version)).
+[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md#minimum-supported-rust-version)).
 
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
-[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/docs/migrating-from-serde-yaml.md).
+[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md).
 
 ## Unreleased
 
@@ -123,7 +123,7 @@ never disagree about what a file means.
   comments included, byte for byte, and lays out new content like its
   neighbours.
 - **Comments**: every comment has an owner set by a numbered
-  [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/docs/comment-attachment.md);
+  [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md);
   edits move comments with their owner, and `explain_comment` says which
   rule decided.
 - **Anchors and aliases** in edits: editing an anchored node is seen
@@ -151,6 +151,6 @@ never disagree about what a file means.
   tree underneath, for tooling.
 
 Evidence for these claims:
-[yaml-test-suite conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/docs/conformance.md),
-[performance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/docs/performance.md)
-and [fuzzing](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/crates/fuzz/README.md).
+[yaml-test-suite conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md),
+[performance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md)
+and [fuzzing](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/fuzz/README.md).

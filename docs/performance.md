@@ -3,7 +3,7 @@
 What every layer of oneyaml costs against the other Rust YAML libraries,
 on a fixed, generated corpus of configuration-file shapes. Looking for
 the summary? The
-[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.0.1/crates/oneyaml/README.md)
+[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md)
 shows five workloads against the fastest feature-complete competitor;
 [Results at a glance](#results-at-a-glance) below says where oneyaml wins
 and where it loses, and [Regenerate](#regenerate) has the commands that
