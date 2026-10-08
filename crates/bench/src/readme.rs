@@ -968,7 +968,9 @@ fn and_list(items: &[String]) -> String {
 
 /// The wall-clock note under the tables: what the wall-clock column is, and
 /// every row where oneyaml is slower (or equal, or not measured) by
-/// wall-clock time.
+/// wall-clock time. Each of the three is its own sentence, so a row named
+/// after one clause can't be read as part of another (the rows of one
+/// operation are joined with `and`, operations with `;`).
 #[must_use]
 pub fn wall_strip(sections: &[Section]) -> String {
     let total: usize = sections.iter().map(|sec| sec.rows.len()).sum();
@@ -976,6 +978,7 @@ pub fn wall_strip(sections: &[Section]) -> String {
     let slower = |r: &Row| r.wall_faster.is_some_and(|f| f < 1.0);
     let equal = |r: &Row| r.wall == Wall::Tie;
     let missing = |r: &Row| r.wall_faster.is_none();
+    let rows = |n: usize| if n == 1 { "row" } else { "rows" };
     let mut s = String::from(
         "**× faster (wall-clock)** = the competitor's median time ÷ oneyaml's on the same \
          host (for serde, from the median throughput); it varies more from run to run than \
@@ -983,21 +986,33 @@ pub fn wall_strip(sections: &[Section]) -> String {
     );
     let n = count_rows(sections, slower);
     if n == 0 {
-        s.push_str(" oneyaml is not slower in wall-clock time on any row");
+        s.push_str(" oneyaml is not slower in wall-clock time on any row.");
     } else {
         let _ = write!(
             s,
-            " oneyaml is slower in wall-clock time on {n} of {total} rows: {}",
+            " oneyaml is slower in wall-clock time on {n} of {total} {}: {}.",
+            rows(total),
             rows_matching(sections, slower)
         );
     }
-    if count_rows(sections, equal) > 0 {
-        let _ = write!(s, "; equal medians on {}", rows_matching(sections, equal));
+    let n = count_rows(sections, equal);
+    if n > 0 {
+        let _ = write!(
+            s,
+            " The medians are equal on {n} {}: {}.",
+            rows(n),
+            rows_matching(sections, equal)
+        );
     }
-    if count_rows(sections, missing) > 0 {
-        let _ = write!(s, "; not measured on {}", rows_matching(sections, missing));
+    let n = count_rows(sections, missing);
+    if n > 0 {
+        let _ = write!(
+            s,
+            " Wall-clock time was not measured on {n} {}: {}.",
+            rows(n),
+            rows_matching(sections, missing)
+        );
     }
-    s.push('.');
     s
 }
 
@@ -1301,9 +1316,46 @@ mod tests {
             wall_strip(&mixed),
             format!(
                 "{head} oneyaml is slower in wall-clock time on 3 of 6 rows: read a and c; \
-                 parse b; equal medians on parse a; not measured on edit e."
+                 parse b. The medians are equal on 1 row: parse a. Wall-clock time was not \
+                 measured on 1 row: edit e."
             )
         );
+        // Several operations in every category: each category is its own
+        // sentence, so the last operation named for one can't be read as
+        // part of the next, and an equal row never follows the slower
+        // ones in the same list.
+        let many = [
+            sec(
+                "serde read",
+                vec![
+                    row("gha-workflow", Wall::Differs, Some(0.9)),
+                    row("compose-merge", Wall::Tie, Some(1.0)),
+                    row("helm-values", Wall::Differs, Some(0.7)),
+                    row("k8s-multi", Wall::Missing, None),
+                ],
+            ),
+            sec(
+                "Document parse",
+                vec![
+                    row("compose-merge", Wall::Differs, Some(0.95)),
+                    row("openapi-100k", Wall::Tie, Some(1.0)),
+                    row("k8s-multi", Wall::Missing, None),
+                ],
+            ),
+        ];
+        let strip = wall_strip(&many);
+        assert_eq!(
+            strip,
+            format!(
+                "{head} oneyaml is slower in wall-clock time on 3 of 7 rows: serde read \
+                 gha-workflow and helm-values; Document parse compose-merge. The medians are \
+                 equal on 2 rows: serde read compose-merge; Document parse openapi-100k. \
+                 Wall-clock time was not measured on 2 rows: serde read k8s-multi; Document \
+                 parse k8s-multi."
+            )
+        );
+        // Published text.
+        assert!(oracles::public_text::internal_reference(&strip).is_none());
     }
 
     #[test]
@@ -1491,8 +1543,8 @@ mod tests {
         assert!(body.contains(
             "oneyaml is slower in wall-clock time on 5 of 20 rows: Document edit script \
              (insert + set + remove) gha-workflow, compose-merge, helm-values, openapi-100k \
-             and k8s-multi; equal medians on Document parse gha-workflow, compose-merge, \
-             helm-values, openapi-100k and k8s-multi.\n"
+             and k8s-multi. The medians are equal on 5 rows: Document parse gha-workflow, \
+             compose-merge, helm-values, openapi-100k and k8s-multi.\n"
         ));
         // Both sources and the image, the light one explicit.
         let raw = raw();
@@ -1581,8 +1633,8 @@ mod tests {
         assert!(secs[3].rows[0].faster.is_some());
         assert_eq!(secs[3].rows[0].wall, Wall::Missing);
         assert!(wall_strip(&secs).contains(
-            "; not measured on Document edit script (insert + set + remove) gha-workflow, \
-             compose-merge, helm-values, openapi-100k and k8s-multi."
+            " Wall-clock time was not measured on 5 rows: Document edit script (insert + set + \
+             remove) gha-workflow, compose-merge, helm-values, openapi-100k and k8s-multi."
         ));
     }
 
