@@ -44,24 +44,27 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 - `Debug` for `Code` prints the `Y####` form (`Y0005`), as `Display`
   does, so codes read the same inside a derived `Debug` such as a
   `Diagnostic`'s.
-- The benchmark chart is readable at a glance: its axis covers the bars
-  up to 4×, and a longer bar is drawn broken past the axis end with its
-  value printed, so one large ratio no longer squashes the others;
-  slower bars are hatched as well as coloured; the parity line no longer
-  crosses the group headings. The tables and the chart are re-measured
-  on the current code, so they include the faster typed reads with
-  merge keys described below.
-- The benchmark summary gives its numbers as text everywhere: the
-  repository README now carries the same tables as the crate README,
-  each table has a wall-clock “× faster” column from the measured
-  medians, the note under them names every row where oneyaml is slower in
-  wall-clock time, and the chart's alt text is a short summary pointing
-  at the tables (the chart file keeps the full per-bar description).
-- Documentation: the README says up front what the benchmark ratios
-  measure (CPU instructions, not elapsed time) and where wall-clock time
-  disagrees (serde reads), and a new *Diagnostics* section shows a
-  rendered error with its suggested fix. The repository's front page now
-  has the quick start.
+- Documentation: both READMEs open with a compact benchmark chart, a
+  short *Why oneyaml* and the quick start. The chart counts CPU
+  instructions, not wall-clock time: one bar per workload for serde
+  reads, serde writes, `Document` parsing and an edit script, with each
+  group's range and the number of workloads where oneyaml is slower; its
+  alt text carries every number it shows. Under it is one link to
+  [Results at a glance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)
+  in `docs/performance.md`, which now holds the full chart and the
+  tables: both libraries' instruction counts, the instruction ratio, a
+  wall-clock “× faster” column from the measured medians, a note naming
+  every row where oneyaml is slower in wall-clock time, and the machine
+  and versions measured. The charts and tables are generated from the
+  same run as the rest of that page, re-measured on the current code (so
+  they include the faster typed reads with merge keys described below).
+  In both charts, bars longer than 3.5× are drawn broken, so one large
+  ratio no longer squashes the others (the full chart prints each such
+  bar's value; the compact chart's group range gives the largest), and
+  slower bars are hatched as well as coloured.
+- Documentation: the crate README has a new *Diagnostics* section that
+  shows a rendered error with its suggested fix, and the repository's
+  front page now has the quick start.
 - Typed reads with `Settings::merge_keys` on (and duplicate keys refused,
   the default) no longer buffer each mapping before handing it to the
   target: entries stream as they are read, and only the value of each

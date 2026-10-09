@@ -59,12 +59,14 @@ fn committed_generated_text_is_plain() {
             }
         }
     }
-    // The README summary and chart, the conformance line and the
+    // The README charts, the summary, the conformance line and the
     // performance tables: the check must not pass vacuously.
     assert!(regions >= 20, "only {regions} generated regions found");
     for svg in [
         "docs/img/bench-summary-light.svg",
         "docs/img/bench-summary-dark.svg",
+        "docs/img/bench-detail-light.svg",
+        "docs/img/bench-detail-dark.svg",
     ] {
         let text = std::fs::read_to_string(root.join(svg)).unwrap();
         if let Some(id) = internal_reference(&text) {

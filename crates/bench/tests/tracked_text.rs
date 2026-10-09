@@ -131,9 +131,7 @@ const HASH_ALLOWED: &[(&str, &str)] = &[
     // Provenance of the published measurements (generated).
     ("docs/conformance.md", "Measured on "),
     ("docs/performance.md", "| rustc | rustc "),
-    ("crates/oneyaml/README.md", "- **Measured** "),
-    // The repository README carries the same generated summary.
-    ("README.md", "- **Measured** "),
+    ("docs/performance.md", "- **Measured** "),
     // Upstream revisions: the yaml-test-suite data and libyaml.
     ("crates/oracles/tests/scores.rs", "// commit "),
     ("crates/test-suite/known-defects.txt", "branch head"),

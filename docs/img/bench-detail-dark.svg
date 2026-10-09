@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="698" viewBox="0 0 760 698" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+<title id="title">oneyaml: × faster than each competitor (CPU instructions)</title>
+<desc id="desc">Bar chart: how many times fewer CPU instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove). serde read: gha-workflow 1.1× vs serde_yaml_ng, compose-merge 1.1× vs serde_yaml_ng, helm-values 1.3× vs serde_norway, openapi-100k 0.96× — slower vs serde_norway, k8s-multi 1.1× vs serde_norway. serde write: gha-workflow 1.5× vs serde-saphyr, compose-merge 1.4× vs serde-saphyr, helm-values 1.3× vs serde-saphyr, openapi-100k 1.4× vs serde-saphyr, k8s-multi 1.5× vs serde-saphyr. Document parse: gha-workflow 1.3× vs yaml-edit, compose-merge 1.1× vs yaml-edit, helm-values 1.2× vs yaml-edit, openapi-100k 1.0× vs yaml-edit, k8s-multi 1.0× vs yaml-edit. Document edit script (insert + set + remove): gha-workflow 2.2× vs yaml-edit, compose-merge 0.55× — slower vs yaml-edit, helm-values 7.3× vs yaml-edit, openapi-100k 63× vs yaml-edit, k8s-multi 3.1× vs yaml-edit.</desc>
+<defs><pattern id="slower" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f0883e" fill-opacity="0.4"/><rect width="3" height="6" fill="#f0883e"/></pattern></defs>
+<rect width="100%" height="100%" fill="#0d1117"/>
+<text x="16" y="24" fill="#f0f6fc" font-size="15" font-weight="600">oneyaml: × faster than each competitor (higher is better)</text>
+<text x="16" y="43" fill="#9198a1">competitor CPU instructions ÷ oneyaml's · dashed line = 1.0× (equal) · orange, hatched = oneyaml slower</text>
+<text x="16" y="61" fill="#9198a1">bars longer than 3.5× run past the axis end and are drawn broken; the number is the value</text>
+<text x="250.0" y="668.0" fill="#9198a1" text-anchor="middle">0.0×</text>
+<text x="308.6" y="668.0" fill="#9198a1" text-anchor="middle">0.5×</text>
+<text x="367.1" y="668.0" fill="#9198a1" text-anchor="middle">1.0×</text>
+<text x="425.7" y="668.0" fill="#9198a1" text-anchor="middle">1.5×</text>
+<text x="484.3" y="668.0" fill="#9198a1" text-anchor="middle">2.0×</text>
+<text x="542.9" y="668.0" fill="#9198a1" text-anchor="middle">2.5×</text>
+<text x="601.4" y="668.0" fill="#9198a1" text-anchor="middle">3.0×</text>
+<text x="660.0" y="668.0" fill="#9198a1" text-anchor="middle">3.5×</text>
+<text x="455.0" y="688.0" fill="#9198a1" text-anchor="middle">× faster (competitor ÷ oneyaml instructions; bars start at 0)</text>
+<text x="16" y="93.0" fill="#f0f6fc" font-weight="600">serde read</text>
+<line x1="250.0" y1="100.0" x2="250.0" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="308.6" y1="100.0" x2="308.6" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="100.0" x2="367.1" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="425.7" y1="100.0" x2="425.7" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="484.3" y1="100.0" x2="484.3" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="542.9" y1="100.0" x2="542.9" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="601.4" y1="100.0" x2="601.4" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="660.0" y1="100.0" x2="660.0" y2="210.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="100.0" x2="367.1" y2="210.0" stroke="#f0f6fc" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="242.0" y="115.0" fill="#f0f6fc" text-anchor="end">gha-workflow vs serde_yaml_ng</text>
+<rect x="250.0" y="104.0" width="129.0" height="14.0" fill="#4493f8"/>
+<rect x="382.0" y="102.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="385.0" y="115.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.1×</text>
+<text x="242.0" y="137.0" fill="#f0f6fc" text-anchor="end">compose-merge vs serde_yaml_ng</text>
+<rect x="250.0" y="126.0" width="130.8" height="14.0" fill="#4493f8"/>
+<rect x="383.8" y="124.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="386.8" y="137.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.1×</text>
+<text x="242.0" y="159.0" fill="#f0f6fc" text-anchor="end">helm-values vs serde_norway</text>
+<rect x="250.0" y="148.0" width="152.2" height="14.0" fill="#4493f8"/>
+<rect x="405.2" y="146.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="408.2" y="159.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.3×</text>
+<text x="242.0" y="181.0" fill="#f0f6fc" text-anchor="end">openapi-100k vs serde_norway</text>
+<rect x="250.0" y="170.0" width="112.2" height="14.0" fill="url(#slower)"/>
+<rect x="365.2" y="168.0" width="104.0" height="18.0" fill="#0d1117"/>
+<text x="368.2" y="181.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">0.96× — slower</text>
+<text x="242.0" y="203.0" fill="#f0f6fc" text-anchor="end">k8s-multi vs serde_norway</text>
+<rect x="250.0" y="192.0" width="132.1" height="14.0" fill="#4493f8"/>
+<rect x="385.1" y="190.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="388.1" y="203.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.1×</text>
+<line x1="250.0" y1="100.0" x2="250.0" y2="210.0" stroke="#9198a1" stroke-width="1"/>
+<text x="16" y="237.0" fill="#f0f6fc" font-weight="600">serde write</text>
+<line x1="250.0" y1="244.0" x2="250.0" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="308.6" y1="244.0" x2="308.6" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="244.0" x2="367.1" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="425.7" y1="244.0" x2="425.7" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="484.3" y1="244.0" x2="484.3" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="542.9" y1="244.0" x2="542.9" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="601.4" y1="244.0" x2="601.4" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="660.0" y1="244.0" x2="660.0" y2="354.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="244.0" x2="367.1" y2="354.0" stroke="#f0f6fc" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="242.0" y="259.0" fill="#f0f6fc" text-anchor="end">gha-workflow vs serde-saphyr</text>
+<rect x="250.0" y="248.0" width="170.8" height="14.0" fill="#4493f8"/>
+<rect x="423.8" y="246.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="426.8" y="259.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.5×</text>
+<text x="242.0" y="281.0" fill="#f0f6fc" text-anchor="end">compose-merge vs serde-saphyr</text>
+<rect x="250.0" y="270.0" width="164.9" height="14.0" fill="#4493f8"/>
+<rect x="417.9" y="268.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="420.9" y="281.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.4×</text>
+<text x="242.0" y="303.0" fill="#f0f6fc" text-anchor="end">helm-values vs serde-saphyr</text>
+<rect x="250.0" y="292.0" width="155.2" height="14.0" fill="#4493f8"/>
+<rect x="408.2" y="290.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="411.2" y="303.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.3×</text>
+<text x="242.0" y="325.0" fill="#f0f6fc" text-anchor="end">openapi-100k vs serde-saphyr</text>
+<rect x="250.0" y="314.0" width="164.4" height="14.0" fill="#4493f8"/>
+<rect x="417.4" y="312.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="420.4" y="325.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.4×</text>
+<text x="242.0" y="347.0" fill="#f0f6fc" text-anchor="end">k8s-multi vs serde-saphyr</text>
+<rect x="250.0" y="336.0" width="170.8" height="14.0" fill="#4493f8"/>
+<rect x="423.8" y="334.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="426.8" y="347.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.5×</text>
+<line x1="250.0" y1="244.0" x2="250.0" y2="354.0" stroke="#9198a1" stroke-width="1"/>
+<text x="16" y="381.0" fill="#f0f6fc" font-weight="600">Document parse</text>
+<line x1="250.0" y1="388.0" x2="250.0" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="308.6" y1="388.0" x2="308.6" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="388.0" x2="367.1" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="425.7" y1="388.0" x2="425.7" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="484.3" y1="388.0" x2="484.3" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="542.9" y1="388.0" x2="542.9" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="601.4" y1="388.0" x2="601.4" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="660.0" y1="388.0" x2="660.0" y2="498.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="388.0" x2="367.1" y2="498.0" stroke="#f0f6fc" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="242.0" y="403.0" fill="#f0f6fc" text-anchor="end">gha-workflow vs yaml-edit</text>
+<rect x="250.0" y="392.0" width="151.8" height="14.0" fill="#4493f8"/>
+<rect x="404.8" y="390.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="407.8" y="403.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.3×</text>
+<text x="242.0" y="425.0" fill="#f0f6fc" text-anchor="end">compose-merge vs yaml-edit</text>
+<rect x="250.0" y="414.0" width="126.2" height="14.0" fill="#4493f8"/>
+<rect x="379.2" y="412.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="382.2" y="425.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.1×</text>
+<text x="242.0" y="447.0" fill="#f0f6fc" text-anchor="end">helm-values vs yaml-edit</text>
+<rect x="250.0" y="436.0" width="135.9" height="14.0" fill="#4493f8"/>
+<rect x="388.9" y="434.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="391.9" y="447.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.2×</text>
+<text x="242.0" y="469.0" fill="#f0f6fc" text-anchor="end">openapi-100k vs yaml-edit</text>
+<rect x="250.0" y="458.0" width="121.6" height="14.0" fill="#4493f8"/>
+<rect x="374.6" y="456.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="377.6" y="469.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.0×</text>
+<text x="242.0" y="491.0" fill="#f0f6fc" text-anchor="end">k8s-multi vs yaml-edit</text>
+<rect x="250.0" y="480.0" width="121.0" height="14.0" fill="#4493f8"/>
+<rect x="374.0" y="478.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="377.0" y="491.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">1.0×</text>
+<line x1="250.0" y1="388.0" x2="250.0" y2="498.0" stroke="#9198a1" stroke-width="1"/>
+<text x="16" y="525.0" fill="#f0f6fc" font-weight="600">Document edit script (insert + set + remove)</text>
+<line x1="250.0" y1="532.0" x2="250.0" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="308.6" y1="532.0" x2="308.6" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="532.0" x2="367.1" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="425.7" y1="532.0" x2="425.7" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="484.3" y1="532.0" x2="484.3" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="542.9" y1="532.0" x2="542.9" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="601.4" y1="532.0" x2="601.4" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="660.0" y1="532.0" x2="660.0" y2="642.0" stroke="#3d444d" stroke-width="1"/>
+<line x1="367.1" y1="532.0" x2="367.1" y2="642.0" stroke="#f0f6fc" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="242.0" y="547.0" fill="#f0f6fc" text-anchor="end">gha-workflow vs yaml-edit</text>
+<rect x="250.0" y="536.0" width="256.5" height="14.0" fill="#4493f8"/>
+<rect x="509.5" y="534.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="512.5" y="547.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">2.2×</text>
+<text x="242.0" y="569.0" fill="#f0f6fc" text-anchor="end">compose-merge vs yaml-edit</text>
+<rect x="250.0" y="558.0" width="64.8" height="14.0" fill="url(#slower)"/>
+<rect x="317.8" y="556.0" width="104.0" height="18.0" fill="#0d1117"/>
+<text x="320.8" y="569.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">0.55× — slower</text>
+<text x="242.0" y="591.0" fill="#f0f6fc" text-anchor="end">helm-values vs yaml-edit</text>
+<rect x="250.0" y="580.0" width="432.0" height="14.0" fill="#4493f8"/>
+<line x1="663.0" y1="596.0" x2="669.0" y2="578.0" stroke="#0d1117" stroke-width="2.5"/>
+<line x1="669.0" y1="596.0" x2="675.0" y2="578.0" stroke="#0d1117" stroke-width="2.5"/>
+<rect x="685.0" y="578.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="688.0" y="591.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">7.3×</text>
+<text x="242.0" y="613.0" fill="#f0f6fc" text-anchor="end">openapi-100k vs yaml-edit</text>
+<rect x="250.0" y="602.0" width="432.0" height="14.0" fill="#4493f8"/>
+<line x1="663.0" y1="618.0" x2="669.0" y2="600.0" stroke="#0d1117" stroke-width="2.5"/>
+<line x1="669.0" y1="618.0" x2="675.0" y2="600.0" stroke="#0d1117" stroke-width="2.5"/>
+<rect x="685.0" y="600.0" width="27.0" height="18.0" fill="#0d1117"/>
+<text x="688.0" y="613.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">63×</text>
+<text x="242.0" y="635.0" fill="#f0f6fc" text-anchor="end">k8s-multi vs yaml-edit</text>
+<rect x="250.0" y="624.0" width="368.1" height="14.0" fill="#4493f8"/>
+<rect x="621.1" y="622.0" width="34.0" height="18.0" fill="#0d1117"/>
+<text x="624.1" y="635.0" fill="#f0f6fc" stroke="#0d1117" stroke-width="4" paint-order="stroke">3.1×</text>
+<line x1="250.0" y1="532.0" x2="250.0" y2="642.0" stroke="#9198a1" stroke-width="1"/>
+<line x1="250.0" y1="652.0" x2="660.0" y2="652.0" stroke="#9198a1" stroke-width="1"/>
+</svg>

@@ -21,11 +21,12 @@
 //!
 //! `update` rewrites the named sections (default: all) of a markdown file
 //! between their `<!-- bench:NAME:begin/end -->` markers, then regenerates
-//! the README summary and chart from the updated file (`bench::readme`).
+//! the summary and the README chart from the updated file (`bench::readme`).
 //! `readme` does only the latter (default file: the workspace's
-//! `docs/performance.md`); it measures nothing. Both write the crate
-//! README's `bench:readme` region and the repo-root README's `bench:chart`
-//! region. `--ref` is the git ref the
+//! `docs/performance.md`); it measures nothing. Both write that file's
+//! `bench:summary` region, the crate README's `bench:readme` region, the
+//! repo-root README's `bench:chart` region and the charts. `--ref` is the
+//! git ref the
 //! READMEs' chart URLs and links point at (default `main`; on a tree
 //! `pin-links` pinned to a tag, that tag, so regenerating keeps every link
 //! on one ref; releases pin with `pin-links`; a branch or tag name, checked by
@@ -33,7 +34,7 @@
 //! reads, it re-records `environment` in the same run. `--revision`/`--date`
 //! override what the `environment` section records, for re-recording an
 //! earlier run's provenance; `--revision-note` records a reader-facing note
-//! the READMEs show beside the commit instead of the recorded revision
+//! the summary shows beside the commit instead of the recorded revision
 //! text (which may carry internal detail). `probe` is what
 //! runs under valgrind: generate one input, drain it once, print a summary.
 //! `time` prints `<median-ns> <samples>` for the wall-clock tables. Both exit
@@ -348,16 +349,17 @@ fn pin_links(rest: &[String]) -> Result<(), Stop> {
     Ok(())
 }
 
-/// Regenerates the README summary and chart from `performance`.
+/// Regenerates the summary region, the README regions and the charts from
+/// `performance`.
 fn write_readme(performance: &std::path::Path, git_ref: &str) -> Result<(), Stop> {
     let w = readme::generate(&readme::workspace_root(), performance, git_ref)?;
-    eprintln!(
-        "updated {}, {}, {} and {}",
-        w.readme.display(),
-        w.root_readme.display(),
-        w.charts[0].display(),
-        w.charts[1].display()
-    );
+    let written: Vec<String> = [&w.summary, &w.readme, &w.root_readme]
+        .into_iter()
+        .chain(&w.charts)
+        .chain(&w.details)
+        .map(|p| p.display().to_string())
+        .collect();
+    eprintln!("updated {}", written.join(", "));
     Ok(())
 }
 

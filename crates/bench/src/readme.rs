@@ -1,15 +1,25 @@
-//! The README benchmark summary and the `environment` section.
+//! The benchmark summary, the README chart and the `environment` section.
 //!
-//! The summary in `crates/oneyaml/README.md` (between
-//! `<!-- bench:readme:begin/end -->`) and the bar chart in
-//! `docs/img/bench-summary-{light,dark}.svg` are **derived from
+//! Three regions and four charts are **derived from
 //! `docs/performance.md`**, never measured separately: [`generate`] reads
 //! the generated tables of the `serde-instructions`, `ser-instructions`,
 //! `document` and `edits` sections (and their wall-clock tables) plus the
-//! `environment` section, and writes the summary from exactly those
-//! cells. So the README cannot disagree with the evidence, and it can be
-//! regenerated without measuring anything (`bench readme`); `bench update`
-//! regenerates it after every run.
+//! `environment` section, and writes from exactly those cells
+//! (`bench readme` measures nothing; `bench update` runs it after every
+//! run), so nothing can disagree with the evidence:
+//!
+//! - the `bench:summary` region of `docs/performance.md`
+//!   ([`summary_body`]): the detailed chart
+//!   (`docs/img/bench-detail-{light,dark}.svg`, one labelled bar per row),
+//!   one table per operation and the notes on the ratios, the wall-clock
+//!   times and the run, with relative links only;
+//! - the `bench:readme` region of `crates/oneyaml/README.md` and the
+//!   `bench:chart` region of the repo-root `README.md` ([`readme_body`]):
+//!   the compact chart (`docs/img/bench-summary-{light,dark}.svg`, see
+//!   [`chart::compact_svg`]) and one link to the summary. With no table
+//!   under it, the image's alt text carries what the chart shows
+//!   ([`compact_alt_text`]): per operation, the range, how many workloads
+//!   are slower and which.
 //!
 //! The headline figure is the owner's: "× faster than `<competitor>`" =
 //! competitor instructions ÷ oneyaml instructions (higher is better), two
@@ -19,20 +29,18 @@
 //! from the medians of the wall-clock tables, and a note under the tables
 //! names every row where oneyaml is slower in wall-clock time.
 //!
-//! The image's alt text is a short summary pointing at the tables; the
-//! SVG's own `<desc>` lists every bar ([`chart_description`]). The same run
-//! writes the same region (chart, tables and notes) into the `bench:chart`
-//! region of the repo-root `README.md` ([`ROOT_README`]), so a reader of
-//! either README gets the numbers as text.
+//! The detailed chart's alt text is a short summary pointing at the tables
+//! under it; both charts' own `<desc>` lists every bar
+//! ([`chart_description`]).
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::chart::{self, Bar, Panel};
+use crate::chart::{self, Bar, Group, Panel, Tone};
 use crate::markdown::replace_section;
 
-/// The section [`generate`] maintains in the README.
+/// The section [`generate`] maintains in the crate README.
 pub const README_SECTION: &str = "readme";
 
 /// The section [`generate`] maintains in the repo-root README.
@@ -41,8 +49,9 @@ pub const CHART_SECTION: &str = "chart";
 /// The `docs/performance.md` section that records the run's provenance.
 pub const ENVIRONMENT_SECTION: &str = "environment";
 
-/// Where the repository lives; the README is also the docs.rs crate root,
-/// so every link in the summary is absolute. The workspace `repository`
+/// Where the repository lives; the crate README is also the docs.rs crate
+/// root, so every link in the README regions is absolute (the summary
+/// region in `docs/performance.md` links relatively). The workspace `repository`
 /// field, through [`oracles::readme::REPO`] (one source of truth).
 pub use oracles::readme::REPO;
 
@@ -84,10 +93,26 @@ pub fn with_environment<'a>(names: &[&'a str]) -> Vec<&'a str> {
     out
 }
 
-/// The chart files, relative to the workspace root.
+/// The `docs/performance.md` section [`generate`] fills with the summary
+/// tables, the detailed chart and the notes.
+pub const SUMMARY_SECTION: &str = "summary";
+
+/// The compact README chart, relative to the workspace root.
 pub const CHART_LIGHT: &str = "docs/img/bench-summary-light.svg";
-/// The dark-mode chart, relative to the workspace root.
+/// The dark-mode compact README chart, relative to the workspace root.
 pub const CHART_DARK: &str = "docs/img/bench-summary-dark.svg";
+
+/// The detailed chart (one labelled bar per summary row) shown with the
+/// summary tables, relative to the workspace root.
+pub const DETAIL_LIGHT: &str = "docs/img/bench-detail-light.svg";
+/// The dark-mode detailed chart, relative to the workspace root.
+pub const DETAIL_DARK: &str = "docs/img/bench-detail-dark.svg";
+
+/// A file under `docs/` as `docs/performance.md` links to it: relative,
+/// so the summary region names no git ref and needs no pinning.
+fn from_docs(path: &str) -> &str {
+    path.strip_prefix("docs/").unwrap_or(path)
+}
 
 /// The README, relative to the workspace root.
 pub const README: &str = "crates/oneyaml/README.md";
@@ -112,7 +137,7 @@ pub const WORKLOADS: [&str; 5] = [
     "k8s-multi",
 ];
 
-/// The comparator crates whose versions the method strip names.
+/// The comparator crates whose versions the summary's Measured line names.
 pub const COMPARATORS: [&str; 9] = [
     "serde_yaml_ng",
     "serde_norway",
@@ -156,7 +181,7 @@ pub struct Provenance {
     /// A reader-facing note on how the measured tree differed from the
     /// commit in [`revision`](Provenance::revision) (e.g. "only the
     /// benchmark harness and docs differed"), recorded as the `Revision
-    /// note` row and shown in the READMEs as `` `commit` (note) ``.
+    /// note` row and shown in the summary as `` `commit` (note) ``.
     pub revision_note: Option<String>,
     /// The measurement date (`YYYY-MM-DD`, UTC).
     pub date: Option<String>,
@@ -510,10 +535,12 @@ enum Competitor {
 /// How to read one operation out of `docs/performance.md`.
 #[derive(Clone, Copy, Debug)]
 struct Op {
-    /// Row heading in the README.
+    /// Table heading in the summary.
     title: &'static str,
     /// Short name for the chart and alt text.
     short: &'static str,
+    /// The group label of the compact README chart.
+    compact: &'static str,
     /// The unit of the absolute columns.
     unit: &'static str,
     /// The `docs/performance.md` section.
@@ -523,6 +550,9 @@ struct Op {
     /// oneyaml's instructions column.
     ours: &'static str,
     competitor: Competitor,
+    /// Who the competitor is, in words, for the charts' description and alt
+    /// texts.
+    versus: &'static str,
     /// The competitor's instructions column; `{}` is the competitor.
     theirs: &'static str,
     /// The wall-clock section, oneyaml's column, the competitor's column
@@ -534,44 +564,52 @@ const OPS: [Op; 4] = [
     Op {
         title: "serde read (typed)",
         short: "serde read",
+        compact: "serde read",
         unit: "Ir/B",
         section: "serde-instructions",
         filter: Some(("Workload", "typed")),
         ours: "oneyaml Ir/B",
         competitor: Competitor::Column("fastest feature-complete"),
+        versus: "the fastest feature-complete YAML serde library on each workload",
         theirs: "{} Ir/B",
         wall: ("serde-wall", "oneyaml MB/s", "{} MB/s", true),
     },
     Op {
         title: "serde write (typed)",
         short: "serde write",
+        compact: "serde write",
         unit: "Ir/B",
         section: "ser-instructions",
         filter: Some(("Workload", "typed")),
         ours: "oneyaml Ir/B",
         competitor: Competitor::Column("fastest feature-complete"),
+        versus: "the fastest feature-complete YAML serde library on each workload",
         theirs: "{} Ir/B",
         wall: ("ser-wall", "oneyaml MB/s", "{} MB/s", true),
     },
     Op {
         title: "`Document` parse",
         short: "Document parse",
+        compact: "Document parse",
         unit: "Ir/B",
         section: "document",
         filter: None,
         ours: "parse oneyaml",
         competitor: Competitor::Fixed("yaml-edit"),
+        versus: "yaml-edit",
         theirs: "parse {}",
         wall: ("document", "parse ms oneyaml", "parse ms {}", false),
     },
     Op {
         title: "`Document` edit script (insert + set + remove)",
         short: "Document edit script (insert + set + remove)",
+        compact: "Document edit script",
         unit: "Ir per script",
         section: "edits",
         filter: None,
         ours: "script Ir oneyaml",
         competitor: Competitor::Fixed("yaml-edit"),
+        versus: "yaml-edit",
         theirs: "script Ir {}",
         wall: ("edits", "script ms oneyaml", "script ms {}", false),
     },
@@ -615,10 +653,14 @@ pub struct Row {
 /// One operation's rows.
 #[derive(Clone, Debug)]
 pub struct Section {
-    /// README heading.
+    /// Table heading in the summary.
     pub title: &'static str,
     /// Chart / alt-text name.
     pub short: &'static str,
+    /// The group label of the compact README chart.
+    pub compact: &'static str,
+    /// Who the competitor is, in words.
+    pub versus: &'static str,
     /// Unit of the absolute cells.
     pub unit: &'static str,
     /// The rows, in [`WORKLOADS`] order.
@@ -757,6 +799,8 @@ pub fn summary(doc: &str) -> Result<Vec<Section>, String> {
         out.push(Section {
             title: op.title,
             short: op.short,
+            compact: op.compact,
+            versus: op.versus,
             unit: op.unit,
             rows,
         });
@@ -854,9 +898,10 @@ fn competitor_versions(recorded: &str, sections: &[Section]) -> String {
 /// The chart's description inside the SVG (`<desc>`): every bar in words.
 #[must_use]
 pub fn chart_description(sections: &[Section]) -> String {
-    let mut s = String::from(
-        "Bar chart: how many times fewer CPU instructions oneyaml needs than each competitor \
-         (competitor ÷ oneyaml; higher is better; 1.0× is parity).",
+    let mut s = format!(
+        "Bar chart: how many times fewer CPU instructions oneyaml executes than each \
+         competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against {}.",
+        basis(sections)
     );
     for sec in sections {
         let _ = write!(s, " {}:", sec.short);
@@ -884,22 +929,21 @@ pub fn chart_description(sections: &[Section]) -> String {
 #[must_use]
 pub fn alt_text(sections: &[Section]) -> String {
     let total: usize = sections.iter().map(|sec| sec.rows.len()).sum();
-    let ops: Vec<String> = sections.iter().map(|sec| sec.short.to_owned()).collect();
     let workloads = sections.first().map_or(0, |sec| sec.rows.len());
     let mut s = format!(
-        "Bar chart: how many times fewer CPU instructions oneyaml needs than the fastest \
-         feature-complete competitor (higher is better), for {} on {workloads} workloads.",
-        and_list(&ops)
+        "Bar chart: how many times fewer CPU instructions oneyaml executes than each \
+         competitor (higher is better), against {}, on {workloads} workloads.",
+        basis(sections)
     );
     let slower = rows_matching(sections, |r| r.faster.is_some_and(|f| f < 1.0));
     let unmeasured = rows_matching(sections, |r| r.faster.is_none());
     let n_slower = count_rows(sections, |r| r.faster.is_some_and(|f| f < 1.0));
     if n_slower == 0 {
-        s.push_str(" oneyaml needs no more instructions on any measured row.");
+        s.push_str(" oneyaml executes no more instructions on any measured row.");
     } else {
         let _ = write!(
             s,
-            " oneyaml needs more instructions on {n_slower} of {total} rows: {slower}."
+            " oneyaml executes more instructions on {n_slower} of {total} rows: {slower}."
         );
     }
     if !unmeasured.is_empty() {
@@ -907,6 +951,30 @@ pub fn alt_text(sections: &[Section]) -> String {
     }
     s.push_str(" The tables below the chart give every number.");
     s
+}
+
+/// Who each operation is compared with, operations with the same
+/// competitor together: `the fastest feature-complete YAML serde library on
+/// each workload for serde read and serde write, and yaml-edit for Document
+/// parse and Document edit script (insert + set + remove)`.
+#[must_use]
+pub fn basis(sections: &[Section]) -> String {
+    let mut groups: Vec<(&str, Vec<String>)> = Vec::new();
+    for sec in sections {
+        match groups.iter_mut().find(|(v, _)| *v == sec.versus) {
+            Some((_, ops)) => ops.push(sec.short.to_owned()),
+            None => groups.push((sec.versus, vec![sec.short.to_owned()])),
+        }
+    }
+    let parts: Vec<String> = groups
+        .iter()
+        .map(|(v, ops)| format!("{v} for {}", and_list(ops)))
+        .collect();
+    // A serial comma: each part has its own `and` inside.
+    match parts.as_slice() {
+        [init @ .., last] if !init.is_empty() => format!("{}, and {last}", init.join(", ")),
+        _ => parts.concat(),
+    }
 }
 
 /// How many rows of `sections` satisfy `keep`.
@@ -944,16 +1012,26 @@ fn html_attr(s: &str) -> String {
 }
 
 /// The `<picture>`: dark and light sources, and the light image with the
-/// generated alt text, all at `git_ref`.
-fn picture(alt: &str, git_ref: &str) -> String {
-    let raw = raw();
+/// generated alt text.
+fn picture(alt: &str, light: &str, dark: &str) -> String {
     format!(
         "<picture>\n  \
-         <source media=\"(prefers-color-scheme: dark)\" srcset=\"{raw}/{git_ref}/{CHART_DARK}\">\n  \
-         <source media=\"(prefers-color-scheme: light)\" srcset=\"{raw}/{git_ref}/{CHART_LIGHT}\">\n  \
-         <img alt=\"{}\" src=\"{raw}/{git_ref}/{CHART_LIGHT}\">\n\
+         <source media=\"(prefers-color-scheme: dark)\" srcset=\"{dark}\">\n  \
+         <source media=\"(prefers-color-scheme: light)\" srcset=\"{light}\">\n  \
+         <img alt=\"{}\" src=\"{light}\">\n\
          </picture>\n",
         html_attr(alt)
+    )
+}
+
+/// The READMEs' `<picture>` of the compact chart, at `git_ref` (absolute:
+/// the crate README is also shown on crates.io and docs.rs).
+fn readme_picture(alt: &str, git_ref: &str) -> String {
+    let raw = raw();
+    picture(
+        alt,
+        &format!("{raw}/{git_ref}/{CHART_LIGHT}"),
+        &format!("{raw}/{git_ref}/{CHART_DARK}"),
     )
 }
 
@@ -1018,7 +1096,7 @@ pub fn wall_strip(sections: &[Section]) -> String {
 
 /// `"`rev` on date"`, from the `environment` section, as readers see it.
 ///
-/// When a `Revision note` is recorded the READMEs show the commit (the
+/// When a `Revision note` is recorded the summary shows the commit (the
 /// leading `` `…` `` of `Revision`) with the note; otherwise `Revision` as
 /// recorded (detected revisions are `` `abc1234` `` or `` `abc1234` +
 /// uncommitted changes ``).
@@ -1036,7 +1114,7 @@ fn measured(env: &[(String, String)]) -> Result<String, String> {
     };
     if let Some(found) = oracles::public_text::internal_reference(&shown) {
         return Err(format!(
-            "the README would show the revision {shown:?}, which contains {found:?}, an \
+            "the benchmark summary would show the revision {shown:?}, which contains {found:?}, an \
              internal process identifier readers cannot resolve; re-record the \
              `environment` section with a plain --revision and a reader-facing \
              --revision-note"
@@ -1054,21 +1132,26 @@ fn commit_of(revision: &str) -> &str {
         .unwrap_or(revision)
 }
 
-/// The README region body.
+/// The summary region of `docs/performance.md`: the detailed chart (one
+/// labelled bar per row), the tables, and the notes on the ratios, the
+/// wall-clock times and the run. Its links are relative and it names no
+/// git ref, so it reads the same at every ref.
 ///
 /// # Errors
-/// As [`summary`] and [`environment`], or a `git_ref` that
-/// [`validate_ref`](oracles::readme::validate_ref) rejects.
-pub fn readme_body(doc: &str, git_ref: &str) -> Result<String, String> {
-    oracles::readme::validate_ref(git_ref)?;
+/// As [`summary`] and [`environment`].
+pub fn summary_body(doc: &str) -> Result<String, String> {
     let sections = summary(doc)?;
     let env = environment(doc)?;
     let mut s = String::new();
     let _ = writeln!(
         s,
-        "<!-- Generated by `bench readme` from docs/performance.md; do not edit. -->"
+        "<!-- Generated by `bench readme` from the tables further down this page; do not edit. -->"
     );
-    s.push_str(&picture(&alt_text(&sections), git_ref));
+    s.push_str(&picture(
+        &alt_text(&sections),
+        from_docs(DETAIL_LIGHT),
+        from_docs(DETAIL_DARK),
+    ));
     for sec in &sections {
         let _ = writeln!(
             s,
@@ -1111,18 +1194,38 @@ pub fn readme_body(doc: &str, git_ref: &str) -> Result<String, String> {
         env_value(&env, "valgrind")?,
         competitor_versions(env_value(&env, "Comparators")?, &sections)
     );
+    Ok(s)
+}
+
+/// The crate README region body: the compact chart and one link to the
+/// summary tables, which carry every number, the wall-clock times and the
+/// method. The image's alt text carries what the chart shows
+/// ([`compact_alt_text`]).
+///
+/// # Errors
+/// As [`summary`] and [`environment`] (the provenance must be readable,
+/// though the region does not show it), or a `git_ref` that
+/// [`validate_ref`](oracles::readme::validate_ref) rejects.
+pub fn readme_body(doc: &str, git_ref: &str) -> Result<String, String> {
+    oracles::readme::validate_ref(git_ref)?;
+    let sections = summary(doc)?;
+    environment(doc)?;
+    let mut s = String::new();
     let _ = writeln!(
         s,
-        "- **Full results** (every workload, memory, scaling) and how to reproduce them: \
-         [docs/performance.md]({REPO}/blob/{git_ref}/{PERFORMANCE}) \
-         ([regenerate]({REPO}/blob/{git_ref}/{PERFORMANCE}#regenerate))."
+        "<!-- Generated by `bench readme` from docs/performance.md; do not edit. -->"
+    );
+    s.push_str(&readme_picture(&compact_alt_text(&sections), git_ref));
+    let _ = writeln!(
+        s,
+        "\n[Full results, with wall-clock times and the method \u{2192}]\
+         ({REPO}/blob/{git_ref}/{PERFORMANCE}#results-at-a-glance)"
     );
     Ok(s)
 }
 
-/// The repo-root README region body: the same chart, tables and notes as
-/// the crate README's region (a chart alone fails readers who cannot see
-/// it, and search and copy), so the two never disagree.
+/// The repo-root README region body: the same chart and link as the crate
+/// README's region, so the two never disagree.
 ///
 /// # Errors
 /// As [`readme_body`].
@@ -1130,9 +1233,9 @@ pub fn chart_body(doc: &str, git_ref: &str) -> Result<String, String> {
     readme_body(doc, git_ref)
 }
 
-/// The chart panels: one row per table row, a row without a ratio kept
-/// as a labelled "not measured" row, so the chart, the tables and the alt
-/// text list the same rows.
+/// The detailed chart's panels: one row per table row, a row without a
+/// ratio kept as a labelled "not measured" row, so the chart, the tables
+/// and the alt text list the same rows.
 #[must_use]
 pub fn panels(sections: &[Section]) -> Vec<Panel> {
     sections
@@ -1152,6 +1255,166 @@ pub fn panels(sections: &[Section]) -> Vec<Panel> {
         .collect()
 }
 
+/// What one operation's rows add up to, for the compact chart and its alt
+/// text: the range and how many rows are slower, faster, equal or not
+/// measured. Nothing is averaged: one slower row is a slower count.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Spread {
+    /// `0.55× to 63×`, `1.5×` when every row shows the same, or
+    /// `not measured`.
+    pub range: String,
+    /// The counts, slower first, each with its tone.
+    pub counts: Vec<(String, Tone)>,
+    /// The slower rows, as `openapi-100k 0.96×`.
+    pub slower: Vec<String>,
+}
+
+/// The [`Spread`] of one operation.
+#[must_use]
+pub fn spread(sec: &Section) -> Spread {
+    let n = sec.rows.len();
+    let measured: Vec<f64> = sec.rows.iter().filter_map(|r| r.faster).collect();
+    let range = match (
+        measured.iter().copied().reduce(f64::min),
+        measured.iter().copied().reduce(f64::max),
+    ) {
+        (Some(lo), Some(hi)) if sig2(lo) == sig2(hi) => format!("{}×", sig2(lo)),
+        (Some(lo), Some(hi)) => format!("{}× to {}×", sig2(lo), sig2(hi)),
+        _ => "not measured".to_owned(),
+    };
+    let count = |keep: &dyn Fn(f64) -> bool| measured.iter().filter(|f| keep(**f)).count();
+    let slower_n = count(&|f| f < 1.0);
+    let faster_n = count(&|f| f > 1.0);
+    let equal_n = measured
+        .len()
+        .saturating_sub(slower_n)
+        .saturating_sub(faster_n);
+    let missing_n = n.saturating_sub(measured.len());
+    let mut counts = Vec::new();
+    if slower_n > 0 {
+        counts.push((format!("slower on {slower_n} of {n}"), Tone::Slower));
+    }
+    if faster_n == n {
+        counts.push((format!("faster on all {n}"), Tone::Muted));
+    } else if faster_n > 0 {
+        counts.push((format!("faster on {faster_n} of {n}"), Tone::Muted));
+    }
+    if equal_n > 0 {
+        counts.push((format!("equal on {equal_n} of {n}"), Tone::Muted));
+    }
+    if missing_n > 0 {
+        counts.push((format!("not measured on {missing_n} of {n}"), Tone::Muted));
+    }
+    let slower = sec
+        .rows
+        .iter()
+        .filter_map(|r| {
+            r.faster
+                .filter(|f| *f < 1.0)
+                .map(|f| format!("{} {}×", r.workload, sig2(f)))
+        })
+        .collect();
+    Spread {
+        range,
+        counts,
+        slower,
+    }
+}
+
+/// The competitors of an operation, each once, in row order.
+fn competitors(sec: &Section) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for r in &sec.rows {
+        if !out.contains(&r.competitor) {
+            out.push(r.competitor.clone());
+        }
+    }
+    out
+}
+
+/// The compact chart's groups: one per operation, one bar per row.
+#[must_use]
+pub fn groups(sections: &[Section]) -> Vec<Group> {
+    sections
+        .iter()
+        .map(|sec| {
+            let sp = spread(sec);
+            let mut notes = vec![(sp.range, Tone::Text)];
+            notes.extend(sp.counts);
+            Group {
+                title: sec.compact.to_owned(),
+                subtitle: format!("vs {}", competitors(sec).join(", ")),
+                bars: sec.rows.iter().map(|r| r.faster).collect(),
+                notes,
+            }
+        })
+        .collect()
+}
+
+/// The workloads the compact chart's bars stand for, top to bottom.
+#[must_use]
+pub fn bar_workloads(sections: &[Section]) -> Vec<String> {
+    sections
+        .first()
+        .map(|sec| sec.rows.iter().map(|r| r.workload.clone()).collect())
+        .unwrap_or_default()
+}
+
+/// The READMEs' alt text: what the compact chart measures and, per
+/// operation, every number and count it shows, naming each slower row.
+#[must_use]
+pub fn compact_alt_text(sections: &[Section]) -> String {
+    let workloads = bar_workloads(sections);
+    let mut s = format!(
+        "Chart of CPU instruction counts, not wall-clock time: how many times fewer \
+         instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is \
+         better; 1.0× is equal), against {}; one bar per workload for {} workloads ({}).",
+        basis(sections),
+        workloads.len(),
+        and_list(&workloads)
+    );
+    for sec in sections {
+        let sp = spread(sec);
+        let counts: Vec<String> = sp.counts.iter().map(|(c, _)| c.clone()).collect();
+        let _ = write!(
+            s,
+            " {} vs {}: {}; {}",
+            sec.short,
+            and_list(&competitors(sec)),
+            sp.range,
+            counts.join(", ")
+        );
+        if !sp.slower.is_empty() {
+            let _ = write!(s, " (slower: {})", and_list(&sp.slower));
+        }
+        s.push('.');
+    }
+    s
+}
+
+/// The four charts generated from `doc`, each with its path relative to
+/// the workspace root: the compact README chart ([`CHART_LIGHT`],
+/// [`CHART_DARK`]) and the detailed chart ([`DETAIL_LIGHT`],
+/// [`DETAIL_DARK`]). Both share the description that lists every bar.
+///
+/// # Errors
+/// As [`summary`].
+pub fn charts(doc: &str) -> Result<[(&'static str, String); 4], String> {
+    let sections = summary(doc)?;
+    let desc = chart_description(&sections);
+    let groups = groups(&sections);
+    let workloads = bar_workloads(&sections);
+    let panels = panels(&sections);
+    let compact = |t: &chart::Theme| chart::compact_svg(&groups, &workloads, t, &desc);
+    let detail = |t: &chart::Theme| chart::svg(&panels, t, &desc);
+    Ok([
+        (CHART_LIGHT, compact(&chart::LIGHT)),
+        (CHART_DARK, compact(&chart::DARK)),
+        (DETAIL_LIGHT, detail(&chart::LIGHT)),
+        (DETAIL_DARK, detail(&chart::DARK)),
+    ])
+}
+
 /// What [`generate`] wrote.
 #[derive(Clone, Debug)]
 pub struct Written {
@@ -1159,63 +1422,73 @@ pub struct Written {
     pub readme: PathBuf,
     /// The repo-root README.
     pub root_readme: PathBuf,
-    /// The light and dark charts.
+    /// The file whose summary region was written (the tables' own file).
+    pub summary: PathBuf,
+    /// The light and dark compact charts.
     pub charts: [PathBuf; 2],
+    /// The light and dark detailed charts.
+    pub details: [PathBuf; 2],
 }
 
-/// Regenerates the README region, the repo-root README's chart region and
-/// both charts under `root` from the `docs/performance.md` at
-/// `performance`; the READMEs' chart and links point at `git_ref`.
+/// Regenerates, from the `docs/performance.md` at `performance`: the
+/// README region and the repo-root README's chart region (compact chart
+/// and link, pointing at `git_ref`), the summary region of `performance`
+/// itself, and the four charts under `root`.
 ///
 /// # Errors
-/// As [`readme_body`], plus I/O and marker errors, or generated text that
-/// names an internal process identifier ([`oracles::public_text`]); all of
-/// it is checked before anything is written.
+/// As [`readme_body`] and [`summary_body`], plus I/O and marker errors, or
+/// generated text that names an internal process identifier
+/// ([`oracles::public_text`]); all of it is checked, and every region
+/// replaced in memory, before anything is written.
 pub fn generate(root: &Path, performance: &Path, git_ref: &str) -> Result<Written, String> {
     let doc = std::fs::read_to_string(performance)
         .map_err(|e| format!("{}: {e}", performance.display()))?;
     let body = readme_body(&doc, git_ref)?;
     let chart_region = chart_body(&doc, git_ref)?;
-    let sections = summary(&doc)?;
-    let panels = panels(&sections);
-    let desc = chart_description(&sections);
-    let svgs = [chart::LIGHT, chart::DARK].map(|theme| chart::svg(&panels, &theme, &desc));
+    let summary_region = summary_body(&doc)?;
+    let svgs = charts(&doc)?;
     for (what, text) in [
         (README, body.as_str()),
         (ROOT_README, chart_region.as_str()),
-        (CHART_LIGHT, svgs[0].as_str()),
-        (CHART_DARK, svgs[1].as_str()),
-    ] {
+        (PERFORMANCE, summary_region.as_str()),
+    ]
+    .into_iter()
+    .chain(svgs.iter().map(|(path, svg)| (*path, svg.as_str())))
+    {
         oracles::public_text::check(what, text)?;
     }
     let readme = root.join(README);
-    let text =
-        std::fs::read_to_string(&readme).map_err(|e| format!("{}: {e}", readme.display()))?;
-    let new = replace_section(&text, README_SECTION, &body)?;
     let root_readme = root.join(ROOT_README);
-    let root_text = std::fs::read_to_string(&root_readme)
-        .map_err(|e| format!("{}: {e}", root_readme.display()))?;
-    let root_new = replace_section(&root_text, CHART_SECTION, &chart_region)?;
-    // Both regions are checked before either file is written.
-    if new != text {
-        std::fs::write(&readme, new).map_err(|e| format!("{}: {e}", readme.display()))?;
+    let mut edits = Vec::new();
+    for (path, section, region) in [
+        (&readme, README_SECTION, &body),
+        (&root_readme, CHART_SECTION, &chart_region),
+    ] {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let new = replace_section(&text, section, region)?;
+        edits.push((path.clone(), text, new));
     }
-    if root_new != root_text {
-        std::fs::write(&root_readme, root_new)
-            .map_err(|e| format!("{}: {e}", root_readme.display()))?;
+    let new_doc = replace_section(&doc, SUMMARY_SECTION, &summary_region)?;
+    edits.push((performance.to_path_buf(), doc, new_doc));
+    // Every region is replaced before any file is written.
+    for (path, old, new) in &edits {
+        if new != old {
+            std::fs::write(path, new).map_err(|e| format!("{}: {e}", path.display()))?;
+        }
     }
-    let light = root.join(CHART_LIGHT);
-    let dark = root.join(CHART_DARK);
-    for (path, svg) in [(&light, &svgs[0]), (&dark, &svgs[1])] {
+    for (rel, svg) in &svgs {
+        let path = root.join(rel);
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         }
-        std::fs::write(path, svg).map_err(|e| format!("{}: {e}", path.display()))?;
+        std::fs::write(&path, svg).map_err(|e| format!("{}: {e}", path.display()))?;
     }
     Ok(Written {
         readme,
         root_readme,
-        charts: [light, dark],
+        summary: performance.to_path_buf(),
+        charts: [root.join(CHART_LIGHT), root.join(CHART_DARK)],
+        details: [root.join(DETAIL_LIGHT), root.join(DETAIL_DARK)],
     })
 }
 
@@ -1276,6 +1549,8 @@ mod tests {
         let sec = |short, rows| Section {
             title: "t",
             short,
+            compact: short,
+            versus: "c",
             unit: "u",
             rows,
         };
@@ -1442,6 +1717,11 @@ mod tests {
         );
     }
 
+    /// Who the fixture's operations are compared with.
+    const BASIS: &str = "the fastest feature-complete YAML serde library on each workload for \
+                         serde read and serde write, and yaml-edit for Document parse and \
+                         Document edit script (insert + set + remove)";
+
     /// A minimal `docs/performance.md` with every table the summary reads.
     fn fixture(edit_ours: &str) -> String {
         let mut s = String::new();
@@ -1458,6 +1738,7 @@ mod tests {
             s.push_str(&format!("| {k} | {k}-value |\n"));
         }
         s.push_str("<!-- bench:environment:end -->\n");
+        s.push_str("<!-- bench:summary:begin -->\n<!-- bench:summary:end -->\n");
         for (sec, wall) in [
             ("serde-instructions", "serde-wall"),
             ("ser-instructions", "ser-wall"),
@@ -1522,7 +1803,8 @@ mod tests {
         assert_eq!(edit.wall, Wall::Agrees);
         assert_eq!(edit.competitor, "yaml-edit");
 
-        let body = readme_body(&doc, "main").unwrap();
+        // The summary region: tables, notes and the detailed chart.
+        let body = summary_body(&doc).unwrap();
         assert!(body.contains("0.28× — slower"));
         // The better absolute value is bold, whichever side it is on.
         assert!(body.contains(
@@ -1534,9 +1816,11 @@ mod tests {
             "| gha-workflow (3.1 kB) | serde_yaml_ng | **100.0** | 113.0 | **1.1×** | **1.3×** |\n"
         ));
         assert!(body.contains("| serde read (typed) | vs | oneyaml Ir/B | competitor Ir/B | × faster | × faster (wall-clock) |\n|---|---|---|---|---|---|\n"));
+        assert_eq!(tables(&body).len(), 4);
         // Equal wall-clock medians read 1.0×.
         assert!(body.contains("| **1.1×** | **1.0×** |\n"));
         assert!((secs[2].rows[0].wall_faster.unwrap() - 1.0).abs() < 1e-9);
+        assert!(body.contains("\n- **× faster** = the competitor's CPU instructions ÷ oneyaml's"));
         assert!(body.contains("- **Measured** Revision-value on Date-value · CPU-value"));
         // Wall-clock: serde rows faster (50 vs 40 MB/s), parse ties, the
         // edit script slower (0.035 ms vs 0.015 ms).
@@ -1546,25 +1830,47 @@ mod tests {
              and k8s-multi. The medians are equal on 5 rows: Document parse gha-workflow, \
              compose-merge, helm-values, openapi-100k and k8s-multi.\n"
         ));
-        // Both sources and the image, the light one explicit.
-        let raw = raw();
+        // The detailed chart, by relative links: the region names no ref.
+        let alt = alt_text(&secs);
         assert!(body.contains(&format!(
-            "<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"{raw}/main/{CHART_DARK}\">\n  <source media=\"(prefers-color-scheme: light)\" srcset=\"{raw}/main/{CHART_LIGHT}\">\n  <img alt=\""
+            "<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"img/bench-detail-dark.svg\">\n  <source media=\"(prefers-color-scheme: light)\" srcset=\"img/bench-detail-light.svg\">\n  <img alt=\"{}\" src=\"img/bench-detail-light.svg\">\n</picture>\n",
+            html_attr(&alt)
         )));
-        assert!(body.lines().count() <= 45, "{} lines", body.lines().count());
-        assert!(body.contains(&format!("{REPO}/blob/main/{PERFORMANCE}")));
-        assert!(body.contains(&format!("{raw}/main/{CHART_DARK}")));
+        assert!(!body.contains("https://"), "relative links only");
+        assert!(!body.contains("/main/"));
+        assert_eq!(summary_body(&doc).unwrap(), body, "byte-stable");
+        assert!(!body.contains("```"));
+
+        // The README region: the compact chart and one link, no table.
+        let readme = readme_body(&doc, "main").unwrap();
+        let raw = raw();
+        let compact_alt = compact_alt_text(&secs);
+        assert_eq!(
+            readme,
+            format!(
+                "<!-- Generated by `bench readme` from docs/performance.md; do not edit. -->\n\
+                 <picture>\n  \
+                 <source media=\"(prefers-color-scheme: dark)\" srcset=\"{raw}/main/{CHART_DARK}\">\n  \
+                 <source media=\"(prefers-color-scheme: light)\" srcset=\"{raw}/main/{CHART_LIGHT}\">\n  \
+                 <img alt=\"{}\" src=\"{raw}/main/{CHART_LIGHT}\">\n\
+                 </picture>\n\n\
+                 [Full results, with wall-clock times and the method →]\
+                 ({REPO}/blob/main/{PERFORMANCE}#results-at-a-glance)\n",
+                html_attr(&compact_alt)
+            )
+        );
+        assert!(tables(&readme).is_empty(), "no table in the README region");
+        assert!(!readme.contains("**Measured**") && !readme.contains("wall-clock) ="));
+        assert_eq!(readme.matches("](").count(), 1, "one link");
         let pinned = readme_body(&doc, "v1.0.0").unwrap();
         assert!(pinned.contains(&format!("srcset=\"{raw}/v1.0.0/{CHART_DARK}\"")));
         assert!(pinned.contains(&format!("srcset=\"{raw}/v1.0.0/{CHART_LIGHT}\"")));
         assert!(pinned.contains(&format!("src=\"{raw}/v1.0.0/{CHART_LIGHT}\"")));
-        assert!(pinned.contains(&format!("{REPO}/blob/v1.0.0/{PERFORMANCE}#regenerate")));
+        assert!(pinned.contains(&format!(
+            "{REPO}/blob/v1.0.0/{PERFORMANCE}#results-at-a-glance"
+        )));
         assert!(!pinned.contains("/main/"));
-        assert!(
-            !body.contains("```"),
-            "no code blocks: the README is doctested"
-        );
-        assert_eq!(readme_body(&doc, "main").unwrap(), body, "byte-stable");
+        assert_eq!(readme_body(&doc, "main").unwrap(), readme, "byte-stable");
         assert_eq!(
             competitor_versions(
                 "serde_yaml_ng 0.10.0, serde_json 1.0, yaml-edit 0.3.2",
@@ -1572,34 +1878,145 @@ mod tests {
             ),
             "serde_yaml_ng 0.10.0, yaml-edit 0.3.2"
         );
-        // The SVG's description lists every bar; the alt text summarises.
+        // The SVGs' description lists every bar.
         assert!(chart_description(&secs).contains(
             "Document edit script (insert + set + remove): gha-workflow 0.28× — slower vs yaml-edit"
         ));
-        let alt = alt_text(&secs);
+        // The detailed chart's alt text summarises and points at the tables
+        // under it.
         assert_eq!(
             alt,
-            "Bar chart: how many times fewer CPU instructions oneyaml needs than the fastest \
-             feature-complete competitor (higher is better), for serde read, serde write, \
-             Document parse and Document edit script (insert + set + remove) on 5 workloads. \
-             oneyaml needs more instructions on 5 of 20 rows: Document edit script (insert + \
-             set + remove) gha-workflow, compose-merge, helm-values, openapi-100k and \
-             k8s-multi. The tables below the chart give every number."
+            format!(
+                "Bar chart: how many times fewer CPU instructions oneyaml executes than each \
+                 competitor (higher is better), against {BASIS}, on 5 workloads. oneyaml \
+                 executes more instructions on 5 of 20 rows: Document edit script (insert + set \
+                 + remove) gha-workflow, compose-merge, helm-values, openapi-100k and \
+                 k8s-multi. The tables below the chart give every number."
+            )
         );
-        assert!(alt.len() < 500, "{}", alt.len());
+        // The README's alt text carries every number the compact chart
+        // shows, and names each slower row with its ratio.
+        assert_eq!(
+            compact_alt,
+            format!(
+                "Chart of CPU instruction counts, not wall-clock time: how many times fewer \
+             instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher \
+             is better; 1.0× is equal), against {BASIS}; one bar per workload for 5 workloads \
+             (gha-workflow, compose-merge, helm-values, openapi-100k and k8s-multi). serde read vs serde_yaml_ng: 1.1×; faster on all 5. serde write vs \
+             serde_yaml_ng: 1.1×; faster on all 5. Document parse vs yaml-edit: 1.1×; faster \
+             on all 5. Document edit script (insert + set + remove) vs yaml-edit: 0.28×; \
+             slower on 5 of 5 (slower: gha-workflow 0.28×, compose-merge 0.28×, helm-values \
+             0.28×, openapi-100k 0.28× and k8s-multi 0.28×)."
+            )
+        );
+        // Who each operation is compared with: the description and both alt
+        // texts say it the same way, and none claims yaml-edit is chosen
+        // as the fastest.
+        assert_eq!(basis(&secs), BASIS);
+        assert!(chart_description(&secs).starts_with(&format!(
+            "Bar chart: how many times fewer CPU instructions oneyaml executes than each \
+             competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against \
+             {BASIS}. serde read:"
+        )));
+        let g = groups(&secs);
+        for (group, sec) in g.iter().zip(&secs) {
+            let sp = spread(sec);
+            assert!(compact_alt.contains(&format!("{}; ", sp.range)));
+            for (note, _) in &group.notes {
+                assert!(compact_alt.contains(note.as_str()), "{note}");
+            }
+        }
+        assert_eq!(g[3].title, "Document edit script");
+        assert_eq!(g[3].subtitle, "vs yaml-edit");
+        assert_eq!(g[3].bars.len(), 5);
+        assert_eq!(
+            g[3].notes,
+            [
+                ("0.28×".to_owned(), Tone::Text),
+                ("slower on 5 of 5".to_owned(), Tone::Slower)
+            ]
+        );
         let p = panels(&secs);
         assert_eq!(p[3].title, "Document edit script (insert + set + remove)");
         assert_eq!(p[3].bars[0].text, "0.28× — slower");
-        // The repo-root region: the same picture, tables and notes.
-        let chart = chart_body(&doc, "main").unwrap();
-        assert!(body.contains(&picture(&alt, "main")));
-        assert_eq!(chart, body);
+        assert_eq!(p.iter().map(|x| x.bars.len()).sum::<usize>(), 20);
+        // The repo-root region: the same chart and link.
+        assert_eq!(chart_body(&doc, "main").unwrap(), readme);
         // A bad ref is refused before anything is written.
         for bad in ["", "a\"b", "<x>", "a b"] {
             assert!(readme_body(&doc, bad).is_err(), "{bad:?}");
             assert!(chart_body(&doc, bad).is_err(), "{bad:?}");
         }
-        assert_eq!(p.iter().map(|x| x.bars.len()).sum::<usize>(), 20);
+    }
+
+    /// A spread keeps every loss: one slower row is counted and named, with
+    /// the range running below 1.0×, whatever the other rows win by.
+    #[test]
+    fn the_compact_summary_never_hides_a_loss() {
+        let row = |w: &str, f: Option<f64>, c: &str| Row {
+            workload: w.to_owned(),
+            bytes: 1.0,
+            competitor: c.to_owned(),
+            ours: "1".to_owned(),
+            theirs: "1".to_owned(),
+            faster: f,
+            wall: Wall::Missing,
+            wall_faster: None,
+        };
+        let sec = |rows| Section {
+            title: "t",
+            short: "edit script",
+            compact: "edits",
+            versus: "x or y",
+            unit: "u",
+            rows,
+        };
+        let mixed = sec(vec![
+            row("a", Some(2.2), "x"),
+            row("b", Some(0.547), "x"),
+            row("c", Some(63.0), "y"),
+            row("d", Some(1.0), "x"),
+            row("e", None, "y"),
+        ]);
+        let sp = spread(&mixed);
+        assert_eq!(sp.range, "0.55× to 63×");
+        assert_eq!(
+            sp.counts,
+            [
+                ("slower on 1 of 5".to_owned(), Tone::Slower),
+                ("faster on 2 of 5".to_owned(), Tone::Muted),
+                ("equal on 1 of 5".to_owned(), Tone::Muted),
+                ("not measured on 1 of 5".to_owned(), Tone::Muted),
+            ]
+        );
+        assert_eq!(sp.slower, ["b 0.55×"]);
+        assert_eq!(competitors(&mixed), ["x", "y"]);
+        let alt = compact_alt_text(std::slice::from_ref(&mixed));
+        assert!(alt.ends_with(
+            " edit script vs x and y: 0.55× to 63×; slower on 1 of 5, faster on 2 of 5, equal \
+             on 1 of 5, not measured on 1 of 5 (slower: b 0.55×)."
+        ));
+        let g = &groups(std::slice::from_ref(&mixed))[0];
+        assert_eq!(g.subtitle, "vs x, y");
+        assert_eq!(
+            g.bars,
+            [Some(2.2), Some(0.547), Some(63.0), Some(1.0), None]
+        );
+        // A row shown as `1.0× — slower` counts as slower.
+        let near = sec(vec![row("a", Some(0.996), "x"), row("b", Some(1.2), "x")]);
+        let sp = spread(&near);
+        assert_eq!(sp.range, "1.0× to 1.2×");
+        assert_eq!(sp.counts[0], ("slower on 1 of 2".to_owned(), Tone::Slower));
+        assert_eq!(sp.slower, ["a 1.0×"]);
+        // Nothing measured.
+        let none = sec(vec![row("a", None, "x")]);
+        let sp = spread(&none);
+        assert_eq!(sp.range, "not measured");
+        assert_eq!(
+            sp.counts,
+            [("not measured on 1 of 1".to_owned(), Tone::Muted)]
+        );
+        assert!(sp.slower.is_empty());
     }
 
     #[test]
@@ -1610,10 +2027,16 @@ mod tests {
         assert!(edit.faster.is_none());
         assert_eq!(edit.wall, Wall::Missing);
         assert!(
-            readme_body(&doc, "main")
+            summary_body(&doc)
                 .unwrap()
                 .contains("| timeout (> 300 s) | 302,491 | n/a | 0.43× — slower |\n")
         );
+        // The compact chart and its alt text say so too.
+        assert!(compact_alt_text(&secs).ends_with(
+            " Document edit script (insert + set + remove) vs yaml-edit: not measured; not \
+             measured on 5 of 5."
+        ));
+        assert!(groups(&secs)[3].bars.iter().all(Option::is_none));
         assert!(chart_description(&secs).contains("gha-workflow not measured vs yaml-edit"));
         assert!(alt_text(&secs).contains(
             " Not measured: Document edit script (insert + set + remove) gha-workflow, \
@@ -1722,7 +2145,7 @@ mod tests {
         );
         assert_eq!(measured(&env).unwrap(), "`abc1234` on 2026-10-03");
 
-        // A recorded note follows the revision; the READMEs show the commit
+        // A recorded note follows the revision; the summary shows the commit
         // and the note.
         let p = Provenance {
             revision: Some("`4c6d70c`".to_owned()),
@@ -1814,15 +2237,18 @@ mod tests {
         std::fs::write(dir.join(README), readme).unwrap();
         std::fs::write(dir.join(ROOT_README), root_text).unwrap();
         let perf = dir.join(PERFORMANCE);
-        let unchanged = || {
+        let unchanged = |doc: &str| {
             assert_eq!(std::fs::read_to_string(dir.join(README)).unwrap(), readme);
             assert_eq!(
                 std::fs::read_to_string(dir.join(ROOT_README)).unwrap(),
                 root_text
             );
-            assert!(!dir.join(CHART_LIGHT).exists() && !dir.join(CHART_DARK).exists());
+            assert_eq!(std::fs::read_to_string(&perf).unwrap(), doc);
+            for svg in [CHART_LIGHT, CHART_DARK, DETAIL_LIGHT, DETAIL_DARK] {
+                assert!(!dir.join(svg).exists(), "{svg}");
+            }
         };
-        // Only in the crate README (the method strip's CPU cell).
+        // Only in the summary region (the Measured line's CPU cell).
         std::fs::write(
             &perf,
             fixture("1").replace("| CPU | CPU-value |", "| CPU | the NN-3 host |"),
@@ -1834,19 +2260,24 @@ mod tests {
             "not `measured`"
         );
         let err = generate(&dir, &perf, DEFAULT_REF).unwrap_err();
-        assert!(err.starts_with(README), "{err}");
+        assert!(err.starts_with(PERFORMANCE), "{err}");
         assert!(err.contains("\"NN-3\""), "{err}");
-        unchanged();
-        // In every output: a competitor name reaches the alt text, the
-        // chart region and both SVGs; the first checked output is named.
-        std::fs::write(&perf, fixture("1").replace("serde_yaml_ng", "OI-2-yaml")).unwrap();
+        unchanged(&doc);
+        // In every output: a competitor name reaches both alt texts, both
+        // regions, the summary and every SVG; the first checked output is
+        // named.
+        let doc = fixture("1").replace("serde_yaml_ng", "OI-2-yaml");
+        std::fs::write(&perf, &doc).unwrap();
         let err = generate(&dir, &perf, DEFAULT_REF).unwrap_err();
+        assert!(err.starts_with(README), "{err}");
         assert!(err.contains("\"OI-2\""), "{err}");
-        unchanged();
+        unchanged(&doc);
         // The same fixture, plain, is written.
         std::fs::write(&perf, fixture("1")).unwrap();
         generate(&dir, &perf, DEFAULT_REF).unwrap();
-        assert!(dir.join(CHART_LIGHT).exists());
+        for svg in [CHART_LIGHT, CHART_DARK, DETAIL_LIGHT, DETAIL_DARK] {
+            assert!(dir.join(svg).exists(), "{svg}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1872,29 +2303,55 @@ mod tests {
         let root_text = "# r\n\n<!-- bench:chart:begin -->\n<!-- bench:chart:end -->\n\nprose\n";
         std::fs::write(dir.join(ROOT_README), root_text).unwrap();
         let w = generate(&dir, &perf, DEFAULT_REF).unwrap();
-        let first: Vec<Vec<u8>> = [&w.readme, &w.root_readme, &w.charts[0], &w.charts[1]]
+        assert_eq!(w.summary, perf);
+        let files = |w: &Written| -> Vec<Vec<u8>> {
+            [
+                &w.readme,
+                &w.root_readme,
+                &w.charts[0],
+                &w.charts[1],
+                &w.summary,
+                &w.details[0],
+                &w.details[1],
+            ]
             .iter()
             .map(|p| std::fs::read(p).unwrap())
-            .collect();
-        generate(&dir, &perf, DEFAULT_REF).unwrap();
-        let second: Vec<Vec<u8>> = [&w.readme, &w.root_readme, &w.charts[0], &w.charts[1]]
-            .iter()
-            .map(|p| std::fs::read(p).unwrap())
-            .collect();
-        assert_eq!(first, second);
+            .collect()
+        };
+        let first = files(&w);
+        let w2 = generate(&dir, &perf, DEFAULT_REF).unwrap();
+        assert_eq!(first, files(&w2), "a second run changes nothing");
         let readme = String::from_utf8(first[0].clone()).unwrap();
         assert!(readme.starts_with("# x\n\n<!-- bench:readme:begin -->\n<!-- Generated"));
         assert!(readme.ends_with("<!-- bench:readme:end -->\n\n## Quick start\n"));
         let root = String::from_utf8(first[1].clone()).unwrap();
         assert!(root.starts_with("# r\n\n<!-- bench:chart:begin -->\n<!-- Generated"));
         assert!(root.ends_with("<!-- bench:chart:end -->\n\nprose\n"));
-        // The root README carries the tables as text, as the crate README does.
-        assert!(root.contains("| serde read (typed) | vs |"));
-        assert!(root.contains("**× faster (wall-clock)**"));
-        // The SVGs keep a title and the full per-bar description; the
-        // image's alt text is only the short summary.
-        let secs = summary(&fixture("1,078,595")).unwrap();
-        for svg in &first[2..] {
+        // The READMEs carry the chart and its link, no table; the tables
+        // and notes are in the summary region, around the hand-written text.
+        let doc = fixture("1,078,595");
+        for text in [&readme, &root] {
+            assert!(tables(text).is_empty(), "{text}");
+            assert!(!text.contains("**× faster (wall-clock)**"));
+            assert!(text.contains(&readme_body(&doc, DEFAULT_REF).unwrap()));
+        }
+        let written = String::from_utf8(first[4].clone()).unwrap();
+        assert_eq!(
+            written,
+            replace_section(&doc, SUMMARY_SECTION, &summary_body(&doc).unwrap()).unwrap()
+        );
+        let region = section_body(&written, SUMMARY_SECTION).unwrap();
+        assert_eq!(tables(region).len(), 4);
+        assert!(region.contains("**× faster (wall-clock)**"));
+        assert!(region.contains("- **Measured** "));
+        // The rest of the file is untouched, and the summary still reads
+        // the same rows from it.
+        assert_eq!(written.replace(region, ""), doc);
+        assert_eq!(summary_body(&written).unwrap(), summary_body(&doc).unwrap());
+        // The SVGs keep a title and the full per-bar description; each
+        // image's alt text is shorter.
+        let secs = summary(&doc).unwrap();
+        for svg in first[2..4].iter().chain(&first[5..]) {
             let svg = String::from_utf8(svg.clone()).unwrap();
             assert!(svg.contains("<title id=\"title\">"));
             assert!(svg.contains("aria-labelledby=\"title desc\""));
@@ -1903,7 +2360,13 @@ mod tests {
                 chart_description(&secs)
             )));
         }
-        assert!(readme.contains(&html_attr(&alt_text(&secs))));
+        let compact = String::from_utf8(first[2].clone()).unwrap();
+        assert!(compact.contains(">Document edit script</text>"));
+        assert!(compact.contains(">slower on 5 of 5</text>"));
+        let detail = String::from_utf8(first[5].clone()).unwrap();
+        assert!(detail.contains(">Document edit script (insert + set + remove)</text>"));
+        assert!(readme.contains(&html_attr(&compact_alt_text(&secs))));
+        assert!(region.contains(&html_attr(&alt_text(&secs))));
         assert!(!readme.contains(&html_attr(&chart_description(&secs))));
         // A missing root region fails before either README is touched.
         std::fs::write(dir.join(ROOT_README), "no markers\n").unwrap();
@@ -1924,7 +2387,7 @@ mod tests {
         assert!(generate(&dir, &perf, "bad ref").is_err());
         // Generated text naming an internal identifier (here a recorded
         // revision from before the check existed) is refused, nothing written.
-        let before: Vec<Vec<u8>> = [&w.readme, &w.charts[0]]
+        let before: Vec<Vec<u8>> = [&w.readme, &w.charts[0], &w.details[0]]
             .iter()
             .map(|p| std::fs::read(p).unwrap())
             .collect();
@@ -1939,12 +2402,31 @@ mod tests {
                 .unwrap_err()
                 .contains("internal process identifier")
         );
-        let after: Vec<Vec<u8>> = [&w.readme, &w.charts[0]]
+        let after: Vec<Vec<u8>> = [&w.readme, &w.charts[0], &w.details[0]]
             .iter()
             .map(|p| std::fs::read(p).unwrap())
             .collect();
         assert_eq!(before, after);
         std::fs::write(dir.join(ROOT_README), root_text).unwrap();
+        // Tables without a summary region: refused before either README
+        // is written.
+        let readmes = || [&w.readme, &w.root_readme].map(|p| std::fs::read_to_string(p).unwrap());
+        let before = readmes();
+        let no_summary = dir.join("docs/no-summary.md");
+        std::fs::write(
+            &no_summary,
+            fixture("1").replace(
+                "<!-- bench:summary:begin -->\n<!-- bench:summary:end -->\n",
+                "",
+            ),
+        )
+        .unwrap();
+        assert!(
+            generate(&dir, &no_summary, DEFAULT_REF)
+                .unwrap_err()
+                .contains("bench:summary")
+        );
+        assert_eq!(readmes(), before);
         assert!(generate(&dir, &dir.join("missing.md"), DEFAULT_REF).is_err());
         std::fs::write(dir.join(README), "no markers\n").unwrap();
         assert!(generate(&dir, &perf, DEFAULT_REF).is_err());

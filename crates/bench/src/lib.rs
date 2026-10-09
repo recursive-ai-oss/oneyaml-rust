@@ -19,8 +19,9 @@
 //! `Document` parse, emit and edits against yaml-edit.
 //!
 //! `target/release/bench update docs/performance.md` regenerates every table,
-//! then the README summary and its chart ([`readme`]); `bench readme`
-//! regenerates only the latter, from the tables already in the file.
+//! then the summary tables, the README chart and the charts ([`readme`]);
+//! `bench readme` regenerates only the latter, from the tables already in
+//! the file.
 //! `bench pin-links <ref>` ([`pin`]) repoints every repository link of the
 //! published docs (generated regions included) to a release tag, and back
 //! to `main`.

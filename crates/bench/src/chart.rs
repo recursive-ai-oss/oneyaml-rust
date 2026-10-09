@@ -13,6 +13,12 @@
 //! the bars up to [`CUT`] (see [`scale`]); a longer bar runs a little past
 //! the axis end, is drawn broken there (two slanted gaps), and is labelled
 //! with its value, and a caption line says so.
+//!
+//! [`compact_svg`] is the small chart for the READMEs: one group per
+//! operation, one thin bar per workload (the same linear, zero-based scale,
+//! parity line, slower colour and cut), and beside each group its range and
+//! how many workloads are slower. It drops the per-bar labels, not bars:
+//! every workload keeps its own bar, so no loss is averaged away.
 
 use std::fmt::Write as _;
 
@@ -328,6 +334,243 @@ pub fn svg(panels: &[Panel], theme: &Theme, description: &str) -> String {
     s
 }
 
+/// How a note beside a compact group is drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tone {
+    /// Main text (the range).
+    Text,
+    /// Secondary text.
+    Muted,
+    /// In the slower colour (a count of slower workloads).
+    Slower,
+}
+
+/// One operation of the compact chart.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Group {
+    /// The operation.
+    pub title: String,
+    /// The line under it (the competitors).
+    pub subtitle: String,
+    /// One bar per workload, in the order the caption names; `None` draws
+    /// no bar (not measured).
+    pub bars: Vec<Option<f64>>,
+    /// The lines beside the group (range, counts).
+    pub notes: Vec<(String, Tone)>,
+}
+
+const C_LEFT: f64 = 224.0;
+const C_RIGHT: f64 = 170.0;
+const C_BAR: f64 = 6.0;
+const C_PITCH: f64 = 8.0;
+const C_NOTE: f64 = 14.0;
+const C_LABEL: f64 = 32.0;
+const C_GAP: f64 = 18.0;
+const C_TOP: f64 = 96.0;
+const C_OVERRUN: f64 = 16.0;
+
+/// The height of a group's rows: its bars, its notes or its label, whichever
+/// is tallest.
+fn group_height(g: &Group) -> f64 {
+    let bars = (g.bars.len() as f64 * C_PITCH - (C_PITCH - C_BAR)).max(0.0);
+    bars.max(g.notes.len() as f64 * C_NOTE).max(C_LABEL)
+}
+
+/// The compact chart. `workloads` names the bars of every group, top to
+/// bottom, in the caption.
+#[must_use]
+pub fn compact_svg(
+    groups: &[Group],
+    workloads: &[String],
+    theme: &Theme,
+    description: &str,
+) -> String {
+    let plot = WIDTH - C_LEFT - C_RIGHT;
+    let values = || groups.iter().flat_map(|g| g.bars.iter().filter_map(|b| *b));
+    let (axis_max, step) = scale(values());
+    let cut = values().any(|v| v > axis_max);
+    let x = |v: f64| C_LEFT + v.clamp(0.0, axis_max) / axis_max * plot;
+    let axis_end = x(axis_max);
+    let body: f64 = groups.iter().map(|g| group_height(g) + C_GAP).sum();
+    let axis_y = C_TOP + body - C_GAP / 2.0;
+    let height = axis_y + BOTTOM;
+    let font = "font-family=\"system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif\"";
+    let broken = if cut {
+        format!("; bars longer than {axis_max:.1}× are drawn broken")
+    } else {
+        String::new()
+    };
+    let captions = [
+        (
+            43,
+            "competitor's CPU instructions ÷ oneyaml's, not wall-clock time; dashed line = 1.0× (equal)"
+                .to_owned(),
+        ),
+        (61, format!("orange, hatched bars = oneyaml slower{broken}")),
+        (
+            79,
+            format!("one bar per workload, top to bottom: {}", workloads.join(", ")),
+        ),
+    ];
+    // The notes start right of the plot; the chart widens past `WIDTH`
+    // when a note or a caption line would not fit (estimated widths).
+    let nx = axis_end + C_OVERRUN + 14.0;
+    let chars = |t: &str| t.chars().count() as f64;
+    let width = groups
+        .iter()
+        .flat_map(|g| &g.notes)
+        .map(|(t, _)| nx + chars(t) * LABEL_CHAR + 16.0)
+        .chain(
+            captions
+                .iter()
+                .map(|(_, t)| 16.0 + chars(t) * LABEL_CHAR + 16.0),
+        )
+        .fold(WIDTH, f64::max)
+        .ceil();
+
+    let mut s = String::new();
+    let _ = writeln!(
+        s,
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-labelledby=\"title desc\" {font} font-size=\"13\">"
+    );
+    let _ = writeln!(
+        s,
+        "<title id=\"title\">oneyaml: × faster than each competitor (CPU instructions)</title>"
+    );
+    let _ = writeln!(s, "<desc id=\"desc\">{}</desc>", escape(description));
+    let _ = writeln!(
+        s,
+        "<defs><pattern id=\"slower\" width=\"4\" height=\"4\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><rect width=\"4\" height=\"4\" fill=\"{0}\" fill-opacity=\"0.45\"/><rect width=\"2\" height=\"4\" fill=\"{0}\"/></pattern></defs>",
+        theme.slower
+    );
+    let _ = writeln!(
+        s,
+        "<rect width=\"100%\" height=\"100%\" fill=\"{}\"/>",
+        theme.background
+    );
+    let _ = writeln!(
+        s,
+        "<text x=\"16\" y=\"24\" fill=\"{}\" font-size=\"15\" font-weight=\"600\">oneyaml: × faster than each competitor (higher is better)</text>",
+        theme.text
+    );
+    for (y, line) in captions {
+        let _ = writeln!(
+            s,
+            "<text x=\"16\" y=\"{y}\" fill=\"{}\">{}</text>",
+            theme.muted,
+            escape(&line)
+        );
+    }
+
+    let ticks = (axis_max / step).round() as u32;
+    let px = x(1.0);
+    let mut y = C_TOP;
+    for g in groups {
+        let h = group_height(g);
+        let _ = writeln!(
+            s,
+            "<text x=\"16\" y=\"{:.1}\" fill=\"{}\" font-weight=\"600\">{}</text>",
+            y + 12.0,
+            theme.text,
+            escape(&g.title)
+        );
+        let _ = writeln!(
+            s,
+            "<text x=\"16\" y=\"{:.1}\" fill=\"{}\" font-size=\"12\">{}</text>",
+            y + 28.0,
+            theme.muted,
+            escape(&g.subtitle)
+        );
+        let (top, bottom) = (y - 3.0, y + h + 3.0);
+        for i in 0..=ticks {
+            let gx = x(f64::from(i) * step);
+            let _ = writeln!(
+                s,
+                "<line x1=\"{gx:.1}\" y1=\"{top:.1}\" x2=\"{gx:.1}\" y2=\"{bottom:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
+                theme.grid
+            );
+        }
+        for (i, b) in g.bars.iter().enumerate() {
+            let Some(v) = *b else { continue };
+            let by = y + i as f64 * C_PITCH;
+            let fill = if v < 1.0 {
+                "url(#slower)"
+            } else {
+                theme.accent
+            };
+            let long = v > axis_max;
+            let end = if long { axis_end + C_OVERRUN } else { x(v) };
+            let _ = writeln!(
+                s,
+                "<rect x=\"{C_LEFT:.1}\" y=\"{by:.1}\" width=\"{:.1}\" height=\"{C_BAR:.1}\" fill=\"{fill}\"/>",
+                end - C_LEFT
+            );
+            if long {
+                // A slanted gap just past the axis end: the bar is cut
+                // there, not drawn to scale.
+                let _ = writeln!(
+                    s,
+                    "<line x1=\"{:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" stroke=\"{}\" stroke-width=\"2.5\"/>",
+                    axis_end + 5.0,
+                    by + C_BAR + 1.0,
+                    axis_end + 9.0,
+                    by - 1.0,
+                    theme.background
+                );
+            }
+        }
+        // The parity line and the zero axis, over the bars.
+        let _ = writeln!(
+            s,
+            "<line x1=\"{px:.1}\" y1=\"{top:.1}\" x2=\"{px:.1}\" y2=\"{bottom:.1}\" stroke=\"{}\" stroke-width=\"1.5\" stroke-dasharray=\"4 3\"/>",
+            theme.text
+        );
+        let _ = writeln!(
+            s,
+            "<line x1=\"{C_LEFT:.1}\" y1=\"{top:.1}\" x2=\"{C_LEFT:.1}\" y2=\"{bottom:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
+            theme.muted
+        );
+        for (i, (text, tone)) in g.notes.iter().enumerate() {
+            let (fill, size) = match tone {
+                Tone::Text => (theme.text, "13"),
+                Tone::Muted => (theme.muted, "12"),
+                Tone::Slower => (theme.slower, "12"),
+            };
+            let _ = writeln!(
+                s,
+                "<text x=\"{nx:.1}\" y=\"{:.1}\" fill=\"{fill}\" font-size=\"{size}\">{}</text>",
+                y + 11.0 + i as f64 * C_NOTE,
+                escape(text)
+            );
+        }
+        y += h + C_GAP;
+    }
+    for i in 0..=ticks {
+        let v = f64::from(i) * step;
+        let _ = writeln!(
+            s,
+            "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"{}\" text-anchor=\"middle\">{v:.1}×</text>",
+            x(v),
+            axis_y + 16.0,
+            theme.muted
+        );
+    }
+    let _ = writeln!(
+        s,
+        "<text x=\"{:.1}\" y=\"{:.1}\" fill=\"{}\" text-anchor=\"middle\">× faster (competitor ÷ oneyaml instructions; bars start at 0)</text>",
+        C_LEFT + plot / 2.0,
+        axis_y + 36.0,
+        theme.muted
+    );
+    let _ = writeln!(
+        s,
+        "<line x1=\"{C_LEFT:.1}\" y1=\"{axis_y:.1}\" x2=\"{axis_end:.1}\" y2=\"{axis_y:.1}\" stroke=\"{}\" stroke-width=\"1\"/>",
+        theme.muted
+    );
+    s.push_str("</svg>\n");
+    s
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
@@ -461,8 +704,104 @@ mod tests {
         assert!(svg.contains("<text x=\"16\" y=\"171.0\""));
     }
 
+    fn groups(values: &[&[Option<f64>]]) -> Vec<Group> {
+        values
+            .iter()
+            .enumerate()
+            .map(|(i, bars)| Group {
+                title: format!("op {i}"),
+                subtitle: "vs <x>".to_owned(),
+                bars: bars.to_vec(),
+                notes: vec![
+                    ("0.28× to 1.2×".to_owned(), Tone::Text),
+                    ("slower on 1 of 3".to_owned(), Tone::Slower),
+                    ("faster on 1 of 3".to_owned(), Tone::Muted),
+                ],
+            })
+            .collect()
+    }
+
+    fn names() -> Vec<String> {
+        vec!["a".to_owned(), "b".to_owned(), "c".to_owned()]
+    }
+
+    #[test]
+    fn compact_bars_are_linear_and_keep_every_loss() {
+        let g = groups(&[&[Some(1.2), Some(0.28), None]]);
+        let svg = compact_svg(&g, &names(), &LIGHT, "d & e");
+        // Plot width 366 over an axis of 1.5×: 1.2× is 292.8 px, 0.28× 68.3 px.
+        assert!(svg.contains("width=\"292.8\" height=\"6.0\" fill=\"#0969da\""));
+        assert!(svg.contains("width=\"68.3\" height=\"6.0\" fill=\"url(#slower)\""));
+        // The unmeasured workload has no bar.
+        assert_eq!(svg.matches("height=\"6.0\"").count(), 2);
+        assert!(svg.contains("<pattern id=\"slower\""));
+        assert!(svg.contains("stroke-dasharray"));
+        assert!(svg.contains(">0.0×</text>") && svg.contains(">1.5×</text>"));
+        assert!(svg.contains("<desc id=\"desc\">d &amp; e</desc>"));
+        assert!(svg.contains(">vs &lt;x&gt;</text>"));
+        assert!(svg.contains("not wall-clock time"));
+        assert!(svg.contains(">one bar per workload, top to bottom: a, b, c</text>"));
+        // The notes, the slower count in the slower colour.
+        assert!(svg.contains("fill=\"#1f2328\" font-size=\"13\">0.28× to 1.2×</text>"));
+        assert!(svg.contains("fill=\"#bc4c00\" font-size=\"12\">slower on 1 of 3</text>"));
+        assert!(svg.contains("fill=\"#59636e\" font-size=\"12\">faster on 1 of 3</text>"));
+        assert!(!svg.contains("drawn broken"));
+        assert!(svg.ends_with("</svg>\n"));
+        assert_eq!(svg, compact_svg(&g, &names(), &LIGHT, "d & e"));
+        assert_ne!(svg, compact_svg(&g, &names(), &DARK, "d & e"));
+        // About half the height of the detailed chart of the same rows.
+        assert!(
+            svg.starts_with(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"760\" height=\"193\""
+            )
+        );
+    }
+
+    #[test]
+    fn compact_notes_always_fit() {
+        let mut g = groups(&[&[None, None, None]]);
+        g[0].notes = vec![
+            ("not measured".to_owned(), Tone::Text),
+            ("not measured on 5 of 5".to_owned(), Tone::Muted),
+        ];
+        let svg = compact_svg(&g, &names(), &LIGHT, "");
+        // Notes start at 620 px; 22 characters at 7 px each, plus a 16 px
+        // margin: the chart widens to 790 px instead of clipping.
+        assert!(svg.contains("width=\"790\"") && svg.contains("viewBox=\"0 0 790 "));
+        assert!(svg.contains("<text x=\"620.0\" y=\"121.0\" fill=\"#59636e\" font-size=\"12\">not measured on 5 of 5</text>"));
+        // Short notes keep the usual width.
+        let narrow = compact_svg(&groups(&[&[Some(1.0)]]), &names(), &LIGHT, "");
+        assert!(narrow.contains("width=\"760\""));
+        assert!(narrow.contains(
+            "<title id=\"title\">oneyaml: × faster than each competitor (CPU instructions)</title>"
+        ));
+        assert!(
+            narrow.contains(">oneyaml: × faster than each competitor (higher is better)</text>")
+        );
+        assert!(!narrow.contains("fastest"));
+    }
+
+    #[test]
+    fn compact_outliers_are_cut_not_scaled() {
+        let g = groups(&[&[Some(1.1), Some(0.79)], &[Some(3.1), Some(63.0)]]);
+        let svg = compact_svg(&g, &names(), &DARK, "");
+        // Axis 0–3.5× over 366 px; the 63× bar ends 16 px past it, cut once.
+        assert!(svg.contains(">3.5×</text>") && !svg.contains(">4.0×</text>"));
+        assert!(svg.contains("width=\"324.2\" height=\"6.0\" fill=\"#4493f8\""));
+        assert!(svg.contains("width=\"382.0\" height=\"6.0\" fill=\"#4493f8\""));
+        assert!(svg.contains("width=\"82.6\" height=\"6.0\" fill=\"url(#slower)\""));
+        assert_eq!(svg.matches("stroke-width=\"2.5\"").count(), 1);
+        assert!(svg.contains(
+            "orange, hatched bars = oneyaml slower; bars longer than 3.5× are drawn broken"
+        ));
+        // One parity line per group.
+        assert_eq!(svg.matches("stroke-dasharray").count(), 2);
+    }
+
     #[test]
     fn empty_chart_is_well_formed() {
+        let compact = compact_svg(&[], &[], &LIGHT, "");
+        assert!(compact.starts_with("<svg") && compact.ends_with("</svg>\n"));
         let svg = svg(&[], &DARK, "");
         assert!(svg.starts_with("<svg"));
         assert!(svg.ends_with("</svg>\n"));

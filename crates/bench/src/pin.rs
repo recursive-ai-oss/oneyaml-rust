@@ -16,7 +16,9 @@
 //! line write their links the same way), so a release is one step. Before
 //! anything is written it checks that the rewritten `bench:readme` and
 //! `bench:chart` regions are exactly what `bench readme --ref <ref>`
-//! generates, i.e. the textual rewrite equals regeneration.
+//! generates, i.e. the textual rewrite equals regeneration, and that the
+//! `bench:summary` region of `docs/performance.md` (relative links only,
+//! the same at every ref) is current.
 //!
 //! It is a bijection on the state it accepts: every link must name the
 //! same ref before the rewrite (a mix is refused, with each ref's first
@@ -574,6 +576,11 @@ fn check_generated(root: &Path, from: &str, to: &str, changes: &[Change]) -> Res
     let doc = after(root, readme::PERFORMANCE, changes)?;
     for (path, section, body) in [
         (
+            readme::PERFORMANCE,
+            readme::SUMMARY_SECTION,
+            readme::summary_body(&doc)?,
+        ),
+        (
             readme::README,
             readme::README_SECTION,
             readme::readme_body(&doc, to)?,
@@ -1051,6 +1058,33 @@ mod tests {
             "{err}"
         );
         std::fs::write(&readme_path, &r).unwrap();
+
+        // A stale cell in the summary region of docs/performance.md: the
+        // region names no ref, so the rewrite would leave it as it is, and
+        // it is refused rather than published stale.
+        let perf_path = dir.join(readme::PERFORMANCE);
+        let perf = std::fs::read_to_string(&perf_path).unwrap();
+        let region = perf.find("<!-- bench:summary:begin -->").unwrap();
+        let cell = region + perf[region..].find("| **").unwrap();
+        let stale = format!("{}| **9{}", &perf[..cell], &perf[cell + 4..]);
+        assert!(readme::section_body(&stale, readme::SUMMARY_SECTION).is_ok());
+        std::fs::write(&perf_path, &stale).unwrap();
+        let err = plan(&dir, pin).unwrap_err();
+        assert!(
+            err.contains("`bench:summary` region of docs/performance.md")
+                && err.contains(&format!("readme --ref {cur}`, then pin")),
+            "{err}"
+        );
+        // Nothing written: every other file as it was, the stale one as left.
+        let now = snapshot(&dir, &original);
+        for ((path, before), (_, after)) in original.iter().zip(&now) {
+            if path == readme::PERFORMANCE {
+                assert_eq!(after, stale.as_bytes());
+            } else {
+                assert_eq!(after, before, "{path}");
+            }
+        }
+        std::fs::write(&perf_path, &perf).unwrap();
 
         assert_eq!(snapshot(&dir, &original), original);
 

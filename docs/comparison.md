@@ -72,8 +72,8 @@ serde library on that row, and `Document` rows with yaml-edit.
 
 **Where oneyaml is ahead:** serde writes, against every feature-complete
 comparator, in instructions and in wall-clock time; `Document` parsing
-against yaml-edit in instructions on every workload (wall-clock is at
-parity or slightly slower on three of the five in the README table);
+against yaml-edit in instructions on every workload (in wall-clock time
+it is at parity or slightly slower on some of them);
 and the edit script against yaml-edit on every workload above a few
 kilobytes.
 
@@ -81,9 +81,8 @@ kilobytes.
 
 - **Wall-clock serde reads.** oneyaml's typed reads use fewer
   instructions than `serde_yaml_ng` and `serde_norway` on most workloads,
-  but in wall-clock time oneyaml is slower on four of the five
-  workloads of the README table, merge-key files included; only on the
-  largest (k8s-multi) is it level.
+  but in wall-clock time oneyaml is slower on most of the benchmark
+  workloads, merge-key files included.
   If wall-clock read speed is what you are optimising, measure on your
   own files.
 - **Some serde reads at parity.** `Value` reads of docker-compose-shaped
@@ -99,9 +98,9 @@ kilobytes.
   reads only the first document and has no merge keys, so it isn't
   ranked.
 
-The tables: the README's
-[benchmark summary](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md),
-and every workload in
+The tables: the
+[benchmark summary](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance),
+which names every row where oneyaml is slower, and every workload in
 [docs/performance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md),
 with the commands to reproduce them.
 
