@@ -8,8 +8,8 @@ please [open an issue](https://github.com/recursive-ai-oss/oneyaml-rust/issues/n
 
 Facts about other libraries are limited to what this project has
 measured or tested, at the versions named in
-[docs/performance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/performance.md#how-to-read-these-numbers)
-and [docs/conformance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/conformance.md#parsers-under-test).
+[docs/performance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#how-to-read-these-numbers)
+and [docs/conformance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#parsers-under-test).
 This page restates no benchmark number; it links to the tables.
 
 ## The libraries
@@ -39,14 +39,14 @@ This page restates no benchmark number; it links to the tables.
 | Merge keys (`<<`) in typed reads | opt-in setting `merge_keys` | only through `Value::apply_merge` | expanded by default | n/a |
 | Several documents in one stream | yes | yes | yes | see its docs |
 | `unsafe` in the parser | none (`forbid(unsafe_code)`) | yes (`unsafe-libyaml`, `unsafe-libyaml-norway`) | not checked here | not checked here |
-| yaml-test-suite | [conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/conformance.md) | libyaml's row in [conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/conformance.md#results-standard-criterion) | not measured | [conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/conformance.md#results-classification-and-round-trip) |
+| yaml-test-suite | [conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md) | libyaml's row in [conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#results-standard-criterion) | not measured | [conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#results-classification-and-round-trip) |
 
 Sources: the comparator table in
-[*Serde read*](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/performance.md#serde-read)
+[*Serde read*](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#serde-read)
 (documents, merge keys, value types),
-[*What each parser does*](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/performance.md#what-each-parser-does)
+[*What each parser does*](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#what-each-parser-does)
 (what each parser produces) and
-[*Parsers under test*](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/conformance.md#parsers-under-test).
+[*Parsers under test*](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#parsers-under-test).
 "See its docs" means we haven't verified it, not that it's missing.
 
 ## Correctness
@@ -58,10 +58,10 @@ accepts some invalid input; yaml-edit's parser is lenient by design and
 ships a separate validator. The counts, and why the saphyr and yaml-rust2
 scores are a weaker claim than ours (their event APIs can't express
 everything the suite checks), are in
-[docs/conformance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/conformance.md).
+[docs/conformance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md).
 Every difference between oneyaml's `Compat::serde_yaml()` reading and
 `serde_yaml_ng`'s is listed, with its reason, in the
-[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/migrating-from-serde-yaml.md#divergences).
+[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md#divergences).
 
 ## Performance
 
@@ -99,9 +99,9 @@ kilobytes.
   ranked.
 
 The tables: the
-[benchmark summary](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/performance.md#results-at-a-glance),
+[benchmark summary](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance),
 which names every row where oneyaml is slower, and every workload in
-[docs/performance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/performance.md),
+[docs/performance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md),
 with the commands to reproduce them.
 
 ## Which one to choose
@@ -112,7 +112,7 @@ with the commands to reproduce them.
 - **You have working `serde_yaml` code and no reason to change:** stay on
   `serde_yaml_ng` or `serde_norway`. If you want YAML 1.2, no `unsafe`, or
   diagnostics with codes and fixes, the
-  [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/migrating-from-serde-yaml.md)
+  [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md)
   starts with a `use` swap.
 - **You only edit YAML, mostly small files, and don't need serde:**
   yaml-edit is a reasonable choice; oneyaml's edits refuse, with a
