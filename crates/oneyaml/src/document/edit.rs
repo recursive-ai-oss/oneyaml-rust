@@ -387,7 +387,7 @@ enum Payload<'a> {
 
 /// A node removed from a [`Document`]: its entry (or item) as
 /// written, with **exactly the comments the
-/// [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md) gives it** ("nothing destroyed silently"): its
+/// [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/comment-attachment.md) gives it** ("nothing destroyed silently"): its
 /// leading comment lines, its same-line comment, the comments inside it,
 /// and the footers of the collections inside it, with the blank lines
 /// they carry (rule 8; not those above a collection's first entry, which

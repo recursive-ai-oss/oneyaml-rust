@@ -3,7 +3,7 @@
 What every layer of oneyaml costs against the other Rust YAML libraries,
 on a fixed, generated corpus of configuration-file shapes. Coming from
 the chart in the
-[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md)?
+[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/crates/oneyaml/README.md)?
 [Results at a glance](#results-at-a-glance) has the same comparison bar
 by bar and as tables (five workloads against the fastest
 feature-complete serde library or yaml-edit, in instructions and in
@@ -59,7 +59,7 @@ The run's provenance (the summary's method notes are read from it):
 <!-- bench:environment:begin -->
 | Measured | |
 |---|---|
-| Revision | unreleased tree after oneyaml 1.0.1 |
+| Revision | oneyaml 1.1.0 release tree |
 | Date | 2026-10-08 |
 | CPU | AMD Ryzen 9 7950X3D 16-Core Processor |
 | OS | Ubuntu 26.04 LTS (x86_64) |
@@ -122,7 +122,7 @@ per-operation tables further down this page, so they always match them.
 
 - **× faster** = the competitor's CPU instructions ÷ oneyaml's on the same input (higher is better; below 1.0× oneyaml is slower), counted by valgrind (callgrind): deterministic from run to run, not wall-clock time. Ir/B = instructions per input byte; the edit script counts one script of three edits (insert + set + remove) on the parsed document; lower is better, the better value in bold.
 - **× faster (wall-clock)** = the competitor's median time ÷ oneyaml's on the same host (for serde, from the median throughput); it varies more from run to run than the instruction count. oneyaml is slower in wall-clock time on 8 of 20 rows: serde read gha-workflow, compose-merge, helm-values and openapi-100k; Document parse compose-merge, openapi-100k and k8s-multi; Document edit script (insert + set + remove) compose-merge. The medians are equal on 1 row: serde read k8s-multi.
-- **Measured** unreleased tree after oneyaml 1.0.1 on 2026-10-08 · AMD Ryzen 9 7950X3D 16-Core Processor · Ubuntu 26.04 LTS (x86_64) · rustc 1.97.1 (8bab26f4f 2026-07-14) · valgrind-3.27.1, against serde_yaml_ng 0.10.0, serde_norway 0.9.42, serde-saphyr 1.3.0, yaml-edit 0.3.2. Serde rows compare with the fastest feature-complete YAML serde library on that row (aliases, multi-document, merge keys), `Document` rows with yaml-edit, the other lossless editor; every output is checked for equivalent work. Inputs are generated in the shape of GitHub Actions, docker-compose, Helm, OpenAPI and multi-document Kubernetes files.
+- **Measured** oneyaml 1.1.0 release tree on 2026-10-08 · AMD Ryzen 9 7950X3D 16-Core Processor · Ubuntu 26.04 LTS (x86_64) · rustc 1.97.1 (8bab26f4f 2026-07-14) · valgrind-3.27.1, against serde_yaml_ng 0.10.0, serde_norway 0.9.42, serde-saphyr 1.3.0, yaml-edit 0.3.2. Serde rows compare with the fastest feature-complete YAML serde library on that row (aliases, multi-document, merge keys), `Document` rows with yaml-edit, the other lossless editor; every output is checked for equivalent work. Inputs are generated in the shape of GitHub Actions, docker-compose, Helm, OpenAPI and multi-document Kubernetes files.
 <!-- bench:summary:end -->
 
 **Where oneyaml wins**

@@ -332,7 +332,7 @@ pub fn score(oracle: &mut dyn Oracle, cases: &[Case], known: &KnownDefects) -> S
 /// has its own semver track, so this crate's `CARGO_PKG_VERSION`
 /// (the workspace version) is not it; a test checks this against
 /// `crates/oneyaml-syntax/Cargo.toml`.
-pub const SYNTAX_VERSION: &str = "0.1.1";
+pub const SYNTAX_VERSION: &str = "0.1.2";
 
 /// Our parser under the standard criterion. Events come from the same
 /// notation renderer the strict mode uses; the round trip concatenates the

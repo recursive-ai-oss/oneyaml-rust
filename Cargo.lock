@@ -69,7 +69,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bench"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "miette",
  "oneyaml",
@@ -143,7 +143,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "fuzz"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "bench",
  "libfuzzer-sys",
@@ -294,7 +294,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "oneyaml"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "miette",
  "oneyaml",
@@ -306,18 +306,18 @@ dependencies = [
 
 [[package]]
 name = "oneyaml-core"
-version = "1.0.1"
+version = "1.1.0"
 
 [[package]]
 name = "oneyaml-syntax"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "oneyaml-core",
 ]
 
 [[package]]
 name = "oracles"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "allocation-counter",
  "oneyaml",
@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "test-suite"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "oneyaml",
  "oneyaml-core",

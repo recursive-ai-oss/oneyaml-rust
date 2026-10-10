@@ -1946,7 +1946,7 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// # Opt-in: comments, streams, anchors, diagnostics
 ///
 /// * **Comments** are kept by every edit, each with the owner the
-///   [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md) gives it: see
+///   [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/comment-attachment.md) gives it: see
 ///   [Comments](#comments) below.
 /// * **Streams**: a file of several documents is a [`Stream`]; each of
 ///   its documents is edited through [`Stream::document_mut`].
@@ -1968,7 +1968,7 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///
 /// Every comment belongs to an owner (an entry, an item, a collection's
 /// footer, or the document header or footer) decided by the numbered rules
-/// of the [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md). Edits carry comments with
+/// of the [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/comment-attachment.md). Edits carry comments with
 /// their owner: a removed entry takes its own comments (listed on the
 /// [`Removed`]), a moved entry brings them along, and
 /// [`Document::explain_comment`] says which rule decided:
@@ -2117,7 +2117,7 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// writes that would change it are refused `Unsupported`, as in 0.3.
 ///
 /// **Comments through node edits** (the
-/// [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md) decides every owner).
+/// [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/comment-attachment.md) decides every owner).
 /// A removal takes
 /// exactly the comments the rulebook gives the entry — its leading comment
 /// lines, its same-line comment, those inside it, and the footers of the

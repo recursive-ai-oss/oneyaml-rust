@@ -50,7 +50,7 @@ The criterion other projects publish (and the one matrix.yaml.info uses):
 
 | Parser | Version | Valid | Error | Total | Error + prefix (vendored / corrected) | Notes |
 |---|---|---|---|---|---|---|
-| oneyaml-syntax | 0.1.1 | 308/308 | 94/94 | 402/402 | 85 / 93 of 94 |  |
+| oneyaml-syntax | 0.1.2 | 308/308 | 94/94 | 402/402 | 85 / 93 of 94 |  |
 | saphyr-parser | 0.1.0 | 308/308 | 94/94 | 402/402 | 55 / 55 of 94 | API lacks `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
 | yaml-rust2 | 0.13.0 | 308/308 | 94/94 | 402/402 | 57 / 57 of 94 | API lacks `---` marker, `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
 | libyaml (unsafe-libyaml) | 0.2.11 | 252/308 | 78/94 | 330/402 | 50 / 57 of 94 |  |
@@ -100,7 +100,7 @@ YAML 1.2.2; the README and the migration guide link here.
 above (4H7K) is about *when* an event is reported on invalid input, not
 about what any input means. Cases whose recorded expectations are
 themselves defective are corrected, with reasons, in
-[`crates/test-suite/known-defects.txt`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/test-suite/known-defects.txt)
+[`crates/test-suite/known-defects.txt`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/crates/test-suite/known-defects.txt)
 (see *Methodology*).
 
 **Opt-in departures.** Every behaviour that departs from YAML 1.2.2 is
@@ -122,13 +122,13 @@ The YAML 1.1 settings only add meanings on top of the Core schema. The
 settings themselves are documented on
 [`Settings`](https://docs.rs/oneyaml/latest/oneyaml/struct.Settings.html);
 how they differ from `serde_yaml`'s reading is in the
-[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md#divergences).
+[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/docs/migrating-from-serde-yaml.md#divergences).
 
 **Known defect.** Under `lenient_inline_colons` only, one rare shape of
 recovered input (a failed directive block next to a byte order mark) can
 let an edit through that reads back differently; the fuzzers count it,
 and it is described in
-[crates/fuzz/README.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/fuzz/README.md).
+[crates/fuzz/README.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.1.0/crates/fuzz/README.md).
 
 ## Methodology
 
