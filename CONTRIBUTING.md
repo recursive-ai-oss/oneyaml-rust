@@ -46,6 +46,19 @@ cargo run -p test-suite -- --producer parser   # strict yaml-test-suite run
 cargo test -p fuzz                         # replay the fuzz corpora (no fuzzer needed)
 ```
 
+The whole workspace takes a while unoptimized. Building the tests at
+`opt-level = 1` (debug assertions and overflow checks stay on) makes a
+faster pre-check:
+
+```sh
+CARGO_PROFILE_DEV_OPT_LEVEL=1 cargo test --workspace
+```
+
+It doesn't replace the unoptimized run for `oneyaml`, `oneyaml-syntax`
+and `oneyaml-core`: their deep-nesting tests on small stacks and their
+scaling tests are tuned for unoptimized builds, and their timing bounds
+can fail at `opt-level = 1`.
+
 Fuzzing itself is described in [crates/fuzz/README.md](crates/fuzz/README.md).
 
 ## Reproduce the benchmarks and conformance numbers
@@ -66,8 +79,42 @@ cargo clippy --workspace --all-targets -- -D warnings
 RUSTDOCFLAGS='-D warnings' cargo doc --no-deps -p oneyaml -p oneyaml-core -p oneyaml-syntax
 ```
 
+CI also lints the published crates without the optional features the
+other workspace members turn on (the libraries alone, then with their
+tests and examples), lints the fuzz targets, and builds the docs with
+the features docs.rs uses:
+
+```sh
+cargo clippy -p oneyaml-core -p oneyaml-syntax -p oneyaml -- -D warnings
+cargo clippy -p oneyaml-core -p oneyaml-syntax -p oneyaml --all-targets -- -D warnings
+cargo clippy -p fuzz --features libfuzzer --bins -- -D warnings
+RUSTDOCFLAGS='-D warnings' cargo doc --no-deps -p oneyaml --features miette,serde_json
+```
+
 The workspace lints forbid `unsafe` and deny `unwrap`, `expect`,
 `panic!`, slice indexing and unchecked arithmetic in library code.
+
+## Continuous integration
+
+Every pull request and every push to `main` runs
+[the CI workflow](.github/workflows/ci.yml) on GitHub Actions:
+
+- formatting, clippy and rustdoc, as in [Lint and format](#lint-and-format),
+  on a fixed Rust release, so a new compiler's lints arrive in a
+  deliberate change rather than in an unrelated pull request;
+- the [MSRV check](#minimum-supported-rust-version);
+- the tests of `bench`, `fuzz`, `oracles` and `test-suite` on stable at
+  `opt-level = 1` (they include the yaml-test-suite score, pinned case
+  by case);
+- the tests of `oneyaml`, `oneyaml-syntax` and `oneyaml-core` on stable,
+  unoptimized and with default features, as `cargo test -p <crate>`
+  runs them; then `oneyaml`'s unit tests, doc tests and feature tests
+  again with `--all-features`.
+
+The unoptimized tests also run on beta, on `main` and weekly. CI
+doesn't run the fuzzers or the instruction-count benchmarks: both need
+long runs, and the benchmarks need valgrind and a quiet machine (see
+[Reproduce the benchmarks](#reproduce-the-benchmarks-and-conformance-numbers)).
 
 ## Pull requests
 

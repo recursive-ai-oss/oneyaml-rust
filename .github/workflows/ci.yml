@@ -1,0 +1,198 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so a new stable or beta compiler is tried even when nothing
+    # is merged.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+# Read-only token for every job. No job uses a secret, so pull requests
+# from forks run exactly like branches of this repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_NET_RETRY: "10"
+  RUST_BACKTRACE: "1"
+  # Line tables keep backtraces readable at a fraction of the size of full
+  # debug info, which keeps the build caches small.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  # fmt, clippy and rustdoc run on a fixed release, so a new compiler's
+  # lints arrive in a deliberate change instead of failing unrelated pull
+  # requests. Raise it from time to time.
+  LINT_TOOLCHAIN: "1.99.0"
+  MSRV: "1.85"
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$LINT_TOOLCHAIN" --profile minimal --component rustfmt --no-self-update
+          rustup default "$LINT_TOOLCHAIN"
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$LINT_TOOLCHAIN" --profile minimal --component clippy --no-self-update
+          rustup default "$LINT_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: clippy (workspace)
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      # In the workspace run the published crates are built with the
+      # optional features other members turn on. Their libraries alone, with
+      # no optional feature, are what a user who enables none gets.
+      - name: clippy (published libraries, no optional features)
+        run: cargo clippy --locked -p oneyaml-core -p oneyaml-syntax -p oneyaml -- -D warnings
+      # The same crates' tests and examples without the features
+      # other members turn on (oneyaml's tests still enable its test-only
+      # checks through its dev-dependency on itself).
+      - name: clippy (published crates, all targets)
+        run: cargo clippy --locked -p oneyaml-core -p oneyaml-syntax -p oneyaml --all-targets -- -D warnings
+      # The fuzz targets need the libFuzzer runtime, which the workspace
+      # build leaves out. Linting them builds that runtime but never fuzzes.
+      - name: clippy (fuzz targets)
+        run: cargo clippy --locked -p fuzz --features libfuzzer --bins -- -D warnings
+
+  docs:
+    name: rustdoc
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$LINT_TOOLCHAIN" --profile minimal --no-self-update
+          rustup default "$LINT_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: rustdoc (default features)
+        run: cargo doc --locked --no-deps -p oneyaml -p oneyaml-core -p oneyaml-syntax
+      - name: rustdoc (the features docs.rs builds)
+        run: cargo doc --locked --no-deps -p oneyaml --features miette,serde_json
+
+  msrv:
+    name: MSRV (1.85)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$MSRV" --profile minimal --no-self-update
+          rustup default "$MSRV"
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # `oracles`, `bench` and `fuzz` are unpublished tooling whose
+      # comparator dependencies need a newer compiler.
+      - run: cargo check --locked --workspace --exclude oracles --exclude bench --exclude fuzz --all-targets --all-features
+
+  test:
+    name: test (stable, opt-level 1, tooling crates)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      # The corpus-wide differential and fuzz-replay tests of the tooling
+      # crates took over half an hour unoptimized on 4 cores of a desktop
+      # machine, and a few minutes at opt-level 1. Debug assertions and
+      # overflow checks stay on. The published crates are excluded: their
+      # stack and timing-ratio tests are tuned for unoptimized builds, and
+      # the `test-unoptimized` jobs run them.
+      CARGO_PROFILE_DEV_OPT_LEVEL: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build tests
+        run: cargo test --locked --workspace --exclude oneyaml --exclude oneyaml-syntax --exclude oneyaml-core --no-run
+      - name: cargo test (bench, fuzz, oracles, test-suite)
+        run: cargo test --locked --workspace --exclude oneyaml --exclude oneyaml-syntax --exclude oneyaml-core --no-fail-fast
+
+  test-unoptimized:
+    name: test (${{ matrix.toolchain }}, unoptimized, ${{ matrix.shard.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # Beta runs on main, weekly and on demand, not on pull requests: a
+        # beta compiler regression should not block contributors.
+        toolchain: ${{ github.event_name == 'pull_request' && fromJSON('["stable"]') || fromJSON('["stable", "beta"]') }}
+        shard:
+          - name: oneyaml
+            slug: oneyaml
+            packages: -p oneyaml
+          - name: oneyaml-syntax and oneyaml-core
+            slug: syntax-core
+            packages: -p oneyaml-syntax -p oneyaml-core
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$TOOLCHAIN" --profile minimal --no-self-update
+          rustup default "$TOOLCHAIN"
+        env:
+          TOOLCHAIN: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.shard.slug }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Unoptimized code uses more stack per frame, so the deep-nesting tests
+      # on small-stack threads are only conclusive here; the timing-ratio
+      # tests are tuned for it too. Default features, as plain `cargo test`.
+      - name: Build tests
+        run: cargo test --locked ${{ matrix.shard.packages }} --no-run
+      - name: cargo test
+        run: cargo test --locked ${{ matrix.shard.packages }} --no-fail-fast
+      # The code and tests behind oneyaml's optional features.
+      # They run even when the step above failed, so one run shows every
+      # failure.
+      - name: cargo test (oneyaml's optional features)
+        if: matrix.shard.slug == 'oneyaml' && !cancelled()
+        run: cargo test --locked -p oneyaml --all-features --no-fail-fast --lib --test json_convert --test miette_diag
+      - name: doc tests (oneyaml's optional features)
+        if: matrix.shard.slug == 'oneyaml' && !cancelled()
+        run: cargo test --locked -p oneyaml --all-features --no-fail-fast --doc
