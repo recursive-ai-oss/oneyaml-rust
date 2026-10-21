@@ -47,7 +47,7 @@ Y1000	YAML_VERSION_1_1	warning	active	%YAML 1.1 directive
 Y1001	YAML_VERSION_NEWER_MINOR	warning	active	%YAML 1.x (x > 2) document processed as YAML 1.2
 Y1002	YAML_VERSION_UNSUPPORTED_MAJOR	error	active	unsupported %YAML major version
 Y1003	RESERVED_DIRECTIVE_IGNORED	warning	active	reserved directive ignored
-Y1004	DUPLICATE_DIRECTIVE	error	active	duplicate %YAML directive or %TAG handle
+Y1004	DUPLICATE_DIRECTIVE	error	active	%TAG handle declared twice
 Y1005	UNDEFINED_TAG_HANDLE	error	deprecated	tag handle not declared by a %TAG directive
 Y1006	YAML_VERSION_1_0	warning	active	%YAML 1.0 directive
 Y1007	INVALID_SCALAR_FOR_TAG	error	active	scalar is not a valid form of its tag

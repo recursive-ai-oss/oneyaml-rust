@@ -9,8 +9,8 @@
 //! Inputs are plain data (tag text, a two-way style, scalar text) so the
 //! resolver does not depend on the event accessor API.
 
-// Wired by the tree builder and the serde layer in later units.
-#![allow(dead_code, reason = "consumed by the tree builder and serde units")]
+// Some items are used by one consumer only.
+#![allow(dead_code, reason = "consumed by the tree builder and serde layer")]
 
 pub(crate) mod conflict;
 mod scan;

@@ -650,10 +650,7 @@ pub const REGISTRY: &[CodeInfo] = &[
         summary: "reserved directive ignored",
         deprecated: false,
     },
-    error_entry!(
-        DUPLICATE_DIRECTIVE,
-        "duplicate %YAML directive or %TAG handle"
-    ),
+    error_entry!(DUPLICATE_DIRECTIVE, "%TAG handle declared twice"),
     CodeInfo {
         code: UNDEFINED_TAG_HANDLE,
         name: "UNDEFINED_TAG_HANDLE",

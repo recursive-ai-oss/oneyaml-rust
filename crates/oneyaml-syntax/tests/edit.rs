@@ -909,12 +909,12 @@ fn slots_name_elements_as_handles_do() {
     done(&tree);
 }
 
-/// A document prefix holds one byte order mark, so an edit that puts a
-/// second one right behind the first (a copy of it, or the removal of the
-/// line break between two marks) would leave text that does not read back
-/// as the tree: it is refused, and the tree is unchanged.
+/// Any number of document prefixes may precede a document and each may start
+/// with a byte order mark (productions 211 and 202), so an edit that puts a
+/// second mark right behind the first, or removes the line break between
+/// two marks, is accepted and the tree reads back as the text.
 #[test]
-fn an_edit_never_puts_a_byte_order_mark_behind_another() {
+fn an_edit_may_put_a_byte_order_mark_behind_another() {
     for src in [
         "\u{feff}\n#h\n",
         "\u{feff}a: 1\n",
@@ -923,16 +923,13 @@ fn an_edit_never_puts_a_byte_order_mark_behind_another() {
         let mut t = SyntaxTree::parse(src);
         let mark = find(&t, K::ByteOrderMark).id();
         let copy = t.extract(mark, mark).unwrap();
-        assert_eq!(
-            t.insert_after(mark, copy).map(|_| ()),
-            Err(TreeEditError::NotWellFormed),
-            "{src:?}"
-        );
-        assert_eq!(t.root().text(), src);
+        t.insert_after(mark, copy).unwrap();
+        assert!(!t.has_errors(), "{src:?}");
+        assert_eq!(t.root().text().matches('\u{feff}').count(), 2, "{src:?}");
         done(&t);
     }
-    // Marks on lines of their own are fine, and removing the break between
-    // them is refused.
+    // Marks on lines of their own: removing the break between them joins
+    // them into a row of marks, which reads back the same way.
     let src = "a\n\u{feff}\n\u{feff}\n---\nb\n";
     let mut t = SyntaxTree::parse(src);
     assert!(!t.has_errors());
@@ -942,6 +939,8 @@ fn an_edit_never_puts_a_byte_order_mark_behind_another() {
         .filter(|n| n.kind() == K::LineBreak)
         .map(|n| n.id())
         .collect();
-    assert!(t.remove(breaks[1]).is_err());
-    assert_eq!(t.root().text(), src);
+    let _ = t.remove(breaks[1]).unwrap();
+    assert_eq!(t.root().text(), "a\n\u{feff}\u{feff}\n---\nb\n");
+    assert!(!t.has_errors());
+    done(&t);
 }

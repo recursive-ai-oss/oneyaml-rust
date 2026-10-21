@@ -2104,11 +2104,10 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///   need re-rendering: block content (multi-line block text, or an entry
 ///   with comments, including its same-line comment) into a flow
 ///   collection; and re-inserting a flow entry whose removal took comments
-///   after it (re-rendering moved content in the target style is a later
-///   phase);
+///   after it (moved content is not re-rendered in the target style);
 /// * re-inserting a [`Removed`] where its text cannot be re-indented (a
-///   line of it less indented than the new column allows): the same
-///   later phase;
+///   line of it less indented than the new column allows): moved
+///   content is not re-indented;
 /// * writing a **tag** into a document that has `%TAG` directives (the
 ///   tag's meaning would depend on them).
 ///
@@ -2126,8 +2125,7 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// validation window holds a `Y0028` warning attached to an element the
 /// edit moves may be refused even when its result would be well formed (the syntax layer's check of where
 /// diagnostics attach is conservative there): e.g. appending an entry
-/// after `k: x: z` at the end of `b: 1⏎k: x: z⏎`. Relaxing this is a
-/// later-phase item.
+/// after `k: x: z` at the end of `b: 1⏎k: x: z⏎`.
 ///
 /// Also [`EditError::NotWellFormed`]:
 /// an unterminated last line of spaces after a kept (`|+`) block
@@ -2315,8 +2313,7 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// through [`Document::diagnostics`] and [`Document::has_errors`] (both
 /// readers agree on the erroring text): replacing the node a merge
 /// key reads (through an alias) with a non-mapping (`Y1016`), and making a
-/// complex key equal to a sibling key (`Y1013`). Refusing such edits is a
-/// later-phase refinement.
+/// complex key equal to a sibling key (`Y1013`). Such edits are not refused.
 ///
 /// **Restricted mode and edits**: what restricted mode protects
 /// is found once per document, from its own diagnostics (its own region

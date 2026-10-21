@@ -127,16 +127,22 @@ fn float_keys_beyond_a_double_are_compared_by_their_exact_value() {
 }
 
 #[test]
-fn a_second_byte_order_mark_is_a_syntax_error_at_the_start() {
-    // A document prefix holds at most one mark (YAML 1.2.2 section 5.2).
-    let src = "\u{feff}\u{feff}a: 1\n";
-    let e = oneyaml::from_str::<Value>(src).unwrap_err();
+fn several_byte_order_marks_before_a_document_are_valid() {
+    // Every document prefix may start with a mark (YAML 1.2.2 productions
+    // 202 and 211), so marks in a row read as the single-mark form.
+    let one = oneyaml::from_str::<Value>("\u{feff}a: 1\n").unwrap();
+    for src in [
+        "\u{feff}\u{feff}a: 1\n",
+        "\u{feff}\u{feff}\u{feff}a: 1\n",
+        "\u{feff}\n\u{feff}\na: 1\n",
+    ] {
+        assert_eq!(oneyaml::from_str::<Value>(src).unwrap(), one, "{src:?}");
+        assert!(!Document::parse(src).unwrap().has_errors(), "{src:?}");
+    }
+    // A mark in the middle of a line is still misplaced.
+    let e = oneyaml::from_str::<Value>("a: 1 \u{feff}\n").unwrap_err();
     assert_eq!(e.kind(), ErrorKind::Syntax);
     assert_eq!(e.code(), code::MISPLACED_BYTE_ORDER_MARK);
-    let at = e.location().unwrap();
-    assert_eq!((at.line(), at.column()), (1, 1));
-    // One mark is still fine, and so is one mark per document prefix.
-    assert!(oneyaml::from_str::<Value>("\u{feff}a: 1\n").is_ok());
 }
 
 #[test]

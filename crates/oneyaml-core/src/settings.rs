@@ -47,15 +47,14 @@ pub enum DuplicateKeys {
 /// # Settings, by the layer that consumes them
 ///
 /// * **`merge_keys`** — YAML 1.1 merge keys (`<<`). *Resolver / `Value` /
-///   serde* (later unit).
+///   serde*.
 /// * Other YAML 1.1 behaviours: **`yaml11_booleans`**, **`legacy_octal`**,
 ///   **`sexagesimal`**, **`digit_separators`**, **`yaml11_int_forms`**.
 ///   *Resolver*.
-/// * **`schema`** — Core (default), JSON, or Failsafe. *Resolver* (later
-///   unit).
-/// * **`duplicate_keys`** — *tree builder and serde* (later unit).
+/// * **`schema`** — Core (default), JSON, or Failsafe. *Resolver*.
+/// * **`duplicate_keys`** — *tree builder and serde*.
 /// * **`honor_version_directive`** — `%YAML 1.1` switches that document to
-///   the [`Compat::yaml_1_1()`] behaviours. *Resolver* (later unit); the
+///   the [`Compat::yaml_1_1()`] behaviours. *Resolver*; the
 ///   parser reports the directive either way.
 /// * **`lenient_inline_colons`** — *parser* (consumed now).
 /// * **`resolve_tagged_variant_content`** — *serde deserializer* (typed
