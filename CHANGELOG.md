@@ -15,6 +15,41 @@ MSRV change is always announced here (the MSRV policy is in the
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md).
 
+## Unreleased
+
+### Added
+
+- `MappingRef::is_indexed`: whether a mapping's lookup index is built now. It
+  never builds one.
+- `oneyaml-syntax`: `SyntaxTree::text`, the tree's text as `emit` gives it,
+  borrowed when the tree was not edited.
+
+### Performance
+
+- Edits and key lookups on a document that is parsed, edited and written out:
+  - A wide mapping (64 or more keys and values) is read by a scan of its
+    entries for its first few lookups and gets its lookup index only when it
+    is read more than that, so the one-shot edit of a wide mapping no longer
+    pays for an index it uses twice. Answers are the same either way.
+  - A key lookup holds the string asked for against the key's source text
+    before it decodes, resolves or reads the tag of anything: a key that
+    cannot be that string is passed after a few bytes, so a 4 MB key in a
+    mapping no longer costs milliseconds on every lookup of its neighbours.
+    Index builds digest a plain or quoted key from
+    its text without resolving it when the text alone settles that it is a
+    string.
+  - `Document::to_bytes`, `to_string` and `SyntaxTree::emit` copy the text of
+    an unedited tree in one piece, and an edited tree's text run by run,
+    instead of token by token; a UTF-8 document with nothing invalid in it
+    is returned without a second copy.
+  - Instructions to edit and write out (set and remove, then write the
+    text): a 64 KiB mapping of 3,000 keys needs 73% fewer, a 64 KiB Helm
+    values file 71% fewer, a 4 KiB list of records 29% fewer, 256 KiB of
+    records 91% fewer. Writing out an unedited document is a copy: 4 KiB
+    takes about a hundred nanoseconds. No row needs more. The text re-read to
+    check an edit was already limited to the edited entry and its
+    neighbours, and still is.
+
 ## 1.2.0 — 2026-10-21
 
 `oneyaml` 1.2.0, `oneyaml-core` 1.2.0, `oneyaml-syntax` 0.2.0. MSRV
@@ -162,11 +197,6 @@ point at the character that cannot belong.
 - `Y1005` (`UNDEFINED_TAG_HANDLE`): no longer reported; an undeclared tag
   handle is `Y0035`. The constant and its registry entry stay, marked
   deprecated, and the number is never reused.
-
-- `MappingRef::is_indexed`: whether a mapping's lookup index is built now. It
-  never builds one.
-- `oneyaml-syntax`: `SyntaxTree::text`, the tree's text as `emit` gives it,
-  borrowed when the tree was not edited.
 
 ### Changed
 
@@ -368,30 +398,6 @@ point at the character that cannot belong.
   a second anchor on one node.
 
 ### Performance
-
-- Edits and key lookups on a document that is parsed, edited and written out:
-  - A wide mapping (64 or more keys and values) is read by a scan of its
-    entries for its first few lookups and gets its lookup index only when it
-    is read more than that, so the one-shot edit of a wide mapping no longer
-    pays for an index it uses twice. Answers are the same either way.
-  - A key lookup holds the string asked for against the key's source text
-    before it decodes, resolves or reads the tag of anything: a key that
-    cannot be that string is passed after a few bytes, so a 4 MB key in a
-    mapping no longer costs milliseconds on every lookup of its neighbours.
-    Index builds digest a plain or quoted key from
-    its text without resolving it when the text alone settles that it is a
-    string.
-  - `Document::to_bytes`, `to_string` and `SyntaxTree::emit` copy the text of
-    an unedited tree in one piece, and an edited tree's text run by run,
-    instead of token by token; a UTF-8 document with nothing invalid in it
-    is returned without a second copy.
-  - Instructions to edit and write out (set and remove, then write the
-    text): a 64 KiB mapping of 3,000 keys needs 73% fewer, a 64 KiB Helm
-    values file 71% fewer, a 4 KiB list of records 29% fewer, 256 KiB of
-    records 91% fewer. Writing out an unedited document is a copy: 4 KiB
-    takes about a hundred nanoseconds. No row needs more. The text re-read to
-    check an edit was already limited to the edited entry and its
-    neighbours, and still is.
 
 - `oneyaml-syntax`: the parser passes long runs of plain, quoted and block
   scalar text, comments and line ends sixteen bytes at a time instead of one
