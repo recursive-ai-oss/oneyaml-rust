@@ -108,7 +108,7 @@ YAML 1.2.2; the README and the migration guide link here.
 **With default settings: none known.** The strict score has no failures.
 Cases whose recorded expectations are
 themselves defective are corrected, with reasons, in
-[`crates/test-suite/known-defects.txt`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/test-suite/known-defects.txt)
+[`crates/test-suite/known-defects.txt`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/crates/test-suite/known-defects.txt)
 (see *Methodology*).
 
 **Opt-in departures.** Every behaviour that departs from YAML 1.2.2 is
@@ -130,13 +130,13 @@ The YAML 1.1 settings only add meanings on top of the Core schema. The
 settings themselves are documented on
 [`Settings`](https://docs.rs/oneyaml/latest/oneyaml/struct.Settings.html);
 how they differ from `serde_yaml`'s reading is in the
-[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md#divergences).
+[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/migrating-from-serde-yaml.md#divergences).
 
 **Known defect.** Under `lenient_inline_colons` only, one rare shape of
 recovered input (a failed directive block next to a byte order mark) can
 let an edit through that reads back differently; the fuzzers count it,
 and it is described in
-[crates/fuzz/README.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/fuzz/README.md).
+[crates/fuzz/README.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/crates/fuzz/README.md).
 
 ## Methodology
 

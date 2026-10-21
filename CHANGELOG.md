@@ -10,10 +10,10 @@ default output bytes change only to fix incorrect output or to follow the
 documented edit and quoting rules, and every such change is listed in the
 release's *Upgrading* notes. Breaking changes are flagged **Breaking**; an
 MSRV change is always announced here (the MSRV policy is in the
-[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md#minimum-supported-rust-version)).
+[README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/crates/oneyaml/README.md#minimum-supported-rust-version)).
 
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
-[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md).
+[migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/migrating-from-serde-yaml.md).
 
 ## 1.2.0 — 2026-10-21
 
@@ -371,7 +371,7 @@ point at the character that cannot belong.
   (checked over the whole yaml-test-suite, the fuzz corpora and CRLF, CR,
   byte-order-mark and trailing-space variants of them, under four settings).
   In the benchmark tables of
-  [`docs/performance.md`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md)
+  [`docs/performance.md`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/performance.md)
   (CPU instructions counted by valgrind, not wall-clock time; 1.2.0 against
   the 1.1.0 tables), every parse row needs fewer instructions: block scalars
   54% fewer, long scalars 52%, Helm values 41%, comment runs 39%, deeply
@@ -404,7 +404,7 @@ after `cargo update`.
   `from_reader`, `Document` and node reads) for a plain, untagged word
   under the default Core schema; `from_value` keeps the plain
   `invalid type` message, as a `Value` records no source style. The
-  [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md#yaml-11-behaviours)
+  [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/migrating-from-serde-yaml.md#yaml-11-behaviours)
   shows the new message for `debug: yes` read into a `bool`.
 - Clearer plain messages for parse errors whose old one-line form hid
   the likely cause; codes and spans are unchanged:
@@ -432,7 +432,7 @@ after `cargo update`.
   reads, serde writes, `Document` parsing and an edit script, with each
   group's range and the number of workloads where oneyaml is slower; its
   alt text carries every number it shows. Under it is one link to
-  [Results at a glance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)
+  [Results at a glance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/performance.md#results-at-a-glance)
   in `docs/performance.md`, which now holds the full chart and the
   tables: both libraries' instruction counts, the instruction ratio, a
   wall-clock “× faster” column from the measured medians, a note naming
@@ -508,7 +508,7 @@ never disagree about what a file means.
   comments included, byte for byte, and lays out new content like its
   neighbours.
 - **Comments**: every comment has an owner set by a numbered
-  [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md);
+  [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/comment-attachment.md);
   edits move comments with their owner, and `explain_comment` says which
   rule decided.
 - **Anchors and aliases** in edits: editing an anchored node is seen
@@ -536,6 +536,6 @@ never disagree about what a file means.
   tree underneath, for tooling.
 
 Evidence for these claims:
-[yaml-test-suite conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md),
-[performance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md)
-and [fuzzing](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/fuzz/README.md).
+[yaml-test-suite conformance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/conformance.md),
+[performance](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/performance.md)
+and [fuzzing](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/crates/fuzz/README.md).
