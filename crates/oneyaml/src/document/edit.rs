@@ -34,6 +34,7 @@ use serde::de::DeserializeOwned;
 
 use super::anchors::{Names, Removal};
 use super::carry::{self, Carry, Expect, Rel, Want, Window};
+use super::ckeys;
 use super::comments as cm;
 use super::key::{self, AsKey, KeyArg};
 use super::path_arg::{self, IntoPath};
@@ -41,6 +42,7 @@ use super::place::{self, Coll, SlotKind};
 use super::render::{BlockStyle, Render, multiline, reindent};
 use super::view::KeyQuery;
 use super::{CommentId, Document, EditError, NodeId, NodeKind, NodeRef, ScalarStyle};
+use crate::emit::scalar::Quote;
 use crate::error::Error;
 use crate::value::{Mapping, Value};
 
@@ -663,6 +665,17 @@ pub struct Removed {
     /// The key's resolved value (when it resolves): it goes back only into
     /// a mapping without an equal key (`~`, `null` and `` are one key).
     key_value: Option<Value>,
+    /// The key is a collection: `key` is then its source text, which names
+    /// no key of another mapping, so only `key_value` finds an equal one.
+    collection_key: bool,
+    /// The digest of a collection key (see `ckeys.rs`), taken when the
+    /// entry was removed, so putting it back is checked in O(1).
+    key_digest: Option<u64>,
+    /// A flow entry written with an explicit key (`? k : v`): the texts of
+    /// the key and of the value (with their properties), so that it can be
+    /// written again as the two lines of a block entry (`? k` and `: v`),
+    /// which is not the same text.
+    explicit_key: Option<(String, String)>,
     kind: NodeKind,
     /// Whole lines above the entry that went with it, as written (without
     /// line breaks): the blank lines it carries and its leading comment
@@ -757,7 +770,9 @@ impl Removed {
         &self.ids
     }
 
-    /// The key of a removed mapping entry (its scalar content).
+    /// The key of a removed mapping entry: its scalar content, or, when the
+    /// key is a collection, its text as written, with its anchor and tag
+    /// properties (`&q [x]`, `!e!t [x]`).
     #[must_use]
     pub fn key(&self) -> Option<&str> {
         self.key.as_deref()
@@ -878,6 +893,112 @@ fn nest(rest: &[PathSegment], leaf: Value, at: &Path) -> Result<Value, EditError
     Ok(v)
 }
 
+/// Whether the line starting at `head` comes right after a kept (`|+`)
+/// block scalar, whose value ends with the blank lines before `head`.
+///
+/// Work: O(depth), the tokens back to the first one with text; nothing is
+/// kept.
+fn follows_keep(head: TreeNode<'_>) -> bool {
+    let mut at = place::prev_token(head);
+    while let Some(t) = at {
+        match t.kind() {
+            SyntaxKind::LiteralScalar | SyntaxKind::FoldedScalar => {
+                return t.parent().is_some_and(|s| {
+                    s.children().any(|h| {
+                        h.kind() == SyntaxKind::BlockScalarHeader && h.text().contains('+')
+                    })
+                });
+            }
+            _ if t.span().is_empty() => at = place::prev_token(t),
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// The line break that ends the line `n` ends, past a same-line comment:
+/// for the last entry of a collection it lies after the collection.
+///
+/// Work: O(the tokens between `n` and the break); nothing is kept.
+fn line_break_after(n: TreeNode<'_>) -> Option<TreeNode<'_>> {
+    let mut at = place::next_token(n);
+    while let Some(t) = at {
+        match t.kind() {
+            SyntaxKind::LineBreak => return Some(t),
+            SyntaxKind::Whitespace | SyntaxKind::Comment => at = place::next_token(t),
+            _ => return None,
+        }
+    }
+    None
+}
+
+/// The blank lines (empty or white space only) that follow the line
+/// ending at `end`, as the first and the last token; `None` when there
+/// are none.
+///
+/// Work: O(the blank lines found), which an edit removes right after, so
+/// it is paid for by the text the edit already touches; nothing is kept.
+fn blank_lines_after(end: TreeNode<'_>) -> Option<(TreeNode<'_>, TreeNode<'_>)> {
+    let (mut first, mut last) = (None, None);
+    let mut at = place::next_token(end);
+    while let Some(t) = at {
+        match t.kind() {
+            SyntaxKind::LineBreak => {
+                first.get_or_insert(t);
+                last = Some(t);
+                at = place::next_token(t);
+            }
+            SyntaxKind::Whitespace => {
+                let Some(b) = place::next_token(t).filter(|b| b.kind() == SyntaxKind::LineBreak)
+                else {
+                    break;
+                };
+                first.get_or_insert(t);
+                last = Some(b);
+                at = place::next_token(b);
+            }
+            _ => break,
+        }
+    }
+    first.zip(last)
+}
+
+/// Whether the text of a flow entry starts with an explicit key (`? `).
+fn explicit_start(text: &str) -> bool {
+    let mut c = text.chars();
+    c.next() == Some('?') && c.next().is_some_and(char::is_whitespace)
+}
+
+/// How many siblings, counted from the end of a collection, are read to
+/// see how its strings are quoted.
+const QUOTE_LOOK: usize = 16;
+
+/// Whether text for `v` depends on how the document indents: a block
+/// collection or a block scalar (a string with a line break). Work: O(1)
+/// (the outermost node decides, a string is searched for its first line
+/// break); nothing is kept.
+fn wants_layout(v: &Value) -> bool {
+    match v.untag_ref() {
+        Value::Sequence(s) => !s.is_empty(),
+        Value::Mapping(m) => !m.is_empty(),
+        Value::String(s) => s.contains(['\n', '\r']),
+        _ => false,
+    }
+}
+
+/// [`wants_layout`] for what an insertion writes.
+fn layout_wanted(payload: Payload<'_>) -> bool {
+    match payload {
+        Payload::Value(v) => wants_layout(v),
+        Payload::Entry(k, v) => wants_layout(k) || wants_layout(v),
+        Payload::AliasEntry(k, ..) => wants_layout(k),
+        Payload::Alias(..) | Payload::Merge(_) | Payload::Null(_) => false,
+        // (Its text is moved, not written again; only block lines of it are
+        // re-indented, from the column they came with.)
+        Payload::Removed(_) => false,
+    }
+}
+
 /// The span of the siblings `a..=b` of `t` (for diagnostics).
 fn span_of(t: &SyntaxTree, a: TreeId, b: TreeId) -> Span {
     match (t.get(a), t.get(b)) {
@@ -895,6 +1016,8 @@ impl Document {
     }
 
     pub(super) fn tree_mut(&mut self) -> Result<&mut SyntaxTree, EditError> {
+        // Whatever is edited, what was read from the tree before is stale.
+        self.serial = self.serial.wrapping_add(1);
         Arc::get_mut(&mut self.shared)
             .map(|s| &mut s.tree)
             .ok_or(EditError::Internal)
@@ -1193,14 +1316,82 @@ impl Document {
 
     /// The renderer for new content in `context` (style inference);
     /// `flat`: multi-line strings as one-line flow text.
-    fn render(&self, context: Option<TreeNode<'_>>, flat: bool) -> Result<Render, EditError> {
+    ///
+    /// `layout`: the text holds block collections or block scalars, so the
+    /// document's indentation is inferred from the entries around it. Text
+    /// of one line needs none, and then nothing is read.
+    fn render(
+        &self,
+        context: Option<TreeNode<'_>>,
+        flat: bool,
+        layout: bool,
+    ) -> Result<Render, EditError> {
         let settings = self.settings();
         let emit = match context {
-            Some(c) => place::infer(c, settings.get_emit()),
-            None => settings.get_emit().clone(),
+            Some(c) if layout => place::infer(c, settings.get_emit()),
+            _ => settings.get_emit().clone(),
         };
         let r = Render::new(settings, &emit, self.nl())?;
         Ok(if flat { r.one_line() } else { r })
+    }
+
+    /// Whether mapping `coll` has a collection key equal to the key of the
+    /// removed entry `r` (see `ckeys.rs`).
+    ///
+    /// Work: O(1) once the mapping's collection keys are read (done once
+    /// per edit state, O(their text)); the removed key's own digest was
+    /// taken when it was removed. Retained memory: the digests, until the
+    /// next edit of another kind.
+    fn has_collection_key(&self, coll: TreeNode<'_>, r: &Removed) -> bool {
+        let (Some(d), true) = (r.key_digest, r.collection_key) else {
+            return false;
+        };
+        self.ckeys
+            .with(NodeRef::new(self, coll), self.serial, |k| k.contains(d))
+    }
+
+    /// The digest of the collection key `k` of mapping `coll`, as
+    /// [`Document::has_collection_key`] compares it.
+    fn collection_key_digest(&self, coll: TreeNode<'_>, k: TreeNode<'_>) -> u64 {
+        self.ckeys.with(NodeRef::new(self, coll), self.serial, |c| {
+            c.digest(NodeRef::new(self, k))
+        })
+    }
+
+    /// After a removal (`add` false) or a re-insertion (`add` true) of an
+    /// entry with a collection key: the digests of the mapping's collection
+    /// keys, if they were current, stay so (one key fewer or more), unless
+    /// the entry defines anchors, which may change what later aliases name.
+    fn keep_collection_keys(&self, coll: TreeId, before: u64, r: &Removed, add: bool) {
+        let Some(d) = r.key_digest.filter(|_| r.collection_key) else {
+            return;
+        };
+        if r.anchors.is_empty() {
+            self.ckeys.moved(coll, before, self.serial, d, add);
+        } else {
+            self.ckeys.clear();
+        }
+    }
+
+    /// Whether this document has a `%YAML 1.1` directive.
+    ///
+    /// Work: O(the document's directives); nothing is kept.
+    fn declares_yaml_1_1(&self) -> bool {
+        let Some(doc) = self.doc.and_then(|d| self.tree().get(d).ok()) else {
+            return false;
+        };
+        for c in doc.children() {
+            match c.kind() {
+                SyntaxKind::YamlDirective => {
+                    let t = c.text();
+                    let v = t.trim_start_matches('%').trim_start_matches("YAML").trim();
+                    return v.starts_with("1.1");
+                }
+                k if k.is_yaml_node() => return false,
+                _ => {}
+            }
+        }
+        false
     }
 
     /// The live syntax node of a handle of this document.
@@ -2628,6 +2819,8 @@ impl Document {
         let nl = self.nl();
         let carried;
         let mut post: Option<String> = None;
+        // Blank lines after the node that go with it (see below).
+        let mut absorb: Option<(TreeId, TreeId)> = None;
         let plan = {
             let n = self.tree().get(target).map_err(|_| EditError::StaleNode)?;
             if !n.kind().is_yaml_node() {
@@ -2639,7 +2832,7 @@ impl Document {
             carried = Some(self.replace_carry(n, slot.first, slot.last, keep)?);
             let anchor = node_props(n, v);
             let context = n.parent().filter(|p| Coll::of(*p).is_some());
-            let render = self.render(context, flat)?;
+            let render = self.render(context, flat, wants_layout(v))?;
             // A string set over an existing node is quoted when the
             // document's own schema reads it as another type, not whenever
             // some YAML reader might (`yes` is a string in YAML 1.2).
@@ -2846,6 +3039,21 @@ impl Document {
                 _ => None,
             };
             let gap = gap_text.as_deref();
+            // A new kept block scalar (`|+`) ends with the blank lines that are
+            // its own value. Blank lines the old node had after it would
+            // read as more of that value, so they go with the old node (the
+            // empty line before a document marker belongs to the scalar).
+            if text.ends_with(&format!("{nl}{nl}")) {
+                let end = if ends_line(n) {
+                    Some(slot.last)
+                } else {
+                    line_break_after(slot.last)
+                };
+                absorb = end
+                    .and_then(blank_lines_after)
+                    .filter(|(a, b)| carry::siblings(*a, *b).is_some())
+                    .map(|(a, b)| (a.id(), b.id()));
+            }
             // A block scalar ending the document without a line break: its
             // replacement leaves the break missing too.
             let open_end = last_block(n).is_some_and(|b| !ends_break(&b.text()));
@@ -2931,6 +3139,9 @@ impl Document {
         // a new block scalar's header leaves its place (each a step of its
         // own, undone if the replacement is refused: never a panic).
         let (new, moved) = self.atomic(|d| {
+            if let Some((a, b)) = absorb {
+                d.t_remove(a, b)?;
+            }
             if let Some((a, b)) = rc.lines {
                 d.t_remove(a, b)?;
             }
@@ -3001,6 +3212,74 @@ impl Document {
 
     // ========================================================== insert
 
+    /// The quote styles the strings at the end of `coll` are written in:
+    /// `(keys, values)`. The nearest string of each kind decides: quoted
+    /// strings give their quotes, a plain string gives none. Numbers,
+    /// booleans, nulls, aliases, block scalars and collections say nothing.
+    ///
+    /// Work: at most [`QUOTE_LOOK`] siblings are read from the end of the
+    /// collection, each in O(1) plus the length of a plain scalar's text, so
+    /// O(1) in the size of the collection. Retained memory: none.
+    fn sibling_quotes(
+        &self,
+        coll: TreeNode<'_>,
+        want_key: bool,
+        want_value: bool,
+    ) -> (Option<Quote>, Option<Quote>) {
+        let map = matches!(
+            coll.kind(),
+            SyntaxKind::BlockMapping | SyntaxKind::FlowMapping
+        );
+        let (mut keys, mut values) = (None, None);
+        let (mut key_done, mut value_done) = (!want_key, !want_value);
+        let mut at = coll.last_child();
+        let mut seen = 0usize;
+        while let Some(n) = at {
+            if (key_done && value_done) || seen >= QUOTE_LOOK {
+                break;
+            }
+            at = n.prev_sibling();
+            if !n.kind().is_yaml_node() {
+                continue;
+            }
+            seen = seen.saturating_add(1);
+            if n.kind() != SyntaxKind::Scalar {
+                continue;
+            }
+            let is_key = if map {
+                match place::local_key(n) {
+                    Some(k) => k,
+                    None => continue,
+                }
+            } else {
+                false
+            };
+            let (slot, done) = if is_key {
+                (&mut keys, &mut key_done)
+            } else {
+                (&mut values, &mut value_done)
+            };
+            if *done {
+                continue;
+            }
+            let node = NodeRef::new(self, n);
+            match node.as_scalar().map(|x| x.style()) {
+                Some(ScalarStyle::SingleQuoted) => {
+                    *slot = Some(Quote::Single);
+                    *done = true;
+                }
+                Some(ScalarStyle::DoubleQuoted) => {
+                    *slot = Some(Quote::Double);
+                    *done = true;
+                }
+                // A plain string: the document leaves its strings plain.
+                Some(ScalarStyle::Plain) if node.as_str().is_some() => *done = true,
+                _ => {}
+            }
+        }
+        (keys, values)
+    }
+
     /// The text of `payload` as an entry (with `key`) or item of `coll`.
     fn payload_text(
         &self,
@@ -3011,7 +3290,34 @@ impl Document {
         payload: Payload<'_>,
         flat: bool,
     ) -> Result<String, EditError> {
-        let render = self.render(Some(coll), flat)?;
+        // New strings are written the way the document writes its own: a key
+        // stays plain when the document's schema reads it as a string, and
+        // new strings take the quotes of the strings beside them.
+        let (new_key, new_value) = match payload {
+            Payload::Value(v) if kind.is_map() => (key.is_some(), Some(v)),
+            Payload::Value(v) | Payload::Entry(_, v) => (false, Some(v)),
+            _ => (false, None),
+        };
+        // Keys of a new collection are not siblings of anything here, so a
+        // key's quotes are copied only for an entry with a scalar value.
+        let scalar_payload = new_value
+            .is_some_and(|v| !matches!(v.untag_ref(), Value::Sequence(_) | Value::Mapping(_)));
+        let want_key = new_key && scalar_payload;
+        let want_value = matches!(new_value, Some(Value::String(s)) if !s.contains('\n'));
+        let (key_quote, value_quote) = if want_key || want_value {
+            self.sibling_quotes(coll, want_key, want_value)
+        } else {
+            (None, None)
+        };
+        let render = self.render(Some(coll), flat, layout_wanted(payload))?;
+        // A document that declares YAML 1.1 is read by 1.1 readers, which
+        // read `y` and `no` as booleans: its keys keep the stricter rule.
+        let render = if self.declares_yaml_1_1() {
+            render
+        } else {
+            render.schema_floor_keys()
+        };
+        let render = render.with_quotes(key_quote, value_quote);
         let flow = kind.is_flow();
         let key_text = |k: &str| render.key(k, flow);
         Ok(match (payload, kind.is_map()) {
@@ -3143,6 +3449,30 @@ impl Document {
                 // written (indentation means nothing there, rule 9).
                 let body = if flow && r.flow {
                     r.text.clone()
+                } else if let (true, true, Some((k, v))) = (is_map, r.flow, &r.explicit_key) {
+                    // `? k : v` in a flow collection is the entry `k: v`; in
+                    // a block one it would be the key `k : v`. It goes back
+                    // as the two lines of an explicit block entry.
+                    if k.contains(['\n', '\r']) || v.contains(['\n', '\r']) {
+                        return Err(unsupported(
+                            "a multi-line flow entry with an explicit key cannot move into a block mapping",
+                        ));
+                    }
+                    let nl = self.nl();
+                    let head = if k.is_empty() {
+                        "?".to_owned()
+                    } else {
+                        format!("? {k}")
+                    };
+                    if v.is_empty() {
+                        head
+                    } else {
+                        format!(
+                            "{head}{nl}{}:{}{v}",
+                            sp(col),
+                            if v.is_empty() { "" } else { " " }
+                        )
+                    }
                 } else {
                     reindent(&r.text, r.col, target).ok_or_else(|| {
                         unsupported("the removed text cannot be re-indented there")
@@ -3251,6 +3581,7 @@ impl Document {
         level: u8,
     ) -> Result<TreeId, EditError> {
         self.prepare()?;
+        let ck_before = self.serial;
         let blanks = level == 0;
         /// The steps of an insertion.
         enum Steps {
@@ -3326,7 +3657,7 @@ impl Document {
                     }
                     if let Some(k) = &r.key {
                         let m = NodeRef::new(self, coll).as_mapping();
-                        let own = m.and_then(|m| m.own_value(k));
+                        let own = m.filter(|_| !r.collection_key).and_then(|m| m.own_value(k));
                         // A second merge key is a duplicate key.
                         let merge = r.merge
                             && m.map(|m| m.has_merge_key())
@@ -3335,9 +3666,11 @@ impl Document {
                                 .unwrap_or(false);
                         // Equal keys by meaning, not by text.
                         let equal = !r.merge
-                            && r.key_value
+                            && (r
+                                .key_value
                                 .as_ref()
-                                .is_some_and(|v| m.is_some_and(|m| m.has_key_value(v)));
+                                .is_some_and(|v| m.is_some_and(|m| m.has_key_value(v)))
+                                || self.has_collection_key(coll, r));
                         if own.is_some() || merge || equal {
                             return Err(EditError::KeyExists { at: Path::new() });
                         }
@@ -4023,6 +4356,9 @@ impl Document {
         };
         self.carry_explicit(&moved, &outside, &inner, None);
         self.commit();
+        if let Payload::Removed(r) = payload {
+            self.keep_collection_keys(coll_id, ck_before, r, true);
+        }
         Ok(new)
     }
 
@@ -4083,16 +4419,18 @@ impl Document {
                     }
                     let k = r.key.as_deref().unwrap_or_default();
                     let m = NodeRef::new(self, p).as_mapping();
-                    let own = m.and_then(|m| m.own_value(k));
+                    let own = m.filter(|_| !r.collection_key).and_then(|m| m.own_value(k));
                     let merge = r.merge
                         && m.map(|m| m.has_merge_key())
                             .transpose()
                             .map_err(tag_internal)?
                             .unwrap_or(false);
                     let equal = !r.merge
-                        && r.key_value
+                        && (r
+                            .key_value
                             .as_ref()
-                            .is_some_and(|v| m.is_some_and(|m| m.has_key_value(v)));
+                            .is_some_and(|v| m.is_some_and(|m| m.has_key_value(v)))
+                            || self.has_collection_key(p, r));
                     if own.is_some() || merge || equal {
                         return Err(EditError::KeyExists { at: Path::new() });
                     }
@@ -4142,6 +4480,8 @@ impl Document {
         })?;
         self.carry_explicit(&moved, &outside, &inner, None);
         self.commit();
+        // (The mapping is a new node: what was read of the pair is gone.)
+        self.ckeys.clear();
         Ok(new)
     }
 
@@ -4183,6 +4523,7 @@ impl Document {
         reindent: bool,
     ) -> Result<(Removed, Option<TreeId>), EditError> {
         self.prepare()?;
+        let ck_before = self.serial;
         struct Plan {
             removed: Removed,
             carry: Carry,
@@ -4441,22 +4782,34 @@ impl Document {
                 }
                 _ => 0,
             };
-            let key = match e.key {
-                Some(k) => Some(
-                    NodeRef::new(self, k)
-                        .as_scalar()
-                        .map(|s| s.value().into_owned())
-                        .ok_or_else(|| unsupported("removing an entry with a collection key"))?,
-                ),
-                None => None,
+            let (key, collection_key) = match e.key {
+                Some(k) => match NodeRef::new(self, k).as_scalar() {
+                    Some(s) => (Some(s.value().into_owned()), false),
+                    None => (Some(k.text().into_owned()), true),
+                },
+                None => (None, false),
             };
             let merge = match e.key {
                 Some(k) => NodeRef::new(self, k).is_merge_key().map_err(tag_internal)?,
                 None => false,
             };
-            let key_value = e
-                .key
-                .and_then(|k| NodeRef::new(self, k).as_scalar()?.resolved().ok());
+            // A collection key is compared by its digest, never read as a
+            // value (which would expand its aliases once per removal).
+            let key_value = e.key.and_then(|k| {
+                NodeRef::new(self, k)
+                    .as_scalar()
+                    .and_then(|s| s.resolved().ok())
+            });
+            let key_digest = match e.key {
+                Some(k) if collection_key => Some(self.collection_key_digest(coll, k)),
+                _ => None,
+            };
+            let explicit_key = match e.key {
+                Some(k) if flow && explicit_start(&text) => {
+                    Some((k.text().into_owned(), e.value.text().into_owned()))
+                }
+                _ => None,
+            };
             let mut anchors: Vec<String> =
                 names.anchors.iter().map(|(n, _)| (*n).to_owned()).collect();
             anchors.dedup();
@@ -4525,6 +4878,9 @@ impl Document {
                 key,
                 merge,
                 key_value,
+                collection_key,
+                key_digest,
+                explicit_key,
                 kind: NodeRef::new(self, e.value).kind(),
                 lead,
                 tail,
@@ -4719,6 +5075,7 @@ impl Document {
             }
         }
         self.commit();
+        self.keep_collection_keys(coll_id, ck_before, &removed, false);
         Ok((removed, new))
     }
 
@@ -4757,7 +5114,7 @@ impl Document {
             self.t_remove(a, b)?;
         }
         let mut stripped = None;
-        let step = {
+        let (step, absorb) = {
             let tree = self.tree();
             let coll = tree.get(coll_id).map_err(|_| EditError::StaleNode)?;
             let v = tree.get(value).map_err(|_| EditError::StaleNode)?;
@@ -4788,7 +5145,19 @@ impl Document {
                 }
                 None
             };
-            match (prev, next) {
+            // The blank lines after an entry that follows a kept block scalar
+            // (`|+`) go with it: they would otherwise join that scalar's own
+            // trailing blank lines and change its value.
+            let absorb = if prev.is_some() && follows_keep(head) {
+                line_end()
+                    .or_else(|| line_break_after(e.value))
+                    .and_then(blank_lines_after)
+                    .filter(|(a, b)| carry::siblings(*a, *b).is_some())
+                    .map(|(a, b)| (a.id(), b.id()))
+            } else {
+                None
+            };
+            let step = match (prev, next) {
                 // A middle entry: its whole lines.
                 (Some(_), Some(_)) => {
                     let end = line_end().ok_or_else(bad)?;
@@ -4880,8 +5249,12 @@ impl Document {
                     }
                 }
                 (None, None) => return Err(EditError::Internal),
-            }
+            };
+            (step, absorb)
         };
+        if let Some((a, b)) = absorb {
+            self.t_remove(a, b)?;
+        }
         match step {
             Step::Range(a, b) => self.t_remove(a, b)?,
             Step::ToLineEnd(a, b, f) => self.t_remove_to_line_end(a, b, f)?,
@@ -5458,24 +5831,30 @@ impl Document {
             } else {
                 0
             };
+            let explicit_key =
+                explicit_start(&text).then(|| (k.text().into_owned(), v.text().into_owned()));
             let removed = Removed {
                 doc: self.id,
                 text,
                 col,
                 entry_col: col,
                 flow: true,
-                key: Some(
-                    NodeRef::new(self, *k)
-                        .as_scalar()
-                        .map(|s| s.value().into_owned())
-                        .ok_or_else(|| unsupported("removing an entry with a collection key"))?,
-                ),
+                key: Some(match NodeRef::new(self, *k).as_scalar() {
+                    Some(s) => s.value().into_owned(),
+                    None => k.text().into_owned(),
+                }),
                 merge: NodeRef::new(self, *k)
                     .is_merge_key()
                     .map_err(tag_internal)?,
                 key_value: NodeRef::new(self, *k)
                     .as_scalar()
                     .and_then(|s| s.resolved().ok()),
+                collection_key: NodeRef::new(self, *k).as_scalar().is_none(),
+                key_digest: NodeRef::new(self, *k)
+                    .as_scalar()
+                    .is_none()
+                    .then(|| ckeys::digest_once(NodeRef::new(self, *k))),
+                explicit_key,
                 kind: NodeRef::new(self, *v).kind(),
                 lead: Vec::new(),
                 tail: Vec::new(),
@@ -6361,7 +6740,7 @@ impl Document {
             return Err(EditError::ReadOnly { at: Path::new() });
         }
         let nl = self.nl();
-        let render = self.render(None, false)?;
+        let render = self.render(None, false, true)?;
         let text = render.root(v)?;
         let (frag, stream) = {
             let current = self.tree().root();
@@ -7347,7 +7726,7 @@ impl<'d> NodeMut<'d> {
             (r.tree_node().id(), s.style())
         };
         let forced = {
-            let render = self.doc.render(None, false)?;
+            let render = self.doc.render(None, false, true)?;
             render.keep_style(text, style)
         };
         let v = Value::from(text);

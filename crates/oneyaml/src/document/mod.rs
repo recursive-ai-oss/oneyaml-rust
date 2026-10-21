@@ -62,6 +62,7 @@ use crate::value::Value;
 mod anchors;
 mod cap_index;
 mod carry;
+mod ckeys;
 mod comment_edit;
 mod comments;
 mod edit;
@@ -2075,13 +2076,30 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///
 /// # Editing in depth
 ///
+/// **Style of new content.** A string written into a collection takes the
+/// quotes of the strings at the end of that collection (the nearest string
+/// decides; a plain one means plain), a new key takes those of the keys
+/// there, and text that needs escapes or a block stays as it must be.
+/// Numbers, booleans and nulls are never quoted. A new mapping key is plain
+/// whenever the document's schema reads it as a string (`y`, `n` and `no`
+/// are strings under the Core schema), and quoted when the schema, or the
+/// YAML 1.1 settings in use, would read another type. Nested block content
+/// copies the indentation of the first nested collection found among the first
+/// 1,024 entries around it (read only when the new text has a layout to
+/// copy). An insertion reads at most those entries and a few dozen siblings
+/// for the quotes, and keeps nothing, whatever the size of the document.
+///
 /// **Limitations** (each refusal changes nothing).
 /// These are refused with [`EditError::Unsupported`], whose `reason`
 /// names them:
 ///
 /// * replacing a mapping key in place (edit the entry: remove it and
 ///   insert the new one);
-/// * inserting or removing an entry whose key is a collection;
+/// * inserting a *new* entry whose key is a collection (a removed one can be
+///   put back, and removing one works);
+/// * moving a flow entry with an explicit key (`? k : v`) into a block mapping
+///   when its key or value spans lines (a one-line one becomes the two lines
+///   `? k` and `: v`);
 /// * moving a [`Removed`] between block and flow context when it would
 ///   need re-rendering: block content (multi-line block text, or an entry
 ///   with comments, including its same-line comment) into a flow
@@ -2356,6 +2374,12 @@ pub struct Document {
     /// an error region, so at its end the document's errors are checked
     /// against its text (set by `check_region`, which reads `&self`).
     error_neighbour: std::sync::atomic::AtomicBool,
+    /// Counts the tree edits made through this document, so a cache of
+    /// what a mapping held can tell whether it still describes the tree.
+    serial: u64,
+    /// The digests of a mapping's collection keys (see `ckeys.rs`); never
+    /// shared with a clone.
+    ckeys: ckeys::Cache,
 }
 
 impl core::fmt::Debug for Document {
@@ -2420,6 +2444,8 @@ impl Clone for Document {
             explicit_log: Vec::new(),
             tail: edit::TailGuard::default(),
             error_neighbour: std::sync::atomic::AtomicBool::new(false),
+            serial: 0,
+            ckeys: ckeys::Cache::default(),
             explicit: self.explicit.clone(),
         }
     }
@@ -2439,6 +2465,8 @@ impl Document {
             explicit_log: Vec::new(),
             tail: edit::TailGuard::default(),
             error_neighbour: std::sync::atomic::AtomicBool::new(false),
+            serial: 0,
+            ckeys: ckeys::Cache::default(),
             explicit: None,
         }
     }
@@ -2460,6 +2488,8 @@ impl Document {
             explicit_log: Vec::new(),
             tail: edit::TailGuard::default(),
             error_neighbour: std::sync::atomic::AtomicBool::new(false),
+            serial: 0,
+            ckeys: ckeys::Cache::default(),
             explicit: None,
         }
     }

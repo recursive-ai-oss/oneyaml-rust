@@ -61,6 +61,24 @@ pub(crate) enum Style {
     Literal,
 }
 
+/// A quote style a new string copies from its siblings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Quote {
+    /// `'…'`.
+    Single,
+    /// `"…"`.
+    Double,
+}
+
+impl Quote {
+    fn style(self) -> Style {
+        match self {
+            Self::Single => Style::Single,
+            Self::Double => Style::Double,
+        }
+    }
+}
+
 /// Where a literal block's content lines would go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct BlockIndent {
@@ -123,6 +141,14 @@ pub(crate) struct Rules {
     /// stays plain when the document's own schema reads it as a string,
     /// not only when every YAML reader would (the serializer's rule).
     schema_floor: bool,
+    /// The same for mapping keys only: a key the document's schema reads
+    /// as a string stays plain, whatever other readers make of it.
+    key_floor: bool,
+    /// The quote style a new string key copies from the keys beside it
+    /// (the edit layer only; see [`Rules::with_quotes`]).
+    key_quote: Option<Quote>,
+    /// The same for a new string value.
+    value_quote: Option<Quote>,
 }
 
 impl Rules {
@@ -194,6 +220,9 @@ impl Rules {
                 && reading.get_resolve_tagged_variant_content(),
             max_tag_len: reading.get_limits().get_max_scalar_len(),
             schema_floor: false,
+            key_floor: false,
+            key_quote: None,
+            value_quote: None,
         })
     }
 
@@ -203,6 +232,33 @@ impl Rules {
     /// stricter every-reader rule).
     pub(crate) fn for_edit(mut self) -> Self {
         self.schema_floor = self.flavor == Flavor::Default;
+        self
+    }
+
+    /// These rules with the quote style of the siblings a new string is
+    /// written next to: a string that could stay plain, or that needs
+    /// quotes, is written in that style instead (the new text then looks
+    /// like the text around it). A string that needs escapes is still
+    /// double-quoted and a multi-line one is still a block scalar, because
+    /// no other style holds them. Only the default layout copies style.
+    ///
+    /// Work per string: unchanged (the style is read from two fields).
+    /// Retained memory: two small fields.
+    pub(crate) fn with_quotes(mut self, key: Option<Quote>, value: Option<Quote>) -> Self {
+        if self.flavor == Flavor::Default {
+            self.key_quote = key;
+            self.value_quote = value;
+        }
+        self
+    }
+
+    /// These rules for the keys an edit writes into a document: a string
+    /// key is quoted only when the document's schema reads it as another
+    /// type, or plain text cannot hold it. Values keep the stricter rule
+    /// (a new `no` value is quoted, because YAML 1.1 readers read a
+    /// boolean). No extra work or memory: one flag.
+    pub(crate) fn for_edit_keys(mut self) -> Self {
+        self.key_floor = self.flavor == Flavor::Default;
         self
     }
 
@@ -253,8 +309,16 @@ impl Rules {
     /// at `block`.
     pub(crate) fn string_style(&self, text: &str, block: BlockIndent) -> Style {
         match self.flavor {
-            Flavor::Default => self.default_style(text, block),
+            Flavor::Default => self.default_style(text, block, self.value_quote, false),
             Flavor::SerdeYaml => self.serde_yaml_style(text, block),
+        }
+    }
+
+    /// [`Rules::string_style`] for a mapping key (`key`) or any other string.
+    pub(crate) fn string_style_for(&self, text: &str, block: BlockIndent, key: bool) -> Style {
+        match (self.flavor, key) {
+            (Flavor::Default, true) => self.default_style(text, block, self.key_quote, true),
+            _ => self.string_style(text, block),
         }
     }
 
@@ -266,8 +330,14 @@ impl Rules {
         }
     }
 
-    // The default layout.
-    fn default_style(&self, text: &str, block: BlockIndent) -> Style {
+    // The default layout. `copy` is the quote style of the siblings, if any.
+    fn default_style(
+        &self,
+        text: &str,
+        block: BlockIndent,
+        copy: Option<Quote>,
+        key: bool,
+    ) -> Style {
         if text.contains('\n') {
             return if literal_ok(text, block, false) {
                 Style::Literal
@@ -278,12 +348,16 @@ impl Rules {
         if has_escape(text) {
             return Style::Double;
         }
-        let plain = if self.schema_floor {
+        let plain = if self.schema_floor || (key && self.key_floor) {
             self.plain_schema_ok(text)
         } else {
             self.plain_ok(text)
         };
-        if plain { Style::Plain } else { self.quoted() }
+        match copy {
+            Some(q) => q.style(),
+            None if plain => Style::Plain,
+            None => self.quoted(),
+        }
     }
 
     /// Plain when the document's schema reads a string and the text is
@@ -399,7 +473,7 @@ impl Rules {
             content: self.indent,
             indicator: None,
         };
-        let style = self.string_style(text, block);
+        let style = self.string_style_for(text, block, true);
         if style == Style::Literal {
             return false;
         }
