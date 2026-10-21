@@ -10,7 +10,7 @@ documentation = "https://docs.rs/oneyaml-syntax"
 # not take the workspace version that `oneyaml` and `oneyaml-core` share.
 # `oneyaml` reaches it only through `doc.syntax()`, which is outside the
 # stability promise.
-version = "0.1.2"
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -20,7 +20,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-oneyaml-core = { path = "../oneyaml-core", version = "1.1.0" }
+oneyaml-core = { path = "../oneyaml-core", version = "1.2.0" }
 
 [features]
 # Test-only work counters (`tree::take_work`) for this crate's tests and the
