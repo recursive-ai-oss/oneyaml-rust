@@ -1,6 +1,6 @@
 //! Applying RFC 6902 operations.
 
-use super::locate::{Loc, Scan, locate};
+use super::locate::{Loc, locate, merged_error};
 use super::{PatchError, PatchErrorKind, PatchOp, Pointer};
 use crate::document::{Document, EditError, NodeId};
 use crate::value::Value;
@@ -13,15 +13,10 @@ pub(super) struct Run {
     budget: Option<usize>,
     copied: usize,
     max_document: usize,
-    /// How many mapping entries the patch may look at in all.
-    pub(super) scan: Scan,
 }
 
-/// Mapping entries a patch may look at without regard to the document's size.
-const SCAN_FLOOR: usize = 4 * 1024 * 1024;
-
-/// How many times a copied byte counts against the budget.
-const COPY_WEIGHT: usize = 4;
+/// How many times a copied byte counts against the alias byte budget.
+const COPY_WEIGHT: usize = 3;
 
 /// The length of the document's text in bytes.
 fn document_len(doc: &Document) -> usize {
@@ -36,21 +31,14 @@ impl Run {
             budget: limits.get_alias_byte_budget(len),
             copied: 0,
             max_document: limits.get_max_document_size(),
-            // A mapping entry takes more than four bytes of text, so this is
-            // a few passes over the document and never less than the floor.
-            // `Limits::unlimited()` removes it with the other bounds.
-            scan: if limits.get_alias_byte_budget(0).is_none() {
-                Scan::unlimited()
-            } else {
-                Scan::new(SCAN_FLOOR.saturating_add(len.saturating_mul(4)))
-            },
         }
     }
 
-    /// Accounts for `bytes` about to be written by copying. A copy is held in
-    /// memory as a value while it is written, which takes several times its
-    /// text, so each byte is counted [`COPY_WEIGHT`] times: the byte budget then
-    /// bounds the memory a patch of copies uses as well as the text it writes.
+    /// Accounts for `bytes` about to be written by copying. A copied value is
+    /// held in memory as a value while it is written, which takes several
+    /// times its text, so each byte counts [`COPY_WEIGHT`] times against the
+    /// alias byte budget: the budget then bounds the memory a patch of copies
+    /// uses as well as the text it writes. Aliases written out count the same.
     fn charge(&mut self, bytes: usize) -> Result<(), PatchError> {
         self.copied = self
             .copied
@@ -59,8 +47,9 @@ impl Run {
             Some(budget) if self.copied > budget => Err(PatchError::new(
                 PatchErrorKind::Limit,
                 format!(
-                    "the patch copies too much: more than {budget} bytes of budget (Limits::alias_byte_budget), \
-                     counting each copied byte {COPY_WEIGHT} times and aliases written out as copied"
+                    "the patch copies too much: more than {budget} bytes of budget \
+                     (Limits::alias_byte_budget), counting each copied byte {COPY_WEIGHT} times \
+                     and aliases written out as copied"
                 ),
             )),
             _ => Ok(()),
@@ -130,21 +119,21 @@ fn apply_op(doc: &mut Document, run: &mut Run, op: &PatchOp) -> Result<(), Patch
     match op {
         PatchOp::Add { path, value } => {
             let to = Pointer::parse(path)?;
-            add(doc, &mut run.scan, to.tokens(), value).map_err(|e| e.at_default(path))?;
+            add(doc, to.tokens(), value).map_err(|e| e.at_default(path))?;
             run.check_size(doc).map_err(|e| e.at_default(path))
         }
         PatchOp::Replace { path, value } => {
             let to = Pointer::parse(path)?;
-            replace(doc, &mut run.scan, to.tokens(), value).map_err(|e| e.at_default(path))?;
+            replace(doc, to.tokens(), value).map_err(|e| e.at_default(path))?;
             run.check_size(doc).map_err(|e| e.at_default(path))
         }
         PatchOp::Remove { path } => {
             let at = Pointer::parse(path)?;
-            remove(doc, &mut run.scan, at.tokens()).map_err(|e| e.at_default(path))
+            remove(doc, at.tokens()).map_err(|e| e.at_default(path))
         }
         PatchOp::Test { path, value } => {
             let at = Pointer::parse(path)?;
-            test(doc, &mut run.scan, at.tokens(), value).map_err(|e| e.at_default(path))
+            test(doc, at.tokens(), value).map_err(|e| e.at_default(path))
         }
         PatchOp::Copy { from, path } => {
             let source = Pointer::parse(from)?;
@@ -185,19 +174,23 @@ pub(super) fn insert_member(
 }
 
 /// The `add` operation at `tokens`.
-fn add(
-    doc: &mut Document,
-    scan: &mut Scan,
-    tokens: &[String],
-    value: &Value,
-) -> Result<(), PatchError> {
+fn add(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), PatchError> {
     let Some(last) = tokens.last() else {
         doc.set_root(value)?;
         return Ok(());
     };
-    let Loc { node, parent } = locate(doc, tokens, true, scan)?;
+    let Loc {
+        node,
+        merged,
+        parent,
+    } = locate(doc, tokens, true)?;
     let parent = parent.ok_or_else(internal)?;
     if parent.is_map {
+        if merged {
+            // The member exists only in a merged-in mapping: adding it is
+            // replacing it there.
+            return Err(merged_error());
+        }
         return match node {
             // Adding a member that is there replaces its value.
             Some(id) => replace_node(doc, id, value),
@@ -225,17 +218,15 @@ fn internal() -> PatchError {
     )
 }
 
-fn replace(
-    doc: &mut Document,
-    scan: &mut Scan,
-    tokens: &[String],
-    value: &Value,
-) -> Result<(), PatchError> {
+fn replace(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), PatchError> {
     if tokens.is_empty() {
         doc.set_root(value)?;
         return Ok(());
     }
-    let loc = locate(doc, tokens, true, scan)?;
+    let loc = locate(doc, tokens, true)?;
+    if loc.merged {
+        return Err(merged_error());
+    }
     match loc.node {
         Some(id) => replace_node(doc, id, value),
         None => Err(PatchError::new(
@@ -245,14 +236,17 @@ fn replace(
     }
 }
 
-fn remove(doc: &mut Document, scan: &mut Scan, tokens: &[String]) -> Result<(), PatchError> {
+fn remove(doc: &mut Document, tokens: &[String]) -> Result<(), PatchError> {
     if tokens.is_empty() {
         return Err(PatchError::new(
             PatchErrorKind::Invalid,
             "the whole document cannot be removed; replace it instead",
         ));
     }
-    let loc = locate(doc, tokens, true, scan)?;
+    let loc = locate(doc, tokens, true)?;
+    if loc.merged {
+        return Err(merged_error());
+    }
     match loc.node {
         Some(id) => remove_node(doc, id),
         None => Err(PatchError::new(
@@ -270,8 +264,8 @@ pub(super) fn remove_node(doc: &mut Document, id: NodeId) -> Result<(), PatchErr
 
 /// The value at `tokens`, reading through aliases, and the length in bytes of
 /// the source text it was read from.
-fn read(doc: &Document, scan: &mut Scan, tokens: &[String]) -> Result<(Value, usize), PatchError> {
-    let loc = locate(doc, tokens, false, scan)?;
+fn read(doc: &Document, tokens: &[String]) -> Result<(Value, usize), PatchError> {
+    let loc = locate(doc, tokens, false)?;
     let Some(id) = loc.node else {
         if tokens.is_empty() {
             return Ok((Value::Null, 0));
@@ -294,15 +288,10 @@ fn read(doc: &Document, scan: &mut Scan, tokens: &[String]) -> Result<(Value, us
     Ok((value, size))
 }
 
-fn test(
-    doc: &Document,
-    scan: &mut Scan,
-    tokens: &[String],
-    expected: &Value,
-) -> Result<(), PatchError> {
+fn test(doc: &Document, tokens: &[String], expected: &Value) -> Result<(), PatchError> {
     // A value that cannot be read (a limit, a tag that does not resolve) is an
     // error of its own kind; one that reads differently is a failed test.
-    let (actual, _) = read(doc, scan, tokens)?;
+    let (actual, _) = read(doc, tokens)?;
     if &actual == expected {
         Ok(())
     } else {
@@ -355,23 +344,23 @@ fn copy(
     // Copying a value onto its own mapping key changes nothing. Onto its own
     // sequence index it is an add (RFC 6902 section 4.5): a second copy goes
     // there.
-    if from == to && !parent_is_sequence(doc, &mut run.scan, from)? {
-        read(doc, &mut run.scan, from)?;
+    if from == to && !parent_is_sequence(doc, from)? {
+        read(doc, from)?;
         return Ok(());
     }
     // Charge the source text before reading the value, so a refused copy costs
     // little, then what writing aliases out adds to it.
-    let size = source_size(doc, &mut run.scan, from)?;
+    let size = source_size(doc, from)?;
     run.charge(size)?;
-    let (value, _) = read(doc, &mut run.scan, from)?;
+    let (value, _) = read(doc, from)?;
     run.charge(value_bytes(&value).saturating_sub(size))?;
-    add(doc, &mut run.scan, to, &value)
+    add(doc, to, &value)
 }
 
 /// The length of the source text at `tokens` (the node the pointer names,
 /// aliases followed), without reading its value.
-fn source_size(doc: &Document, scan: &mut Scan, tokens: &[String]) -> Result<usize, PatchError> {
-    let loc = locate(doc, tokens, false, scan)?;
+fn source_size(doc: &Document, tokens: &[String]) -> Result<usize, PatchError> {
+    let loc = locate(doc, tokens, false)?;
     let Some(id) = loc.node else {
         if tokens.is_empty() {
             return Ok(0);
@@ -385,15 +374,11 @@ fn source_size(doc: &Document, scan: &mut Scan, tokens: &[String]) -> Result<usi
 }
 
 /// Whether the location's parent is a sequence (false for the whole document).
-fn parent_is_sequence(
-    doc: &Document,
-    scan: &mut Scan,
-    tokens: &[String],
-) -> Result<bool, PatchError> {
+fn parent_is_sequence(doc: &Document, tokens: &[String]) -> Result<bool, PatchError> {
     if tokens.is_empty() {
         return Ok(false);
     }
-    Ok(locate(doc, tokens, false, scan)?
+    Ok(locate(doc, tokens, false)?
         .parent
         .is_some_and(|p| !p.is_map))
 }
@@ -412,7 +397,10 @@ fn relocate(
         ));
     }
     // The source is removed, so nothing on the way to it may be an alias.
-    let source = locate(doc, from, true, &mut run.scan)?;
+    let source = locate(doc, from, true)?;
+    if source.merged {
+        return Err(merged_error());
+    }
     let Some(source_id) = source.node else {
         if from.is_empty() && to.is_empty() {
             return Ok(());
@@ -432,21 +420,27 @@ fn relocate(
             "a value cannot be moved into itself",
         ));
     }
-    let destination = locate(doc, to, true, &mut run.scan)?;
-    let (value, size) = read(doc, &mut run.scan, from)?;
+    // Only used to choose the order. A destination that does not exist yet
+    // may exist once the source is gone (a sequence index counts from what is
+    // left), and add reports a real error.
+    let destination = locate(doc, to, true).ok();
+    let (value, size) = read(doc, from)?;
     run.charge(value_bytes(&value).saturating_sub(size))?;
     // The RFC removes first. When both places are in mappings and the
     // destination is not above the source, writing first gives the same result
     // without leaving a mapping empty (and so `{}`) in between.
     let above = to.len() <= from.len() && from.starts_with(to);
     let write_first = !above
-        && destination.parent.as_ref().is_some_and(|p| p.is_map)
+        && destination
+            .as_ref()
+            .and_then(|d| d.parent.as_ref())
+            .is_some_and(|p| p.is_map)
         && source.parent.as_ref().is_some_and(|p| p.is_map);
     if write_first {
-        add(doc, &mut run.scan, to, &value)?;
+        add(doc, to, &value)?;
         remove_node(doc, source_id)
     } else {
         remove_node(doc, source_id)?;
-        add(doc, &mut run.scan, to, &value)
+        add(doc, to, &value)
     }
 }

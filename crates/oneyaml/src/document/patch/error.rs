@@ -6,8 +6,9 @@ use crate::EditError;
 
 /// What kind of failure a [`PatchError`] is.
 ///
-/// The first six kinds are the ones a caller is expected to act on; each has
-/// a stable [`name`](PatchErrorKind::name).
+/// The kinds other than [`Edit`](PatchErrorKind::Edit) say what is wrong with
+/// the patch or the location; a caller is expected to act on them. Each kind
+/// has a stable [`name`](PatchErrorKind::name).
 ///
 /// ```
 /// use oneyaml::{Document, Patch, PatchErrorKind};
@@ -31,12 +32,16 @@ pub enum PatchErrorKind {
     /// descendant. (`patch-invalid`)
     Invalid,
     /// The operation would write through an alias, or remove an anchored node
-    /// that an alias still refers to, or merge into an alias. (`refused-alias`)
+    /// that an alias still refers to, or merge into an alias, or change a key
+    /// that exists only in a mapping merged in by `<<`. (`refused-alias`)
     RefusedAlias,
     /// Two keys of a mapping match one pointer token. (`refused-ambiguous`)
     RefusedAmbiguous,
-    /// A limit was reached: the depth limit, the alias byte budget, or the
-    /// document size limit. (`limit`)
+    /// A limit was reached: `Limits::max_depth` (a value or a patch nested too
+    /// deeply), `Limits::alias_budget` (aliases written out by a copy or move,
+    /// counted in nodes), `Limits::alias_byte_budget` (the bytes a patch
+    /// copies, aliases written out included) or `Limits::max_document_size`
+    /// (the document after a write). (`limit`)
     Limit,
     /// The edit layer refused the edit the operation asks for. This happens
     /// when the result would not read back as the edited value, when a comment

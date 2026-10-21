@@ -22,15 +22,37 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
   on `Document`, `DocumentMut` and `Stream`: `apply_patch` and
   `apply_merge_patch`, with the types `Patch`, `PatchOp`, `MergePatch`,
   `Pointer`, `PatchError` and `PatchErrorKind`, and `Document::get_pointer`
-  and `get_pointer_tokens` to read a node by pointer. A patch is applied as a
-  whole: if any operation fails, the document is exactly as it was, including
-  its comments and layout. A patch changes only the text of the values it
-  names. Writes refuse to go through an alias, and removing an anchored node
-  that an alias still uses is refused. The size of copied values counts
-  against the alias byte budget, and the document size limit applies after
-  every write. A copied or moved value is written out in full, so an alias
-  inside it becomes its content and comments inside a moved value are not
-  kept.
+  and `get_pointer_tokens` to read a node by pointer.
+  - A patch is applied as a whole: if any operation fails, the document is
+    exactly as it was, including its comments and layout. A patch changes only
+    the text of the values it names.
+  - A pointer token matches a mapping key by the key's scalar text (`/80`
+    finds the key `80`, `'80'` and `"80"` alike), through the document's
+    lookup index, so a patch of many operations on a wide mapping costs the
+    operations, not the operations times the width. Two keys with the same
+    text are refused as ambiguous. With `merge_keys` on, keys merged in by
+    `<<` are found, as `get_path` finds them.
+  - Writes refuse to go through an alias, to change a key that exists only in
+    a mapping merged in by `<<`, and to remove an anchored node that an alias
+    still uses. These are `RefusedAlias` errors.
+  - `test` compares by the YAML data model under the Core schema, which
+    departs from RFC 6902 section 4.6: `1` is not `1.0`, and `0x1F` is `31`.
+    A mapping key in a compared value matches a JSON object key only if it is
+    a string under the Core schema, so the integer key `1` does not match
+    `"1"`.
+  - The bytes a patch copies are charged to the alias byte budget
+    (`Limits::alias_byte_budget`; by default the larger of ten times the
+    document's length and 64 MiB), three times each, because a copied value is
+    held in memory as a value while it is written and takes several times its
+    text. A `copy` charges the length of the text it reads, and a `copy` or
+    `move` that has to write aliases out also charges the size of the
+    written-out value beyond that text, at the same weight. At the default
+    limits a patch can copy about 21 MiB of text in all (a third of 64 MiB; a
+    third of ten times the document when that is larger). A patch over the
+    budget fails with a limit error and changes nothing. The document size
+    limit applies after every write.
+  - A copied or moved value is written out in full, so an alias inside it
+    becomes its content, and comments inside a moved value are not kept.
 
 ## 1.1.0 — 2026-10-10
 

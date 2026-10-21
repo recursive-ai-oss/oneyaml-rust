@@ -15,6 +15,8 @@ mod error;
 mod locate;
 mod merge;
 mod pointer;
+#[cfg(test)]
+mod tests;
 
 pub use error::{PatchError, PatchErrorKind};
 pub use pointer::Pointer;
@@ -407,23 +409,62 @@ impl Document {
     /// is exactly as it was and the error says which operation failed and why.
     ///
     /// Operations are applied in order, each seeing the result of those before
-    /// it. A pointer names a mapping member by the scalar text of its key
-    /// (`/80` finds the key `80`, `'80'` and `"80"` alike; a key that is a
-    /// collection cannot be addressed), and two matching keys are refused as
-    /// ambiguous. Reads (`test`, the `from` of `copy`) follow aliases; a write
-    /// below an alias is refused, replacing the alias node itself is not, and
-    /// removing or moving an anchored node that an alias still refers to is
-    /// refused. `add` writes new members at the end of their mapping in the
-    /// style of their siblings, and what a patch does not name stays byte for
-    /// byte. The empty pointer is the whole document: `replace` and `add` set
-    /// the root and keep the document's markers and header and footer
-    /// comments.
+    /// it.
+    ///
+    /// # Pointers
+    ///
+    /// A pointer token names a mapping member by the scalar text of its key:
+    /// `/80` finds the key `80`, `'80'` and `"80"` alike, and `/true` finds the
+    /// key `true`. A key that is a collection cannot be addressed, and two
+    /// keys with the same text are refused as ambiguous. With
+    /// `Settings::merge_keys` on, the keys merged in by `<<` are found as
+    /// [`Document::get_path`] finds them, own keys first. A wide mapping is
+    /// searched through the document's lookup index, which files keys by what
+    /// they mean, so there a key written with a tag of its own that is not a
+    /// core tag (`!local 80`) is not found by its text; in a narrow mapping it
+    /// is.
+    ///
+    /// Reads (`test`, the `from` of `copy`) follow aliases. A write below an
+    /// alias is refused with [`PatchErrorKind::RefusedAlias`], and so is a write
+    /// that lands on a key merged in by `<<` (it belongs to the merged mapping,
+    /// which everything else that merges it shares): `add`, `replace`,
+    /// `remove` and the source of `move` all refuse it. Replacing the alias
+    /// node itself is allowed, and removing or moving an anchored node that an
+    /// alias still refers to is refused. `add` writes new members at the end of
+    /// their mapping in the style of their siblings, and what a patch does not
+    /// name stays byte for byte. The empty pointer is the whole document:
+    /// `replace` and `add` set the root and keep the document's markers and
+    /// header and footer comments.
+    ///
+    /// # `test`
+    ///
+    /// `test` compares by the YAML data model under the Core schema, which
+    /// departs from RFC 6902 section 4.6: `1` is not `1.0`, and `0x1F` is `31`.
+    /// A mapping key in a compared value matches a JSON object key only if it
+    /// is a string under the Core schema, so the integer key `1` does not match
+    /// `"1"`. (A pointer token, above, matches by text: `/1` addresses the key
+    /// `1` too.)
+    ///
+    /// # Limits
     ///
     /// `copy` and `move` write the value they read: an alias inside it is
-    /// written out as the value it stands for, and the text copied (written-out
-    /// aliases included) is charged to the document's alias byte budget, so a
-    /// patch of a few bytes cannot grow the document without a limit error.
-    /// The result may not be longer than the document size limit.
+    /// written out as the value it stands for. The bytes a patch copies are
+    /// charged to the document's alias byte budget
+    /// ([`Limits::alias_byte_budget`](crate::Limits::alias_byte_budget), for a
+    /// document of this length; by default the larger of ten times its length
+    /// and 64 MiB), **three times each**, because a copied value is held in
+    /// memory as a value while it is written and takes several times its text:
+    /// the budget then bounds the memory a patch of copies uses as well as the
+    /// text it writes. A `copy` charges the length of the text it reads, and a
+    /// `copy` or `move` that writes aliases out also charges the size of the
+    /// written-out value beyond that text, estimated as the length of its
+    /// strings plus a few bytes per other node, at the same weight. At the
+    /// default limits a patch can therefore copy about 21 MiB of text in all
+    /// (a third of 64 MiB; a third of ten times the document when that is
+    /// larger), and a patch that goes over fails with a limit error and
+    /// changes nothing. After every write the document may not be longer than
+    /// `Limits::max_document_size`, and a value nested deeper than
+    /// `Limits::max_depth` is refused.
     ///
     /// # Atomicity
     ///
@@ -486,7 +527,12 @@ impl Document {
     /// A patch that is not an object replaces the document's root. Merging a
     /// non-empty object into an alias is refused
     /// ([`PatchErrorKind::RefusedAlias`]); merging an empty one changes
-    /// nothing. The names of the patch's members must be strings.
+    /// nothing. The names of the patch's members must be strings. Members are
+    /// found by the scalar text of their keys, as pointer tokens are (see
+    /// [`Document::apply_patch`]); with `merge_keys` on, a patch that would set
+    /// or delete a member that exists only in a mapping merged in by `<<` is
+    /// refused with [`PatchErrorKind::RefusedAlias`], because the mapping is
+    /// shared. Deleting a name that no mapping has is not an error.
     ///
     /// Members the patch adds go at the end of their mapping in the style of
     /// their siblings; a `null` in the document stays unless the patch names
@@ -539,12 +585,7 @@ impl Document {
     /// [`PatchErrorKind::Path`] and [`PatchErrorKind::RefusedAmbiguous`], as
     /// for [`Document::get_pointer`].
     pub fn get_pointer_tokens(&self, pointer: &Pointer) -> Result<NodeRef<'_>, PatchError> {
-        let loc = locate::locate(
-            self,
-            pointer.tokens(),
-            false,
-            &mut locate::Scan::unlimited(),
-        )?;
+        let loc = locate::locate(self, pointer.tokens(), false)?;
         let id = loc.node.ok_or_else(|| {
             PatchError::new(PatchErrorKind::Path, "there is nothing at the location")
         })?;

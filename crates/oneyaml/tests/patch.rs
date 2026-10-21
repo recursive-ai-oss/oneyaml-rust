@@ -1035,21 +1035,26 @@ fn removals(n: usize) -> Patch {
 
 #[test]
 fn many_operations_on_a_wide_mapping_are_bounded_in_the_work_they_do() {
-    // Each operation finds its key by reading the mapping's keys, so a patch
-    // of n operations on a mapping of n members reads about n*n/2 of them. Past
-    // a few passes over the document that is refused, not left to run.
+    // Each operation finds its key through the mapping's lookup index, so a
+    // patch of n operations on a mapping of n members is n lookups, not n*n/2
+    // key reads, and it is not refused for its size. (The count of key reads
+    // is pinned by a unit test inside the crate.)
     let n = 3_500;
-    let src = wide(n);
-    let mut doc = Document::parse(src.clone()).unwrap();
-    let e = doc.apply_patch(&removals(n)).unwrap_err();
-    assert_eq!(e.kind(), PatchErrorKind::Limit);
-    assert!(e.op_index().is_some_and(|i| i > 0));
-    assert_eq!(doc.to_string(), src);
-    // A patch that reads fewer keys goes through.
-    let n = 1_500;
     let mut doc = Document::parse(wide(n)).unwrap();
     doc.apply_patch(&removals(n)).unwrap();
     assert_eq!(doc.to_string(), "{}\n");
+    doc.check_lookup_indexes().unwrap();
+    // The same patch, one operation too many, fails as a whole.
+    let n = 300;
+    let src = wide(n);
+    let mut doc = Document::parse(src.clone()).unwrap();
+    let mut ops = removals(n).ops().to_vec();
+    ops.push(PatchOp::remove("/k99999"));
+    let e = doc.apply_patch(&Patch::new(ops)).unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::Path);
+    assert_eq!(e.op_index(), Some(n));
+    assert_eq!(doc.to_string(), src);
+    doc.check_lookup_indexes().unwrap();
 }
 
 // ---- merge patch -----------------------------------------------------------
@@ -1249,4 +1254,290 @@ fn patch_text_numbers_are_integers_or_floats_by_how_json_writes_them() {
             .apply_patch(&patch(r#"[{"op": "test", "path": "/a", "value": 1}]"#))
             .is_err()
     );
+}
+
+// ---- keys merged in by `<<` ------------------------------------------------
+
+fn merging() -> Settings {
+    Settings::new().merge_keys(true)
+}
+
+const MERGED: &str = "base: &b {x: 1}\nm:\n  <<: *b\n  y: 2\n";
+
+fn merged_doc(src: &str) -> Document {
+    Document::parse_with(src, &merging()).unwrap()
+}
+
+#[test]
+fn pointers_read_keys_merged_in_by_the_merge_key() {
+    let mut doc = merged_doc(MERGED);
+    assert_eq!(doc.get_path("m.x").and_then(|n| n.as_i64()), Some(1));
+    assert_eq!(doc.get_pointer("/m/x").unwrap().as_i64(), Some(1));
+    assert_eq!(doc.get_pointer("/m/y").unwrap().as_i64(), Some(2));
+    assert_eq!(
+        doc.get_pointer("/m/nope").unwrap_err().kind(),
+        PatchErrorKind::Path
+    );
+    doc.apply_patch(&patch(
+        r#"[{"op": "test", "path": "/m/x", "value": 1},
+            {"op": "test", "path": "/m", "value": {"x": 1, "y": 2}}]"#,
+    ))
+    .unwrap();
+    let e = doc
+        .apply_patch(&patch(r#"[{"op": "test", "path": "/m/x", "value": 2}]"#))
+        .unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::Test);
+    // A copy reads it.
+    doc.apply_patch(&patch(
+        r#"[{"op": "copy", "from": "/m/x", "path": "/m/copied"}]"#,
+    ))
+    .unwrap();
+    assert_eq!(doc.get_pointer("/m/copied").unwrap().as_i64(), Some(1));
+    assert_eq!(doc.get_pointer("/base/x").unwrap().as_i64(), Some(1));
+}
+
+#[test]
+fn a_write_that_lands_on_a_merged_in_key_is_refused() {
+    for ops in [
+        r#"[{"op": "replace", "path": "/m/x", "value": 5}]"#,
+        r#"[{"op": "remove", "path": "/m/x"}]"#,
+        r#"[{"op": "add", "path": "/m/x", "value": 5}]"#,
+        r#"[{"op": "move", "from": "/m/x", "path": "/m/z"}]"#,
+        r#"[{"op": "copy", "from": "/m/y", "path": "/m/x"}]"#,
+    ] {
+        let mut doc = merged_doc(MERGED);
+        let e = doc.apply_patch(&patch(ops)).unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAlias, "{ops}");
+        assert_eq!(doc.to_string(), MERGED, "{ops}");
+    }
+    // A change of the key's own value, or to a key the mapping owns, is fine.
+    let mut doc = merged_doc(MERGED);
+    doc.apply_patch(&patch(
+        r#"[{"op": "replace", "path": "/m/y", "value": 3}, {"op": "add", "path": "/m/w", "value": 4}]"#,
+    ))
+    .unwrap();
+    assert_eq!(doc.get_pointer("/m/y").unwrap().as_i64(), Some(3));
+    assert_eq!(doc.get_pointer("/base/x").unwrap().as_i64(), Some(1));
+}
+
+#[test]
+fn a_write_below_a_merged_in_mapping_is_refused() {
+    let src = "base: &b {n: {k: 1}}\nm:\n  <<: *b\n  y: 2\n";
+    for ops in [
+        r#"[{"op": "replace", "path": "/m/n/k", "value": 5}]"#,
+        r#"[{"op": "add", "path": "/m/n/j", "value": 5}]"#,
+        r#"[{"op": "remove", "path": "/m/n/k"}]"#,
+    ] {
+        let mut doc = merged_doc(src);
+        let e = doc.apply_patch(&patch(ops)).unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAlias, "{ops}");
+        assert_eq!(doc.to_string(), src);
+    }
+    let mut doc = merged_doc(src);
+    assert_eq!(doc.get_pointer("/m/n/k").unwrap().as_i64(), Some(1));
+    doc.apply_patch(&patch(r#"[{"op": "test", "path": "/m/n/k", "value": 1}]"#))
+        .unwrap();
+}
+
+#[test]
+fn an_own_key_hides_a_merged_in_one_and_can_be_changed() {
+    let src = "base: &b {x: 1}\nm:\n  <<: *b\n  x: 10\n";
+    let mut doc = merged_doc(src);
+    assert_eq!(doc.get_pointer("/m/x").unwrap().as_i64(), Some(10));
+    doc.apply_patch(&patch(
+        r#"[{"op": "replace", "path": "/m/x", "value": 11}]"#,
+    ))
+    .unwrap();
+    assert_eq!(doc.get_pointer("/m/x").unwrap().as_i64(), Some(11));
+    assert_eq!(doc.get_pointer("/base/x").unwrap().as_i64(), Some(1));
+    // Removing the own key lets the merged-in one show again.
+    doc.apply_patch(&patch(r#"[{"op": "remove", "path": "/m/x"}]"#))
+        .unwrap();
+    assert_eq!(doc.get_pointer("/m/x").unwrap().as_i64(), Some(1));
+}
+
+#[test]
+fn a_merge_of_several_mappings_is_searched_in_order() {
+    let src = "a: &a {x: 1, y: 1}\nb: &b {y: 2, z: 2}\nm:\n  <<: [*a, *b]\n  w: 0\n";
+    let doc = merged_doc(src);
+    assert_eq!(doc.get_pointer("/m/x").unwrap().as_i64(), Some(1));
+    assert_eq!(doc.get_pointer("/m/y").unwrap().as_i64(), Some(1));
+    assert_eq!(doc.get_pointer("/m/z").unwrap().as_i64(), Some(2));
+    for ops in [
+        r#"[{"op": "replace", "path": "/m/z", "value": 5}]"#,
+        r#"[{"op": "remove", "path": "/m/y"}]"#,
+    ] {
+        let mut doc = merged_doc(src);
+        let e = doc.apply_patch(&patch(ops)).unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAlias);
+        assert_eq!(doc.to_string(), src);
+    }
+}
+
+#[test]
+fn the_merge_key_is_an_ordinary_key_when_merging_is_off() {
+    let mut doc = Document::parse(MERGED).unwrap();
+    assert_eq!(
+        doc.get_pointer("/m/x").unwrap_err().kind(),
+        PatchErrorKind::Path
+    );
+    doc.apply_patch(&patch(
+        r#"[{"op": "test", "path": "/m/<<", "value": {"x": 1}}]"#,
+    ))
+    .unwrap();
+}
+
+#[test]
+fn a_merge_patch_does_not_report_success_for_a_merged_in_key_it_cannot_change() {
+    for json in [
+        r#"{"m": {"x": null}}"#,
+        r#"{"m": {"x": 2}}"#,
+        r#"{"m": {"x": {"deeper": 1}}}"#,
+    ] {
+        let mut doc = merged_doc(MERGED);
+        let e = doc.apply_merge_patch(&merge(json)).unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAlias, "{json}");
+        assert_eq!(doc.to_string(), MERGED, "{json}");
+    }
+    // The member's own keys, and names nothing has, are as before.
+    let mut doc = merged_doc(MERGED);
+    doc.apply_merge_patch(&merge(r#"{"m": {"y": null, "gone": null, "w": 1}}"#))
+        .unwrap();
+    assert_eq!(doc.get_pointer("/m/w").unwrap().as_i64(), Some(1));
+    assert!(doc.get_pointer("/m/gone").is_err());
+    assert_eq!(doc.get_pointer("/base/x").unwrap().as_i64(), Some(1));
+    // An empty object changes nothing, even where the member is merged in.
+    let mut doc = merged_doc("base: &b {x: {a: 1}}\nm:\n  <<: *b\n");
+    let before = doc.to_string();
+    doc.apply_merge_patch(&merge(r#"{"m": {"x": {}}}"#))
+        .unwrap();
+    assert_eq!(doc.to_string(), before);
+}
+
+// ---- finding members through the lookup index -------------------------------
+
+/// A mapping wide enough to be indexed, with the keys `extra` first.
+fn wide_with(extra: &str) -> String {
+    format!("{extra}{}", wide(200))
+}
+
+#[test]
+fn tokens_find_keys_by_text_in_a_wide_mapping() {
+    let src = wide_with(
+        "80: int\n\"quoted\": q\n0x10: hex\ntrue: yes\n~: tilde\n!!str 7: seven\n1.5: float\n",
+    );
+    let mut doc = Document::parse(src).unwrap();
+    for (token, want) in [
+        ("80", "int"),
+        ("quoted", "q"),
+        ("0x10", "hex"),
+        ("true", "yes"),
+        ("~0", "tilde"),
+        ("7", "seven"),
+        ("1.5", "float"),
+        ("k00123", "v"),
+    ] {
+        let node = doc
+            .get_pointer(&format!("/{token}"))
+            .map_err(|e| format!("{token}: {e}"))
+            .unwrap();
+        assert_eq!(node.as_str().as_deref(), Some(want), "{token}");
+    }
+    doc.apply_patch(&patch(
+        r#"[{"op": "replace", "path": "/80", "value": "x"},
+            {"op": "replace", "path": "/0x10", "value": "yy"},
+            {"op": "remove", "path": "/true"}]"#,
+    ))
+    .unwrap();
+    let text = doc.to_string();
+    assert!(
+        text.starts_with("80: x\n\"quoted\": q\n0x10: yy\n~: tilde"),
+        "{}",
+        &text[..120]
+    );
+    doc.check_lookup_indexes().unwrap();
+    // A write adds a member the index then finds.
+    doc.apply_patch(&patch(
+        r#"[{"op": "add", "path": "/fresh", "value": 1},
+            {"op": "replace", "path": "/fresh", "value": 2}]"#,
+    ))
+    .unwrap();
+    assert_eq!(doc.get_pointer("/fresh").unwrap().as_i64(), Some(2));
+    doc.check_lookup_indexes().unwrap();
+}
+
+#[test]
+fn two_keys_with_one_text_are_ambiguous_in_a_wide_mapping() {
+    // `1` is an integer and `'1'` a string: two keys, one text.
+    let src = wide_with("1: a\n'1': b\n");
+    let mut doc = Document::parse(src.clone()).unwrap();
+    for ops in [
+        r#"[{"op": "replace", "path": "/1", "value": "x"}]"#,
+        r#"[{"op": "remove", "path": "/1"}]"#,
+        r#"[{"op": "test", "path": "/1", "value": "a"}]"#,
+    ] {
+        let e = doc.apply_patch(&patch(ops)).unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAmbiguous, "{ops}");
+        assert_eq!(doc.to_string(), src);
+    }
+    let e = doc.get_pointer("/1").unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::RefusedAmbiguous);
+    let e = doc.apply_merge_patch(&merge(r#"{"1": null}"#)).unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::RefusedAmbiguous);
+    assert_eq!(doc.to_string(), src);
+    // Narrow mappings agree.
+    let e = refused("1: a\n'1': b\n", r#"[{"op": "remove", "path": "/1"}]"#);
+    assert_eq!(e.kind(), PatchErrorKind::RefusedAmbiguous);
+}
+
+#[test]
+fn keys_merged_in_are_found_in_a_wide_mapping_too() {
+    let mut src = String::from("base: &b {x: 1}\nm:\n  <<: *b\n");
+    for i in 0..200 {
+        src.push_str(&format!("  k{i}: v\n"));
+    }
+    let mut doc = merged_doc(&src);
+    assert_eq!(doc.get_pointer("/m/x").unwrap().as_i64(), Some(1));
+    let e = doc
+        .apply_patch(&patch(r#"[{"op": "remove", "path": "/m/x"}]"#))
+        .unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::RefusedAlias);
+    assert_eq!(doc.to_string(), src);
+    doc.apply_patch(&patch(r#"[{"op": "remove", "path": "/m/k7"}]"#))
+        .unwrap();
+}
+
+#[test]
+fn a_move_whose_destination_exists_only_once_the_source_is_gone() {
+    // The destination `/d/1/k` goes through the item that is at index 1 only
+    // after the item at index 0 has been removed.
+    let src = "d: [{a: 1}, q, {b: 5}]\n";
+    let mut doc = Document::parse(src).unwrap();
+    doc.apply_patch(&patch(
+        r#"[{"op": "move", "from": "/d/0", "path": "/d/1/k"}]"#,
+    ))
+    .unwrap();
+    assert_eq!(doc.to_string(), "d: [q, {b: 5, k: {a: 1}}]\n");
+}
+
+#[test]
+fn copies_are_charged_three_times_against_the_budget() {
+    // A value of 100 bytes copied under a budget of 1,000 bytes, each copied
+    // byte counting three times: three copies fit, a fourth does not, and
+    // nothing of the patch stays.
+    let settings = Settings::new().limits(Limits::default().alias_byte_budget(1_000));
+    let src = format!("v: {}\n", "x".repeat(100));
+    let copies = |n: usize| {
+        let ops: Vec<String> = (0..n)
+            .map(|i| format!(r#"{{"op": "copy", "from": "/v", "path": "/c{i}"}}"#))
+            .collect();
+        patch(&format!("[{}]", ops.join(",")))
+    };
+    let mut doc = Document::parse_with(src.clone(), &settings).unwrap();
+    doc.apply_patch(&copies(3)).unwrap();
+    let mut doc = Document::parse_with(src.clone(), &settings).unwrap();
+    let e = doc.apply_patch(&copies(4)).unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::Limit);
+    assert_eq!(e.op_index(), Some(3));
+    assert_eq!(doc.to_string(), src);
 }
