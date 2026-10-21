@@ -104,8 +104,18 @@ pub(super) struct Seq {
 
 /// A per-tree seed for the priorities (xorshift needs it non-zero).
 fn seed() -> u64 {
-    use std::hash::{BuildHasher, RandomState};
-    RandomState::new().hash_one(0x5eed_u64) | 1
+    // The step-count tests compare counts between runs, so with the
+    // internal checks on (test tooling, never a release) every tree gets
+    // the same shape.
+    #[cfg(any(test, feature = "__internal-checks"))]
+    {
+        0x9e37_79b9_7f4a_7c15
+    }
+    #[cfg(not(any(test, feature = "__internal-checks")))]
+    {
+        use std::hash::{BuildHasher, RandomState};
+        RandomState::new().hash_one(0x5eed_u64) | 1
+    }
 }
 
 impl Seq {
