@@ -5,6 +5,7 @@
 //! returns offsets on `char` boundaries. None of them allocate or recurse, and
 //! each scans forward only, so the parser stays O(n).
 
+use super::run;
 use crate::event::{TagForm, TriviaKind};
 
 /// The byte at `i`, if any.
@@ -14,7 +15,11 @@ pub(super) fn byte(src: &str, i: usize) -> Option<u8> {
 
 /// The `char` starting at byte `i`, if any.
 pub(super) fn char_at(src: &str, i: usize) -> Option<char> {
-    src.get(i..).and_then(|s| s.chars().next())
+    // An ASCII byte is a whole character and starts one.
+    match src.as_bytes().get(i) {
+        Some(b) if b.is_ascii() => Some(char::from(*b)),
+        _ => src.get(i..).and_then(|s| s.chars().next()),
+    }
 }
 
 /// `s-white` (production 33).
@@ -47,52 +52,32 @@ pub(super) fn break_len(src: &str, i: usize) -> usize {
 }
 
 /// The offset of the first line break at or after `i`, or `src.len()`.
+/// Sixteen bytes at a time (see [`run`]): O(the line's length), far fewer
+/// instructions a byte than a `char` search.
 pub(super) fn line_end(src: &str, i: usize) -> usize {
-    src.get(i..)
-        .and_then(|rest| rest.find(['\n', '\r']))
-        .map_or(src.len(), |k| i.saturating_add(k))
+    run::find_break(src.as_bytes(), i)
 }
 
-/// [`line_end`], eight bytes at a time: for the comments, which are
-/// scanned on every parse and are mostly long.
-#[inline(never)]
+/// [`line_end`] for a comment, and whether the comment text is plain
+/// printable ASCII (and tabs): comments are scanned on every parse and are
+/// mostly long, and nearly all are clean.
+pub(super) fn comment_extent(src: &str, i: usize) -> (usize, bool) {
+    run::line_end_checked(src.as_bytes(), i)
+}
+
+/// [`line_end`] for a comment.
 pub(super) fn comment_end(src: &str, i: usize) -> usize {
-    const ONES: u64 = 0x0101_0101_0101_0101;
-    const HIGH: u64 = 0x8080_8080_8080_8080;
-    let Some(rest) = src.get(i..).map(str::as_bytes) else {
-        return src.len();
-    };
-    // Eight bytes at a time while none is a line break. In a word, the
-    // lowest flagged byte is the first line break (a borrow only ever
-    // flags bytes above a real match).
-    let mut at: usize = 0;
-    for chunk in rest.chunks_exact(8) {
-        let Ok(word) = <[u8; 8]>::try_from(chunk) else {
-            break;
-        };
-        let w = u64::from_le_bytes(word);
-        let (lf, cr) = (w ^ (ONES * 0x0a), w ^ (ONES * 0x0d));
-        let found = ((lf.wrapping_sub(ONES) & !lf) | (cr.wrapping_sub(ONES) & !cr)) & HIGH;
-        if found != 0 {
-            let first = usize::try_from(found.trailing_zeros() / 8).unwrap_or(0);
-            return i.saturating_add(at).saturating_add(first);
-        }
-        at = at.saturating_add(8);
-    }
-    let run = rest
-        .get(at..)
-        .and_then(|tail| tail.iter().position(|b| matches!(b, b'\n' | b'\r')))
-        .map_or(rest.len(), |k| at.saturating_add(k));
-    i.saturating_add(run)
+    run::find_break(src.as_bytes(), i)
 }
 
 /// The offset after the run of spaces and tabs starting at `i`.
 pub(super) fn skip_white(src: &str, i: usize) -> usize {
-    let run = src
-        .as_bytes()
-        .get(i..)
-        .map_or(0, |rest| rest.iter().take_while(|b| is_white(**b)).count());
-    i.saturating_add(run)
+    let bytes = src.as_bytes();
+    let mut j = i;
+    while bytes.get(j).is_some_and(|b| is_white(*b)) {
+        j = j.saturating_add(1);
+    }
+    j
 }
 
 /// The first byte order mark in `from..to`, if any.
@@ -103,7 +88,8 @@ pub(super) fn first_mark(src: &str, from: usize, to: usize) -> Option<usize> {
 
 /// A byte order mark starts at `i`.
 pub(super) fn mark_at(src: &str, i: usize) -> bool {
-    src.get(i..).is_some_and(|r| r.starts_with('\u{feff}'))
+    // The mark's first byte is `0xEF`; nearly every position is not one.
+    byte(src, i) == Some(0xEF) && src.get(i..).is_some_and(|r| r.starts_with('\u{feff}'))
 }
 
 /// `c-printable` (production 1).
@@ -121,7 +107,11 @@ pub(super) const fn is_nb_json(c: char) -> bool {
 /// `ns-char` (production 34): printable, not white space, not a break, not
 /// a byte order mark.
 pub(super) const fn is_ns_char(c: char) -> bool {
-    is_printable(c) && !matches!(c, ' ' | '\t' | '\n' | '\r' | '\u{feff}')
+    // ASCII: every printable character above the space.
+    if c.is_ascii() {
+        return matches!(c, '\x21'..='\x7e');
+    }
+    is_printable(c) && c != '\u{feff}'
 }
 
 /// `c-flow-indicator` (production 23).
@@ -185,13 +175,18 @@ pub(super) fn marker_at(src: &str, i: usize, marker: &str) -> bool {
 
 /// Either document marker at `i`.
 pub(super) fn any_marker_at(src: &str, i: usize) -> bool {
-    marker_at(src, i, "---") || marker_at(src, i, "...")
+    matches!(byte(src, i), Some(b'-' | b'.'))
+        && (marker_at(src, i, "---") || marker_at(src, i, "..."))
 }
 
 /// End of the plain scalar text on the line starting at `start`
 /// (`nb-ns-plain-in-line`, production 132, after `ns-plain-first`), with
 /// trailing white space excluded. Stops before `: `, ` #`, a line break, a
 /// non-printable character, and (in flow context) flow indicators.
+///
+/// Cost: O(the line's length), a few instructions a sixteen-byte block of
+/// printable ASCII (see `run`) and a `char` step only at a `:`, a `#`, white
+/// space other than a space, or a non-ASCII character.
 pub(super) fn plain_line_end(src: &str, start: usize, flow: bool) -> usize {
     line_text_end(src, start, flow, false)
 }
@@ -205,9 +200,13 @@ pub(super) fn plain_line_end_lenient(src: &str, start: usize) -> usize {
 }
 
 fn line_text_end(src: &str, start: usize, flow: bool, colons: bool) -> usize {
+    let bytes = src.as_bytes();
     let mut i = start;
-    let mut end = start;
-    while let Some(c) = char_at(src, i) {
+    while i < src.len() {
+        // Printable ASCII with no `:`, `#` or flow indicator needs no look
+        // (white space included: it is trimmed from the end below).
+        i = run::plain_stop(bytes, i, flow);
+        let Some(c) = char_at(src, i) else { break };
         match c {
             ' ' | '\t' => {
                 i = i.saturating_add(1);
@@ -216,19 +215,22 @@ fn line_text_end(src: &str, start: usize, flow: bool, colons: bool) -> usize {
             // ns-plain-char (production 130): `:` only before a safe char.
             ':' if !colons && !plain_safe_at(src, i.saturating_add(1), flow) => break,
             // `#` only directly after a non-space character.
-            '#' if i > start
-                && src
-                    .as_bytes()
-                    .get(i.saturating_sub(1))
-                    .is_some_and(|b| is_white(*b)) =>
-            {
+            '#' if i > start && bytes.get(i.saturating_sub(1)).is_some_and(|b| is_white(*b)) => {
                 break;
             }
             c if !is_ns_char(c) || (flow && is_flow_indicator(c)) => break,
             _ => {}
         }
         i = i.saturating_add(c.len_utf8());
-        end = i;
+    }
+    // The text ends after its last non-white character.
+    let mut end = i;
+    while end > start
+        && bytes
+            .get(end.saturating_sub(1))
+            .is_some_and(|b| is_white(*b))
+    {
+        end = end.saturating_sub(1);
     }
     end
 }
@@ -510,13 +512,17 @@ pub(super) fn tag_prefix_at(src: &str, p: usize) -> Option<&str> {
 /// `#` at `i` starts a comment: preceded by white space, a break, a byte
 /// order mark, or the start of input (production 75).
 pub(super) fn comment_at(src: &str, i: usize) -> bool {
-    byte(src, i) == Some(b'#')
-        && src.get(..i).is_some_and(|before| {
-            matches!(
-                before.chars().next_back(),
-                None | Some(' ' | '\t' | '\n' | '\r' | '\u{feff}')
-            )
-        })
+    if byte(src, i) != Some(b'#') {
+        return false;
+    }
+    match i.checked_sub(1).and_then(|p| byte(src, p)) {
+        None | Some(b' ' | b'\t' | b'\n' | b'\r') => true,
+        Some(b) if b.is_ascii() => false,
+        // After a multi-byte character: only a byte order mark counts.
+        Some(_) => src
+            .get(..i)
+            .is_some_and(|before| before.ends_with('\u{feff}')),
+    }
 }
 
 /// Lexes the first trivia event of `src[i..end]`, a run of white space,
@@ -538,7 +544,7 @@ pub(super) fn lex_trivia(src: &str, i: usize, end: usize) -> Option<(TriviaKind,
         Some(b' ' | b'\t') => (TriviaKind::Whitespace, skip_white(src, i)),
         Some(b'\n' | b'\r') => (TriviaKind::LineBreak, i.saturating_add(break_len(src, i))),
         Some(b'#') => (TriviaKind::Comment, line_end(src, i)),
-        _ if src.get(i..).is_some_and(|r| r.starts_with('\u{feff}')) => (
+        _ if mark_at(src, i) => (
             TriviaKind::ByteOrderMark,
             i.saturating_add('\u{feff}'.len_utf8()),
         ),
@@ -554,9 +560,11 @@ pub(super) const IMPLICIT_KEY_MAX_CHARS: usize = 1024;
 /// `src[start..end]` is longer than [`IMPLICIT_KEY_MAX_CHARS`] characters.
 /// O(1024): short byte ranges need no counting.
 pub(super) fn key_too_long(src: &str, start: usize, end: usize) -> bool {
-    src.get(start..end).is_some_and(|key| {
-        key.len() > IMPLICIT_KEY_MAX_CHARS && key.chars().nth(IMPLICIT_KEY_MAX_CHARS).is_some()
-    })
+    // At most one byte a character, so a short range is never too long.
+    end.saturating_sub(start) > IMPLICIT_KEY_MAX_CHARS
+        && src
+            .get(start..end)
+            .is_some_and(|key| key.chars().nth(IMPLICIT_KEY_MAX_CHARS).is_some())
 }
 
 /// `!`, `!!`, or `!word!` (`c-tag-handle`, production 89).

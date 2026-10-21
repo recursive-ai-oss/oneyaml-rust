@@ -12,7 +12,7 @@ use oneyaml_core::code::{
 
 use super::scan::{
     TagPrefix, TagScan, UriRead, anchor_end, any_marker_at, blank_or_end, byte, indicator_at,
-    scan_tag, skip_white, tag_blame,
+    mark_at, scan_tag, skip_white, tag_blame,
 };
 use super::stream::ROOT;
 use super::{Frame, MapPhase, NodeCtx, Parser, State};
@@ -393,7 +393,7 @@ impl<'a> Parser<'a> {
             // §5.2: a byte order mark after a property is a
             // recoverable error, skipped as if absent. It counts as part of
             // the properties' run, so what follows is placed after it.
-            while src.get(i..).is_some_and(|r| r.starts_with('\u{feff}')) {
+            while mark_at(src, i) {
                 let end = i.saturating_add('\u{feff}'.len_utf8());
                 events.push(Event::new(
                     EventKind::Error(super::misplaced_bom_diagnostic(i, end)),
