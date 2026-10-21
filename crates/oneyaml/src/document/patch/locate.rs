@@ -9,8 +9,8 @@
 //! too, as `Document::get_path` finds them; they belong to the merged
 //! mapping, so a patch cannot change them (see `Loc::merged`).
 
+use super::textindex::{Hit, Texts};
 use super::{PatchError, PatchErrorKind};
-use crate::document::view::TextMember;
 use crate::document::{Document, MappingRef, NodeId, NodeKind, NodeRef};
 
 /// What a pointer found.
@@ -18,6 +18,8 @@ pub(super) struct Loc {
     /// The node at the location, when there is one. An alias node is reported
     /// as itself, not as what it refers to.
     pub node: Option<NodeId>,
+    /// For a member of a mapping, its key.
+    pub key: Option<NodeId>,
     /// The node is the value of a key merged in by `<<`, not of one of the
     /// parent mapping's own keys. It belongs to the mapping that is merged
     /// in, which every user of that mapping shares, so it is read but not
@@ -67,21 +69,23 @@ fn array_index(token: &str) -> Option<usize> {
 }
 
 /// The member of `map` whose key has the scalar text `token`: `Ok(None)` when
-/// none has, an error when two do. Constant time in the mapping's width when
-/// it is wide (its lookup index), else linear in the few entries it has.
+/// none has, an error when two do.
 pub(super) fn find_member<'d>(
+    doc: &'d Document,
     map: MappingRef<'d>,
     token: &str,
+    texts: &mut Texts,
 ) -> Result<Option<Member<'d>>, PatchError> {
-    match map.text_member(token) {
-        TextMember::Absent => Ok(None),
-        TextMember::Ambiguous => Err(ambiguous(token)),
-        TextMember::One { value, merged } => Ok(Some(Member { value, merged })),
+    match texts.find(doc, map, token)? {
+        Hit::Absent => Ok(None),
+        Hit::Ambiguous => Err(ambiguous(token)),
+        Hit::One { key, value, merged } => Ok(Some(Member { key, value, merged })),
     }
 }
 
 /// A member found by its key's text.
 pub(super) struct Member<'d> {
+    pub key: NodeId,
     pub value: NodeRef<'d>,
     pub merged: bool,
 }
@@ -114,19 +118,26 @@ fn container<'d>(node: NodeRef<'d>, write: bool) -> Result<NodeRef<'d>, PatchErr
 pub(super) fn merged_error() -> PatchError {
     PatchError::new(
         PatchErrorKind::RefusedAlias,
-        "the location comes from a mapping merged in by `<<`; changing it would change that \
-         mapping for everything else that uses it",
+        "the member comes from a mapping merged in with `<<`: writing it would change that \
+         mapping for everything else that merges it, and a patch does not shadow it with a \
+         key of its own",
     )
 }
 
 /// One step down from `node` by `token`, for the nodes before the last token.
-fn descend<'d>(node: NodeRef<'d>, token: &str, write: bool) -> Result<NodeRef<'d>, PatchError> {
+fn descend<'d>(
+    doc: &'d Document,
+    node: NodeRef<'d>,
+    token: &str,
+    write: bool,
+    texts: &mut Texts,
+) -> Result<NodeRef<'d>, PatchError> {
     let node = container(node, write)?;
     if let Some(map) = node
         .as_mapping()
         .filter(|_| node.kind() == NodeKind::Mapping)
     {
-        return match find_member(map, token)? {
+        return match find_member(doc, map, token, texts)? {
             // A write goes into the node it reaches, and a merged-in node is
             // shared with the other users of the mapping it comes from.
             Some(m) if write && m.merged => Err(merged_error()),
@@ -151,11 +162,17 @@ fn descend<'d>(node: NodeRef<'d>, token: &str, write: bool) -> Result<NodeRef<'d
 /// Resolves `tokens`. With `write`, nothing on the way may be an alias (the
 /// location is a place an edit goes through); the node found last may be one.
 /// Without it, aliases are followed on the way.
-pub(super) fn locate(doc: &Document, tokens: &[String], write: bool) -> Result<Loc, PatchError> {
+pub(super) fn locate(
+    doc: &Document,
+    tokens: &[String],
+    write: bool,
+    texts: &mut Texts,
+) -> Result<Loc, PatchError> {
     let root = doc.root();
     let Some((last, before)) = tokens.split_last() else {
         return Ok(Loc {
             node: root.map(|r| r.id()),
+            key: None,
             merged: false,
             parent: None,
         });
@@ -164,13 +181,14 @@ pub(super) fn locate(doc: &Document, tokens: &[String], write: bool) -> Result<L
         return Err(path_error("the document is empty".into()));
     };
     for token in before {
-        cur = descend(cur, token, write)?;
+        cur = descend(doc, cur, token, write, texts)?;
     }
     let cur = container(cur, write)?;
     if let Some(map) = cur.as_mapping().filter(|_| cur.kind() == NodeKind::Mapping) {
-        let found = find_member(map, last)?;
+        let found = find_member(doc, map, last, texts)?;
         return Ok(Loc {
             node: found.as_ref().map(|m| m.value.id()),
+            key: found.as_ref().map(|m| m.key),
             merged: found.is_some_and(|m| m.merged),
             parent: Some(Parent {
                 id: cur.id(),
@@ -187,6 +205,7 @@ pub(super) fn locate(doc: &Document, tokens: &[String], write: bool) -> Result<L
         if last == "-" {
             return Ok(Loc {
                 node: None,
+                key: None,
                 merged: false,
                 parent: Some(Parent {
                     id: cur.id(),
@@ -210,6 +229,7 @@ pub(super) fn locate(doc: &Document, tokens: &[String], write: bool) -> Result<L
             };
         return Ok(Loc {
             node: node.map(|n| n.id()),
+            key: None,
             merged: false,
             parent: Some(Parent {
                 id: cur.id(),

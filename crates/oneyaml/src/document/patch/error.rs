@@ -40,8 +40,9 @@ pub enum PatchErrorKind {
     /// A limit was reached: `Limits::max_depth` (a value or a patch nested too
     /// deeply), `Limits::alias_budget` (aliases written out by a copy or move,
     /// counted in nodes), `Limits::alias_byte_budget` (the bytes a patch
-    /// copies, aliases written out included) or `Limits::max_document_size`
-    /// (the document after a write). (`limit`)
+    /// copies, aliases written out included), `Limits::max_document_size`
+    /// (the document after a write), or the patch's bound on the alias keys
+    /// and merged mappings it searches to find its locations. (`limit`)
     Limit,
     /// The edit layer refused the edit the operation asks for. This happens
     /// when the result would not read back as the edited value, when a comment

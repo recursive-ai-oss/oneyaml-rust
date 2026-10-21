@@ -2,6 +2,7 @@
 
 use super::apply::{Run, insert_member, remove_node, replace_node};
 use super::locate::{find_member, merged_error};
+use super::textindex::Texts;
 use super::{PatchError, PatchErrorKind};
 use crate::document::{Document, EditError, NodeId, NodeKind, NodeRef};
 use crate::value::{Mapping, Value};
@@ -73,13 +74,18 @@ fn check_shape(doc: &Document, patch: &Value) -> Result<(), PatchError> {
 /// The patch with every `null` member of every object removed, which is how a
 /// patch merges into a target that is not an object (RFC 7396 section 2).
 fn without_nulls(patch: &Value) -> Value {
-    without_nulls_noting(patch, &mut |_| {})
+    without_nulls_with(patch, &mut |_| {})
 }
 
-/// [`without_nulls`], telling `note` about each member it looks at (`true` when
-/// the member is kept), so a test can check that the work is linear in the size
-/// of the patch rather than timing it.
-pub(super) fn without_nulls_noting(patch: &Value, note: &mut dyn FnMut(bool)) -> Value {
+/// [`without_nulls`], telling a test about each member it looks at (`true` when
+/// the member is kept), so the work can be checked to be linear in the size of
+/// the patch rather than timed.
+#[cfg(test)]
+pub(super) fn without_nulls_noting(patch: &Value, note: &mut impl FnMut(bool)) -> Value {
+    without_nulls_with(patch, note)
+}
+
+fn without_nulls_with(patch: &Value, note: &mut impl FnMut(bool)) -> Value {
     let mut out = patch.clone();
     let mut stack: Vec<&mut Value> = vec![&mut out];
     while let Some(v) = stack.pop() {
@@ -105,7 +111,12 @@ pub(super) fn without_nulls_noting(patch: &Value, note: &mut dyn FnMut(bool)) ->
 
 /// The value node of `map`'s member `key`, and whether it comes from a mapping
 /// merged in by `<<`.
-fn member(doc: &Document, map: NodeId, key: &str) -> Result<Option<(NodeId, bool)>, PatchError> {
+fn member(
+    doc: &Document,
+    texts: &mut Texts,
+    map: NodeId,
+    key: &str,
+) -> Result<Option<(NodeId, NodeId, bool)>, PatchError> {
     let node = doc.node(map)?;
     let Some(m) = node.as_mapping() else {
         return Err(PatchError::new(
@@ -113,7 +124,7 @@ fn member(doc: &Document, map: NodeId, key: &str) -> Result<Option<(NodeId, bool
             "internal error: a merge frame is not a mapping",
         ));
     };
-    Ok(find_member(m, key)?.map(|m| (m.value.id(), m.merged)))
+    Ok(find_member(doc, m, key, texts)?.map(|m| (m.value.id(), m.key, m.merged)))
 }
 
 /// A new frame merging `patch` into the mapping `map`.
@@ -164,7 +175,7 @@ fn push_token(out: &mut String, token: &str) {
 /// Merges `patch` into `doc`. The caller makes the whole of it atomic.
 pub(super) fn apply_merge(doc: &mut Document, patch: &Value) -> Result<(), PatchError> {
     check_shape(doc, patch)?;
-    let run = Run::new(doc);
+    let mut run = Run::new(doc);
     let Value::Mapping(top) = patch else {
         // A patch that is not an object is the result.
         doc.set_root(patch)?;
@@ -188,7 +199,7 @@ pub(super) fn apply_merge(doc: &mut Document, patch: &Value) -> Result<(), Patch
     let first = new_frame(root, "", top);
     let mut stack = vec![first];
     while !stack.is_empty() {
-        step(doc, &mut stack).map_err(|(e, key)| {
+        step(doc, &mut run.texts, &mut stack).map_err(|(e, key)| {
             let pointer = pointer_of(&stack, key);
             e.at_default(&pointer)
         })?;
@@ -201,6 +212,7 @@ pub(super) fn apply_merge(doc: &mut Document, patch: &Value) -> Result<(), Patch
 /// The error says which member it was working on.
 fn step<'p>(
     doc: &mut Document,
+    texts: &mut Texts,
     stack: &mut Vec<Frame<'p>>,
 ) -> Result<(), (PatchError, Option<&'p str>)> {
     let Some(top) = stack.last_mut() else {
@@ -216,7 +228,7 @@ fn step<'p>(
             // A member that is not there is already gone. A mapping that lost
             // its last member and was rewritten as `{}` has no more members.
             let found = match &frame {
-                Some(f) => member(doc, f.map, name),
+                Some(f) => member(doc, texts, f.map, name),
                 None => Ok(None),
             };
             let found = match found {
@@ -227,8 +239,13 @@ fn step<'p>(
             match found {
                 // The member is in a mapping merged in by `<<`; deleting it
                 // would delete it for everything else that uses that mapping.
-                Some((_, true)) => return Err((merged_error(), Some(name))),
-                Some((id, false)) => remove_node(doc, id).map_err(|e| (e, Some(name)))?,
+                Some((_, _, true)) => return Err((merged_error(), Some(name))),
+                Some((id, key, false)) => {
+                    remove_node(doc, id).map_err(|e| (e, Some(name)))?;
+                    if let Some(f) = &frame {
+                        texts.removed(f.map, name, key);
+                    }
+                }
                 None => {}
             }
         }
@@ -246,9 +263,9 @@ fn step<'p>(
     match value {
         Value::Null => top.gone.push(name),
         Value::Mapping(inner) => {
-            let found = member(doc, top.map, name).map_err(fail)?;
+            let found = member(doc, texts, top.map, name).map_err(fail)?;
             let kind = match found {
-                Some((id, merged)) => Some((
+                Some((id, _, merged)) => Some((
                     id,
                     merged,
                     target_of(doc.node(id).map_err(|e| fail(e.into()))?),
@@ -268,15 +285,17 @@ fn step<'p>(
                 Some((id, false, Target::Other)) => {
                     replace_node(doc, id, &without_nulls(value)).map_err(fail)?;
                 }
-                None => insert_member(doc, map, name, &without_nulls(value)).map_err(fail)?,
+                None => {
+                    insert_member(doc, texts, map, name, &without_nulls(value)).map_err(fail)?
+                }
             }
         }
         other => {
-            let found = member(doc, top.map, name).map_err(fail)?;
+            let found = member(doc, texts, top.map, name).map_err(fail)?;
             match found {
-                Some((_, true)) => return Err(fail(merged_error())),
-                Some((id, false)) => replace_node(doc, id, other),
-                None => insert_member(doc, map, name, other),
+                Some((_, _, true)) => return Err(fail(merged_error())),
+                Some((id, _, false)) => replace_node(doc, id, other),
+                None => insert_member(doc, texts, map, name, other),
             }
             .map_err(fail)?;
         }

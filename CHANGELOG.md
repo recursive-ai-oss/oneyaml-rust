@@ -27,11 +27,17 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
     exactly as it was, including its comments and layout. A patch changes only
     the text of the values it names.
   - A pointer token matches a mapping key by the key's scalar text (`/80`
-    finds the key `80`, `'80'` and `"80"` alike), through the document's
-    lookup index, so a patch of many operations on a wide mapping costs the
-    operations, not the operations times the width. Two keys with the same
-    text are refused as ambiguous. With `merge_keys` on, keys merged in by
-    `<<` are found, as `get_path` finds them.
+    finds the key `80`, `'80'` and `"80"` alike, whatever tag the key has; an
+    alias key has the text of the node it names), through an index of the
+    mapping's keys built once per patch, so a patch of many operations on a
+    wide mapping costs the operations, not the operations times the width,
+    and the answer does not depend on the mapping's width. Two keys with the
+    same text are refused as ambiguous, and so is a key that a later duplicate
+    of the same meaning overrides (`DuplicateKeys::LastWins`). With
+    `merge_keys` on, keys merged in by `<<` are found, as `get_path` finds
+    them. Alias keys and merged mappings are searched afresh for each
+    operation, and a patch that spends more than about a million such steps
+    (plus twice the document's length in bytes) fails with a `Limit` error.
   - Writes refuse to go through an alias, to change a key that exists only in
     a mapping merged in by `<<`, and to remove an anchored node that an alias
     still uses. These are `RefusedAlias` errors.

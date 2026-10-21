@@ -17,6 +17,7 @@ mod merge;
 mod pointer;
 #[cfg(test)]
 mod tests;
+mod textindex;
 
 pub use error::{PatchError, PatchErrorKind};
 pub use pointer::Pointer;
@@ -415,14 +416,28 @@ impl Document {
     ///
     /// A pointer token names a mapping member by the scalar text of its key:
     /// `/80` finds the key `80`, `'80'` and `"80"` alike, and `/true` finds the
-    /// key `true`. A key that is a collection cannot be addressed, and two
-    /// keys with the same text are refused as ambiguous. With
-    /// `Settings::merge_keys` on, the keys merged in by `<<` are found as
-    /// [`Document::get_path`] finds them, own keys first. A wide mapping is
-    /// searched through the document's lookup index, which files keys by what
-    /// they mean, so there a key written with a tag of its own that is not a
-    /// core tag (`!local 80`) is not found by its text; in a narrow mapping it
-    /// is.
+    /// key `true`, whatever tag a key carries. An alias key has the text of the
+    /// node it names. A key that is a collection cannot be addressed. Two keys
+    /// with the text are refused as ambiguous
+    /// ([`PatchErrorKind::RefusedAmbiguous`]), and so is a key that a later
+    /// duplicate of the same meaning overrides (with `DuplicateKeys::LastWins`,
+    /// `16: a` followed by `0x10: b` means `{16: b}`, so `/16` is not read as
+    /// `a`). With `Settings::merge_keys` on, the keys merged in by `<<` are
+    /// found as [`Document::get_path`] finds them, own keys first.
+    ///
+    /// Keys are found through an index from the text of each key of a mapping to
+    /// its keys, built the first time a patch looks at the mapping and kept up
+    /// to date by the patch's own edits, so a lookup costs a hash lookup however
+    /// wide the mapping is, and what a token names never depends on the
+    /// mapping's width. Building it reads the mapping's keys once per patch (a
+    /// single [`Document::get_pointer`] reads the keys of each mapping on its
+    /// way). Alias keys, and the mappings a mapping merges in, are read
+    /// afresh for each lookup, because what they name can change under an
+    /// edit; those steps are counted, and a patch that takes more than about
+    /// a million of them, plus twice the document's length in bytes, fails
+    /// with [`PatchErrorKind::Limit`] (a file that merges a handful of
+    /// mappings uses a few per operation). `Limits::unlimited()` removes the
+    /// bound.
     ///
     /// Reads (`test`, the `from` of `copy`) follow aliases. A write below an
     /// alias is refused with [`PatchErrorKind::RefusedAlias`], and so is a write
@@ -585,7 +600,12 @@ impl Document {
     /// [`PatchErrorKind::Path`] and [`PatchErrorKind::RefusedAmbiguous`], as
     /// for [`Document::get_pointer`].
     pub fn get_pointer_tokens(&self, pointer: &Pointer) -> Result<NodeRef<'_>, PatchError> {
-        let loc = locate::locate(self, pointer.tokens(), false)?;
+        let loc = locate::locate(
+            self,
+            pointer.tokens(),
+            false,
+            &mut textindex::Texts::unlimited(),
+        )?;
         let id = loc.node.ok_or_else(|| {
             PatchError::new(PatchErrorKind::Path, "there is nothing at the location")
         })?;

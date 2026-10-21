@@ -1541,3 +1541,170 @@ fn copies_are_charged_three_times_against_the_budget() {
     assert_eq!(e.op_index(), Some(3));
     assert_eq!(doc.to_string(), src);
 }
+
+// ---- one answer at every width -----------------------------------------------
+
+/// `src` as it is, and with `pad` more members so the mapping is wide.
+fn at_both_widths(head: &str, pad: usize) -> [String; 2] {
+    let mut wide = String::from(head);
+    for i in 0..pad {
+        wide.push_str(&format!("filler{i}: v\n"));
+    }
+    [head.to_string(), wide]
+}
+
+fn lastwins() -> Settings {
+    Settings::new().duplicate_keys(oneyaml::DuplicateKeys::LastWins)
+}
+
+#[test]
+fn an_alias_key_is_found_by_the_text_it_names_at_any_width() {
+    for src in at_both_widths("x: &k a\n*k : 1\n", 60) {
+        let mut doc = Document::parse(src.clone()).unwrap();
+        assert_eq!(doc.get("a").and_then(|n| n.as_i64()), Some(1));
+        assert_eq!(doc.get_pointer("/a").unwrap().as_i64(), Some(1));
+        doc.apply_patch(&patch(
+            r#"[{"op": "test", "path": "/a", "value": 1},
+                {"op": "replace", "path": "/a", "value": 2}]"#,
+        ))
+        .unwrap();
+        assert_eq!(doc.get_pointer("/a").unwrap().as_i64(), Some(2));
+        // A merge patch reaches it too, and does not report a deletion it did
+        // not make.
+        let mut doc = Document::parse(src.clone()).unwrap();
+        doc.apply_merge_patch(&merge(r#"{"a": null}"#)).unwrap();
+        assert!(doc.get_pointer("/a").is_err(), "{doc}");
+        assert!(doc.get_pointer("/x").is_ok());
+    }
+}
+
+#[test]
+fn a_key_with_a_tag_of_its_own_is_found_by_its_text_at_any_width() {
+    for src in at_both_widths("!local 80: a\n", 60) {
+        let mut doc = Document::parse(src).unwrap();
+        assert_eq!(
+            doc.get_pointer("/80").unwrap().as_str().as_deref(),
+            Some("a")
+        );
+        doc.apply_patch(&patch(r#"[{"op": "remove", "path": "/80"}]"#))
+            .unwrap();
+        assert!(doc.get_pointer("/80").is_err());
+    }
+    // Two keys with the text are ambiguous at every width.
+    for src in at_both_widths("!local 1: a\n1: b\n", 60) {
+        let doc = Document::parse(src).unwrap();
+        assert_eq!(
+            doc.get_pointer("/1").unwrap_err().kind(),
+            PatchErrorKind::RefusedAmbiguous
+        );
+    }
+}
+
+#[test]
+fn keys_tagged_under_a_tag_directive_are_found_by_their_text() {
+    for tail in at_both_widths("!e!n 5: a\n!!str 7: b\n", 60) {
+        let src = format!("%TAG !e! tag:yaml.org,2002:\n---\n{tail}");
+        let doc = Document::parse(src).unwrap();
+        assert_eq!(
+            doc.get_pointer("/5").unwrap().as_str().as_deref(),
+            Some("a")
+        );
+        assert_eq!(
+            doc.get_pointer("/7").unwrap().as_str().as_deref(),
+            Some("b")
+        );
+    }
+}
+
+#[test]
+fn a_key_that_a_later_duplicate_overrides_is_not_read_at_any_width() {
+    // Under LastWins `16: a` followed by `0x10: b` means `{16: b}`.
+    for src in at_both_widths("16: a\n0x10: b\n", 60) {
+        let mut doc = Document::parse_with(src.clone(), &lastwins()).unwrap();
+        assert_eq!(
+            doc.get_pointer("/16").unwrap_err().kind(),
+            PatchErrorKind::RefusedAmbiguous
+        );
+        assert_eq!(
+            doc.get_pointer("/0x10").unwrap().as_str().as_deref(),
+            Some("b")
+        );
+        let e = doc
+            .apply_patch(&patch(r#"[{"op": "test", "path": "/16", "value": "a"}]"#))
+            .unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAmbiguous);
+        let e = doc
+            .apply_merge_patch(&merge(r#"{"16": null}"#))
+            .unwrap_err();
+        assert_eq!(e.kind(), PatchErrorKind::RefusedAmbiguous);
+        assert_eq!(doc.to_string(), src);
+    }
+}
+
+#[test]
+fn the_index_follows_the_patchs_own_edits() {
+    let [_, src] = at_both_widths("a: 1\n", 80);
+    let mut doc = Document::parse(src).unwrap();
+    doc.apply_patch(&patch(
+        r#"[{"op": "add", "path": "/n", "value": 1},
+            {"op": "remove", "path": "/a"},
+            {"op": "add", "path": "/a", "value": 2},
+            {"op": "move", "from": "/n", "path": "/m"},
+            {"op": "copy", "from": "/m", "path": "/n"},
+            {"op": "remove", "path": "/filler7"},
+            {"op": "add", "path": "/filler7", "value": "again"},
+            {"op": "test", "path": "/filler7", "value": "again"},
+            {"op": "test", "path": "/a", "value": 2},
+            {"op": "test", "path": "/m", "value": 1},
+            {"op": "test", "path": "/n", "value": 1}]"#,
+    ))
+    .unwrap();
+    // The same names are ambiguous when a patch adds a key twice by hand.
+    let mut doc = Document::parse("a: 1\n").unwrap();
+    let e = doc
+        .apply_patch(&patch(
+            r#"[{"op": "remove", "path": "/a"}, {"op": "remove", "path": "/a"}]"#,
+        ))
+        .unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::Path);
+    assert_eq!(e.op_index(), Some(1));
+}
+
+#[test]
+fn a_patch_that_searches_a_long_merge_chain_for_every_key_is_refused() {
+    // 8,000 anchors merged into one mapping. A key that is nowhere is
+    // searched for through all of them, so a few hundred such additions pass
+    // the patch's search budget.
+    let sources = 8_000;
+    let mut src = String::new();
+    for i in 0..sources {
+        src.push_str(&format!("s{i}: &a{i} {{k{i}: 1}}\n"));
+    }
+    src.push_str("m:\n  <<: [");
+    src.push_str(
+        &(0..sources)
+            .map(|i| format!("*a{i}"))
+            .collect::<Vec<_>>()
+            .join(", "),
+    );
+    src.push_str("]\n");
+    let mut doc = Document::parse_with(src.clone(), &merging()).unwrap();
+    let ops = |n: usize| {
+        let ops: Vec<String> = (0..n)
+            .map(|i| format!(r#"{{"op": "add", "path": "/m/new{i}", "value": 1}}"#))
+            .collect();
+        patch(&format!("[{}]", ops.join(",")))
+    };
+    let e = doc.apply_patch(&ops(600)).unwrap_err();
+    assert_eq!(e.kind(), PatchErrorKind::Limit);
+    assert_eq!(doc.to_string(), src);
+    // An ordinary merge file is far below the budget.
+    let mut small = String::from("base: &b {x: 1}\nm:\n  <<: *b\n");
+    small.push_str("  y: 2\n");
+    let mut doc = Document::parse_with(small, &merging()).unwrap();
+    let many: Vec<String> = (0..200)
+        .map(|i| format!(r#"{{"op": "add", "path": "/m/n{i}", "value": 1}}"#))
+        .collect();
+    doc.apply_patch(&patch(&format!("[{}]", many.join(","))))
+        .unwrap();
+}

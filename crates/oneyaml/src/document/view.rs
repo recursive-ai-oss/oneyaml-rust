@@ -18,8 +18,8 @@ use super::{Document, EditError, NodeId};
 use crate::construct::scalar::{is_merge_key, resolve, scalar_value};
 use crate::construct::tree::yaml11_of;
 use crate::error::Error;
-use crate::resolve::{Resolved, Resolver, Style, TagInput};
-use crate::value::{TagStr, Value};
+use crate::resolve::{Resolved, Resolver};
+use crate::value::Value;
 
 /// The node a reader sees at `n`'s place (restricted mode): where
 /// the parser replaced broken content with an empty node right after the
@@ -688,6 +688,23 @@ impl<'d> NodeRef<'d> {
         self.scalar_meaning().is_some_and(|v| v.is_null())
     }
 
+    /// For a mapping entry's key, its value.
+    pub(super) fn entry_value(self) -> Option<NodeRef<'d>> {
+        value_after(self)
+    }
+
+    /// For a mapping entry's value, its key.
+    pub(super) fn entry_key(self) -> Option<NodeRef<'d>> {
+        let mut at = self.node.prev_sibling();
+        while let Some(x) = at {
+            if x.kind().is_yaml_node() {
+                return Some(NodeRef::new(self.doc, presented(x)));
+            }
+            at = x.prev_sibling();
+        }
+        None
+    }
+
     /// A mapping's entry for `key` (see [`MappingRef::get`]).
     #[must_use]
     pub fn get<K: AsKey>(self, key: K) -> Option<NodeRef<'d>> {
@@ -996,96 +1013,55 @@ impl<'d> MappingRef<'d> {
         self.get_in(KeyQuery::of(&k), false)
     }
 
-    /// The own keys (merge keys aside) whose scalar text is `text`, at most
-    /// two, in document order. A wide mapping is searched through its lookup
-    /// index: a key is filed under what it means, so the candidates are the
-    /// meanings the text can have (a string, or what the schema reads the
-    /// text as, plain or under a core tag) and each is confirmed by its
-    /// text. A narrow mapping is read in full. A key with a tag of its own
-    /// that is not a core tag is found only in a narrow mapping.
-    fn own_text_keys(self, r: &Resolver, text: &str) -> Vec<NodeRef<'d>> {
-        let (doc, tree) = (self.0.doc, self.0.node.tree());
-        let is_match = |k: NodeRef<'d>| {
-            k.as_scalar().is_some_and(|s| {
-                s.value() == text && !(r.merge_keys() && lookup_hit(s.is_merge_key(r)))
-            })
-        };
-        let indexed = doc.with_lookup(self.0.node, false, |ix| {
-            let mut found: Vec<TreeNode<'d>> = Vec::new();
-            'meanings: for meaning in text_meanings(r, text) {
-                for id in ix.bucket_rev(ix.digest(&meaning)) {
-                    let n = id.node(tree)?;
-                    let at = n.preorder_index();
-                    if found.iter().any(|f| f.preorder_index() == at) {
-                        continue;
-                    }
-                    if is_match(NodeRef::new(doc, n)) {
-                        found.push(n);
-                        if found.len() >= 2 {
-                            break 'meanings;
-                        }
-                    }
-                }
-            }
-            found.sort_by_key(|n| n.preorder_index());
-            Some(
-                found
-                    .into_iter()
-                    .map(|n| NodeRef::new(doc, n))
-                    .collect::<Vec<_>>(),
-            )
-        });
-        indexed.unwrap_or_else(|| {
-            let mut found = Vec::new();
-            for (k, _) in self.iter() {
-                #[cfg(test)]
-                LINEAR_KEY_READS.with(|c| c.set(c.get().saturating_add(1)));
-                if is_match(k) {
-                    found.push(k);
-                    if found.len() >= 2 {
-                        break;
-                    }
-                }
-            }
-            found
-        })
-    }
-
-    /// The member a pointer token names: the one whose key has the scalar
-    /// text `text`, own keys first and then, with `merge_keys` on, the keys
-    /// merged in by `<<`, searched in the order [`MappingRef::get`] uses.
-    /// Two keys with the text in the mapping that has it make it ambiguous.
-    pub(super) fn text_member(self, text: &str) -> TextMember<'d> {
-        let resolver = self.0.resolver();
-        let mut stack = vec![self];
-        let mut seen = std::collections::HashSet::new();
-        while let Some(m) = stack.pop() {
-            if !seen.insert(m.0.node.id()) {
+    /// Calls `f` with each of this mapping's own keys that a pointer token can
+    /// name: a scalar key, whatever its style or tag and whether or not it
+    /// resolves, with its text, or an alias key (`None`). Merge keys, collection
+    /// keys and keys without a value are left out. One pass, in document order.
+    pub(super) fn for_each_text_key(self, mut f: impl FnMut(NodeRef<'d>, Option<Cow<'d, str>>)) {
+        let r = self.0.resolver();
+        for (key, _) in self.iter() {
+            if key.kind() == NodeKind::Alias {
+                f(key, None);
                 continue;
             }
-            let keys = m.own_text_keys(&resolver, text);
-            if keys.len() > 1 {
-                return TextMember::Ambiguous;
+            let Some(s) = key.as_scalar() else { continue };
+            if r.merge_keys() && lookup_hit(s.is_merge_key(&r)) {
+                continue;
             }
-            if let Some(&key) = keys.first() {
-                if let Some(value) = value_after(key) {
-                    return TextMember::One {
-                        value,
-                        merged: m.0.node.id() != self.0.node.id(),
-                    };
-                }
-            }
-            if let Some(v) = m.last_merge(&resolver, false).and_then(value_after) {
-                match v.as_sequence() {
-                    Some(seq) => {
-                        let items: Vec<_> = seq.iter().filter_map(NodeRef::as_mapping).collect();
-                        stack.extend(items.into_iter().rev());
-                    }
-                    None => stack.extend(v.as_mapping()),
-                }
-            }
+            f(key, Some(s.value()));
         }
-        TextMember::Absent
+    }
+
+    /// Whether `key`, one of this mapping's own keys, is the one that counts
+    /// for what it means: no other own key means the same, so a later
+    /// duplicate (under `DuplicateKeys::LastWins`) does not override it.
+    pub(super) fn governs(self, key: NodeRef<'d>) -> bool {
+        let r = self.0.resolver();
+        let Some(s) = key.as_scalar() else {
+            return true;
+        };
+        let Ok(meaning) = s.resolved_with(&r) else {
+            return true;
+        };
+        let query = match &meaning {
+            Value::String(text) => KeyQuery::Str(text),
+            other => KeyQuery::Value(other),
+        };
+        self.own_key(&r, query, false)
+            .is_none_or(|k| k.node.id() == key.node.id())
+    }
+
+    /// The mappings this one merges in with `<<` (with `merge_keys` on), in
+    /// the order a lookup searches them: earlier sources first.
+    pub(super) fn merge_sources(self) -> Vec<MappingRef<'d>> {
+        let r = self.0.resolver();
+        let Some(v) = self.last_merge(&r, false).and_then(value_after) else {
+            return Vec::new();
+        };
+        match v.as_sequence() {
+            Some(seq) => seq.iter().filter_map(NodeRef::as_mapping).collect(),
+            None => v.as_mapping().into_iter().collect(),
+        }
     }
 
     fn get_in(self, key: KeyQuery<'_>, linear: bool) -> Option<NodeRef<'d>> {
@@ -1120,50 +1096,6 @@ impl<'d> MappingRef<'d> {
         }
         None
     }
-}
-
-// How many keys the linear search of a token has read on this thread, for the
-// tests that pin the work a patch does.
-#[cfg(test)]
-thread_local! {
-    pub(super) static LINEAR_KEY_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-}
-
-/// What [`MappingRef::text_member`] found.
-pub(super) enum TextMember<'d> {
-    /// No key has the text.
-    Absent,
-    /// Two keys of one mapping have it.
-    Ambiguous,
-    /// One key has it. `merged`: the key is not the mapping's own but comes
-    /// from a mapping merged in by `<<`.
-    One { value: NodeRef<'d>, merged: bool },
-}
-
-/// The values a key whose scalar text is `text` can mean, which is what a
-/// wide mapping's lookup index files it under.
-fn text_meanings(r: &Resolver, text: &str) -> Vec<Value> {
-    const CORE: [&str; 4] = [
-        "tag:yaml.org,2002:int",
-        "tag:yaml.org,2002:float",
-        "tag:yaml.org,2002:bool",
-        "tag:yaml.org,2002:null",
-    ];
-    let mut out = vec![Value::String(text.to_owned())];
-    let inputs = std::iter::once(TagInput::Absent)
-        .chain(CORE.iter().map(|t| TagInput::Named(TagStr::from(*t))));
-    for input in inputs {
-        let meaning = match r.resolve_scalar(input, Style::Plain, text) {
-            Ok(Resolved::Null) => Value::Null,
-            Ok(Resolved::Bool(b)) => Value::Bool(b),
-            Ok(Resolved::Number(n)) => Value::Number(n),
-            _ => continue,
-        };
-        if !out.contains(&meaning) {
-            out.push(meaning);
-        }
-    }
-    out
 }
 
 /// What a key lookup asks for: a string key, or a key equal by

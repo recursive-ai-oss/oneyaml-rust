@@ -1,6 +1,7 @@
 //! Applying RFC 6902 operations.
 
 use super::locate::{Loc, locate, merged_error};
+use super::textindex::Texts;
 use super::{PatchError, PatchErrorKind, PatchOp, Pointer};
 use crate::document::{Document, EditError, NodeId};
 use crate::value::Value;
@@ -13,6 +14,8 @@ pub(super) struct Run {
     budget: Option<usize>,
     copied: usize,
     max_document: usize,
+    /// The key indexes of the mappings the patch looks at.
+    pub(super) texts: Texts,
 }
 
 /// How many times a copied byte counts against the alias byte budget.
@@ -31,6 +34,7 @@ impl Run {
             budget: limits.get_alias_byte_budget(len),
             copied: 0,
             max_document: limits.get_max_document_size(),
+            texts: Texts::new(doc),
         }
     }
 
@@ -119,21 +123,21 @@ fn apply_op(doc: &mut Document, run: &mut Run, op: &PatchOp) -> Result<(), Patch
     match op {
         PatchOp::Add { path, value } => {
             let to = Pointer::parse(path)?;
-            add(doc, to.tokens(), value).map_err(|e| e.at_default(path))?;
+            add(doc, &mut run.texts, to.tokens(), value).map_err(|e| e.at_default(path))?;
             run.check_size(doc).map_err(|e| e.at_default(path))
         }
         PatchOp::Replace { path, value } => {
             let to = Pointer::parse(path)?;
-            replace(doc, to.tokens(), value).map_err(|e| e.at_default(path))?;
+            replace(doc, &mut run.texts, to.tokens(), value).map_err(|e| e.at_default(path))?;
             run.check_size(doc).map_err(|e| e.at_default(path))
         }
         PatchOp::Remove { path } => {
             let at = Pointer::parse(path)?;
-            remove(doc, at.tokens()).map_err(|e| e.at_default(path))
+            remove(doc, &mut run.texts, at.tokens()).map_err(|e| e.at_default(path))
         }
         PatchOp::Test { path, value } => {
             let at = Pointer::parse(path)?;
-            test(doc, at.tokens(), value).map_err(|e| e.at_default(path))
+            test(doc, &mut run.texts, at.tokens(), value).map_err(|e| e.at_default(path))
         }
         PatchOp::Copy { from, path } => {
             let source = Pointer::parse(from)?;
@@ -165,16 +169,23 @@ pub(super) fn replace_node(
 /// Adds a new member `key` to the mapping `map`.
 pub(super) fn insert_member(
     doc: &mut Document,
+    texts: &mut Texts,
     map: NodeId,
     key: &str,
     value: &Value,
 ) -> Result<(), PatchError> {
-    doc.node_mut(map)?.insert(key, value)?;
+    let added = doc.node_mut(map)?.insert(key, value)?.id();
+    texts.added(doc, map, added);
     Ok(())
 }
 
 /// The `add` operation at `tokens`.
-fn add(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), PatchError> {
+fn add(
+    doc: &mut Document,
+    texts: &mut Texts,
+    tokens: &[String],
+    value: &Value,
+) -> Result<(), PatchError> {
     let Some(last) = tokens.last() else {
         doc.set_root(value)?;
         return Ok(());
@@ -183,7 +194,8 @@ fn add(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), Patch
         node,
         merged,
         parent,
-    } = locate(doc, tokens, true)?;
+        ..
+    } = locate(doc, tokens, true, texts)?;
     let parent = parent.ok_or_else(internal)?;
     if parent.is_map {
         if merged {
@@ -194,7 +206,7 @@ fn add(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), Patch
         return match node {
             // Adding a member that is there replaces its value.
             Some(id) => replace_node(doc, id, value),
-            None => insert_member(doc, parent.id, last, value),
+            None => insert_member(doc, texts, parent.id, last, value),
         };
     }
     if parent.at_end {
@@ -218,12 +230,17 @@ fn internal() -> PatchError {
     )
 }
 
-fn replace(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), PatchError> {
+fn replace(
+    doc: &mut Document,
+    texts: &mut Texts,
+    tokens: &[String],
+    value: &Value,
+) -> Result<(), PatchError> {
     if tokens.is_empty() {
         doc.set_root(value)?;
         return Ok(());
     }
-    let loc = locate(doc, tokens, true)?;
+    let loc = locate(doc, tokens, true, texts)?;
     if loc.merged {
         return Err(merged_error());
     }
@@ -236,24 +253,42 @@ fn replace(doc: &mut Document, tokens: &[String], value: &Value) -> Result<(), P
     }
 }
 
-fn remove(doc: &mut Document, tokens: &[String]) -> Result<(), PatchError> {
+fn remove(doc: &mut Document, texts: &mut Texts, tokens: &[String]) -> Result<(), PatchError> {
     if tokens.is_empty() {
         return Err(PatchError::new(
             PatchErrorKind::Invalid,
             "the whole document cannot be removed; replace it instead",
         ));
     }
-    let loc = locate(doc, tokens, true)?;
+    let loc = locate(doc, tokens, true, texts)?;
     if loc.merged {
         return Err(merged_error());
     }
     match loc.node {
-        Some(id) => remove_node(doc, id),
+        Some(id) => remove_member(doc, texts, &loc, tokens.last().map(String::as_str), id),
         None => Err(PatchError::new(
             PatchErrorKind::Path,
             "there is nothing to remove at the location",
         )),
     }
+}
+
+/// Removes the value `id` (the member's value, found by `loc` for `token`) and
+/// its key, and takes the key out of its mapping's index.
+fn remove_member(
+    doc: &mut Document,
+    texts: &mut Texts,
+    loc: &Loc,
+    token: Option<&str>,
+    id: NodeId,
+) -> Result<(), PatchError> {
+    remove_node(doc, id)?;
+    if let (Some(parent), Some(key), Some(token)) = (&loc.parent, loc.key, token) {
+        if parent.is_map {
+            texts.removed(parent.id, token, key);
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn remove_node(doc: &mut Document, id: NodeId) -> Result<(), PatchError> {
@@ -264,8 +299,12 @@ pub(super) fn remove_node(doc: &mut Document, id: NodeId) -> Result<(), PatchErr
 
 /// The value at `tokens`, reading through aliases, and the length in bytes of
 /// the source text it was read from.
-fn read(doc: &Document, tokens: &[String]) -> Result<(Value, usize), PatchError> {
-    let loc = locate(doc, tokens, false)?;
+fn read(
+    doc: &Document,
+    texts: &mut Texts,
+    tokens: &[String],
+) -> Result<(Value, usize), PatchError> {
+    let loc = locate(doc, tokens, false, texts)?;
     let Some(id) = loc.node else {
         if tokens.is_empty() {
             return Ok((Value::Null, 0));
@@ -288,10 +327,15 @@ fn read(doc: &Document, tokens: &[String]) -> Result<(Value, usize), PatchError>
     Ok((value, size))
 }
 
-fn test(doc: &Document, tokens: &[String], expected: &Value) -> Result<(), PatchError> {
+fn test(
+    doc: &Document,
+    texts: &mut Texts,
+    tokens: &[String],
+    expected: &Value,
+) -> Result<(), PatchError> {
     // A value that cannot be read (a limit, a tag that does not resolve) is an
     // error of its own kind; one that reads differently is a failed test.
-    let (actual, _) = read(doc, tokens)?;
+    let (actual, _) = read(doc, texts, tokens)?;
     if &actual == expected {
         Ok(())
     } else {
@@ -344,23 +388,23 @@ fn copy(
     // Copying a value onto its own mapping key changes nothing. Onto its own
     // sequence index it is an add (RFC 6902 section 4.5): a second copy goes
     // there.
-    if from == to && !parent_is_sequence(doc, from)? {
-        read(doc, from)?;
+    if from == to && !parent_is_sequence(doc, &mut run.texts, from)? {
+        read(doc, &mut run.texts, from)?;
         return Ok(());
     }
     // Charge the source text before reading the value, so a refused copy costs
     // little, then what writing aliases out adds to it.
-    let size = source_size(doc, from)?;
+    let size = source_size(doc, &mut run.texts, from)?;
     run.charge(size)?;
-    let (value, _) = read(doc, from)?;
+    let (value, _) = read(doc, &mut run.texts, from)?;
     run.charge(value_bytes(&value).saturating_sub(size))?;
-    add(doc, to, &value)
+    add(doc, &mut run.texts, to, &value)
 }
 
 /// The length of the source text at `tokens` (the node the pointer names,
 /// aliases followed), without reading its value.
-fn source_size(doc: &Document, tokens: &[String]) -> Result<usize, PatchError> {
-    let loc = locate(doc, tokens, false)?;
+fn source_size(doc: &Document, texts: &mut Texts, tokens: &[String]) -> Result<usize, PatchError> {
+    let loc = locate(doc, tokens, false, texts)?;
     let Some(id) = loc.node else {
         if tokens.is_empty() {
             return Ok(0);
@@ -374,11 +418,15 @@ fn source_size(doc: &Document, tokens: &[String]) -> Result<usize, PatchError> {
 }
 
 /// Whether the location's parent is a sequence (false for the whole document).
-fn parent_is_sequence(doc: &Document, tokens: &[String]) -> Result<bool, PatchError> {
+fn parent_is_sequence(
+    doc: &Document,
+    texts: &mut Texts,
+    tokens: &[String],
+) -> Result<bool, PatchError> {
     if tokens.is_empty() {
         return Ok(false);
     }
-    Ok(locate(doc, tokens, false)?
+    Ok(locate(doc, tokens, false, texts)?
         .parent
         .is_some_and(|p| !p.is_map))
 }
@@ -397,7 +445,7 @@ fn relocate(
         ));
     }
     // The source is removed, so nothing on the way to it may be an alias.
-    let source = locate(doc, from, true)?;
+    let source = locate(doc, from, true, &mut run.texts)?;
     if source.merged {
         return Err(merged_error());
     }
@@ -423,8 +471,8 @@ fn relocate(
     // Only used to choose the order. A destination that does not exist yet
     // may exist once the source is gone (a sequence index counts from what is
     // left), and add reports a real error.
-    let destination = locate(doc, to, true).ok();
-    let (value, size) = read(doc, from)?;
+    let destination = locate(doc, to, true, &mut run.texts).ok();
+    let (value, size) = read(doc, &mut run.texts, from)?;
     run.charge(value_bytes(&value).saturating_sub(size))?;
     // The RFC removes first. When both places are in mappings and the
     // destination is not above the source, writing first gives the same result
@@ -436,11 +484,12 @@ fn relocate(
             .and_then(|d| d.parent.as_ref())
             .is_some_and(|p| p.is_map)
         && source.parent.as_ref().is_some_and(|p| p.is_map);
+    let token = from.last().map(String::as_str);
     if write_first {
-        add(doc, to, &value)?;
-        remove_node(doc, source_id)
+        add(doc, &mut run.texts, to, &value)?;
+        remove_member(doc, &mut run.texts, &source, token, source_id)
     } else {
-        remove_node(doc, source_id)?;
-        add(doc, to, &value)
+        remove_member(doc, &mut run.texts, &source, token, source_id)?;
+        add(doc, &mut run.texts, to, &value)
     }
 }
