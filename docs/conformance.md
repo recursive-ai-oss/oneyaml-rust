@@ -1,6 +1,6 @@
 # yaml-test-suite conformance: oneyaml vs. other Rust YAML parsers
 
-Measured on 2026-10-03 at workspace revision `4c6d70c`, on the vendored
+Measured on 2026-10-21 at workspace revision `e24c4f8`, on the vendored
 yaml-test-suite (release `data-2022-01-17`, commit `6e6c296a`; 402 cases:
 308 valid, 94 error; see `crates/test-suite/data/yaml-test-suite/SOURCE.md`),
 with rustc 1.97.1.
