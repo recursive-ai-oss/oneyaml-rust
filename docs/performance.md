@@ -128,32 +128,36 @@ per-operation tables further down this page, so they always match them.
 **Where oneyaml wins**
 
 - **Parsing.** The lossless event parser uses fewer instructions per
-  byte than saphyr-parser, yaml-rust2 and libyaml on every data-heavy
-  real-world input, although it does more work: it also produces events
-  for every comment, space and indicator. Against yaml-edit, the other
-  lossless parser, it is cheaper on every input yaml-edit accepts
+  byte than saphyr-parser, yaml-rust2 and libyaml on every input,
+  comment- and whitespace-heavy ones included, although it does more
+  work: it also produces events for every comment, space and indicator.
+  Against yaml-edit, the other lossless parser, it is cheaper on every input yaml-edit accepts
   ([Instructions](#instructions)).
 - **Serde writes.** `to_string` uses fewer instructions than every
   feature-complete writer on every input, typed and untyped
   ([Serde write](#serde-write)).
 - **Serde reads** use fewer instructions than the fastest
-  feature-complete reader on most `value` and `typed` rows, typed reads
-  of a file with merge keys (compose-merge) included, and at most 1.25×
-  its instructions on every row
+  feature-complete reader on every `typed` row, every `value` row but
+  one (compose-merge, at parity) and most `sparse` rows, and stay within
+  the 1.25× target on every row
   ([Serde read](#serde-read); the targets are in
   [Targets and results](#targets-and-results)).
 - **`Document`.** Parsing a `Document` costs fewer instructions than
   yaml-edit's parse on every input, although oneyaml's parse also checks
   the document's meaning (duplicate keys, merge keys, aliases) and
   yaml-edit's checks syntax only. Writing an unchanged document back is
-  an order of magnitude cheaper, byte-identical on every input, and a
+  several times to an order of magnitude cheaper, byte-identical on every input, and a
   parsed document keeps less memory than yaml-edit's tree
   ([`Document`](#document)).
-- **Edits stay local.** An edit script costs about the same number of
-  instructions on a 2.4 KB file and a 10 MB one, where yaml-edit's grows
-  with the document ([Edits](#edits)). helm-values costs more per script
-  because each edit there decides the owners of a long run of comment
-  lines, but that cost doesn't grow with the file either.
+- **Edits stay local.** The edit script on a root mapping costs about
+  the same number of instructions on every input from 2.4 KB to 10 MB
+  but helm-values, where yaml-edit's script grows with the document:
+  openapi-10m, the openapi-100k shape at 100× the size, costs oneyaml
+  about the same as openapi-100k ([Edits](#edits)). helm-values costs more per script because each edit
+  there decides the owners of a long run of comment lines. The tables
+  measure the size of the document, not the width of the edited mapping:
+  a patch reads the keys of each mapping it looks at once per patch, so
+  its cost does grow with the width of those mappings.
 - **Allocations.** The parser borrows from the input and decodes scalars
   on request, so it makes a handful of allocations per input where event
   parsers make one or more per event; serde reads into borrowing types
@@ -166,31 +170,36 @@ per-operation tables further down this page, so they always match them.
 
 **Where oneyaml loses or is at parity**
 
-- **Some serde reads are at parity.** `value` reads of the file with
-  merge keys (compose-merge) and `typed` reads of the OpenAPI inputs
-  take a few percent more instructions than the fastest feature-complete
-  reader ([Instructions](#instructions-1)).
-- **`sparse` reads** (a struct that reads a few fields) cost more than
-  serde_yaml_ng on the k8s-manifest and OpenAPI rows: oneyaml still
-  resolves and checks the content a struct ignores (duplicate keys,
-  merge keys), so a typed read accepts exactly the documents a `Value`
-  read accepts.
-- **In wall-clock time, serde reads are at parity or slower** than
-  serde_yaml_ng and serde_norway on most rows, including rows where
-  oneyaml uses fewer instructions, typed reads of the file with merge
-  keys among them
+- **Edits on documents below a few kilobytes** (compose-merge, 2.4 KB)
+  cost more than yaml-edit's, in instructions and in wall-clock time:
+  each edit has a fixed cost for deciding which entry owns each nearby
+  comment and checking that the edited text still reads as the tree
+  says, which exceeds yaml-edit's whole-document cost on a small file.
+  On every larger input in the [Edits](#edits) tables oneyaml's script
+  is the cheaper one, so among the measured inputs the loss is on the
+  smallest file.
+- **In wall-clock time, typed serde reads of openapi-100k are slower**
+  than serde_yaml_ng, although they use fewer instructions. Across the
+  full table, serde reads are slower in wall-clock time on most `sparse`
+  rows, on `value` reads of compose-merge, k8s-multi and openapi-100k
+  and on that `typed` row, and at parity on `typed` reads of
+  gha-workflow and compose-merge
   ([serde wall-clock](#wall-clock-informational-only-1)). If wall-clock
   read speed is what matters most to you, measure on your own data.
-- **Edits on documents below a few kilobytes** (compose-merge, 2.4 KB)
-  cost more than yaml-edit's: each edit has a fixed cost for deciding
-  which entry owns each nearby comment and checking that the edited text
-  still reads as the tree says, which exceeds yaml-edit's whole-document
-  cost on a small file. That cost doesn't grow with the document, so
-  the loss is limited to small files.
-- **Comment- and whitespace-heavy inputs** (helm-values, comment-heavy,
-  whitespace) cost slightly more instructions to parse than the fastest
-  event parser, which skips comments and spaces; oneyaml produces an
-  event for each of them.
+- **`sparse` reads** (a struct that reads a few fields) of the OpenAPI
+  inputs take a few percent more instructions than serde_norway, and
+  k8s-manifest's are at parity with serde_yaml_ng: oneyaml still
+  resolves and checks the content a struct ignores (duplicate keys,
+  merge keys), so a typed read accepts exactly the documents a `Value`
+  read accepts ([Instructions](#instructions-1)).
+- **`value` reads of the file with merge keys** (compose-merge) are at
+  parity in instructions with serde_yaml_ng.
+- **In wall-clock time, parsing `anchors` is slower than libyaml and
+  `flow-heavy` is at parity**, although both use fewer instructions
+  ([Wall-clock](#wall-clock-informational-only)).
+- **In wall-clock time, `value` writes of compose-merge are slightly
+  slower than serde-saphyr's**, although they use fewer instructions
+  ([serde write wall-clock](#wall-clock-write-informational-only)).
 - **serde_yaml2** is cheaper than oneyaml on the rows it can run, and
   **serde_json** reading the equivalent JSON is several times cheaper
   than any YAML library; both do less work (see their columns).
@@ -209,7 +218,7 @@ target.
 | `Document` parse at parity with yaml-edit | [`Document`](#document), parse | met on every row |
 | Unchanged `Document` emit at parity with yaml-edit | [`Document`](#document), emit | met on every row, byte-identical output |
 | Edit operations at parity with yaml-edit | [Edits](#edits), script | met, except on documents below a few kilobytes (compose-merge); see above |
-| Local edits never cost O(document) | [Edits](#edits), script instructions and wall-clock | met: a script costs about the same from 2.4 KB to 10 MB |
+| Local edits never cost O(document) | [Edits](#edits), script instructions and wall-clock | met for the measured root-mapping script: about the same from 2.4 KB to 10 MB, and openapi-10m about the same as openapi-100k |
 | A parsed `Document` retains ≤ 8× its input (real-world inputs of 100 KB or more) | [`Document`](#document), memory | met; smaller files and dense synthetic shapes are reported, without a target |
 | Serde reads into borrowing types use O(depth + anchored content) memory | [serde allocations](#allocations-1), `sparse` rows | met |
 | Parsing is O(n) for every input | [Linear scaling](#linear-scaling) | met |

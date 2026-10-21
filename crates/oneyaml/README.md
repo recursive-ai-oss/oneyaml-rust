@@ -67,14 +67,13 @@ better; hatched bars are workloads where oneyaml is slower):
   span and a path, and common mistakes come with a suggested fix
   ([diagnostics](#diagnostics)).
 - **Fast, with the losses shown.** oneyaml executes fewer instructions
-  than each competitor on most workloads in the chart above, and the
-  cost of a measured edit depends on what it touches, not on the file's
-  size (a patch also reads the keys of each mapping it looks into, once
-  per patch). It isn't faster everywhere: a
-  typed read of the OpenAPI workload and edits of the smallest file take
-  more instructions, and in wall-clock time its typed reads are slower
-  on most of these workloads, `Document` parsing is level or slightly
-  slower on some, and yaml-edit edits small files faster
+  than each competitor on every workload in the chart above but one,
+  and the cost of a measured edit depends on what it touches, not on
+  the file's size (a patch also reads the keys of each mapping it looks
+  into, once per patch). It isn't faster everywhere: yaml-edit edits
+  the smallest file in fewer instructions and less time, a typed read
+  of the OpenAPI workload is slower in wall-clock time, and some serde
+  reads outside the chart are slower or level
   ([every loss](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)).
 
 The only runtime dependency by default is `serde`
@@ -227,14 +226,15 @@ with `from_str_with` and `Limits::untrusted()` and build the patch with
 
 ## When not to use oneyaml
 
-- **You need the fastest typed reads in wall-clock time.** oneyaml's
+- **You need the fastest serde reads in wall-clock time.** oneyaml's
   serde reads use fewer instructions on most workloads, but in
-  wall-clock time they are slower than `serde_yaml_ng` or `serde_norway`
-  on most of the benchmark workloads
+  wall-clock time `serde_yaml_ng` or `serde_norway` is faster on some of
+  them: typed reads of the OpenAPI workload, most reads into structs
+  that use a few fields, and some reads into `Value`
   ([serde read wall-clock](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#wall-clock-informational-only-1)).
 - **You make a few edits to many small files and edit speed matters.**
-  Below a few kilobytes, yaml-edit's edits cost fewer instructions
-  (compose-merge in the chart above; see the
+  Below a few kilobytes, yaml-edit's edits cost fewer instructions and
+  less wall-clock time (compose-merge in the chart above; see the
   [benchmark tables](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)).
 - **You need something oneyaml doesn't do:** `no_std`, async I/O, schema
   validation, templating, building objects from tags, or editing a file

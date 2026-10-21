@@ -370,14 +370,18 @@ point at the character that cannot belong.
   such runs. Every event, span, value and diagnostic is the same as before
   (checked over the whole yaml-test-suite, the fuzz corpora and CRLF, CR,
   byte-order-mark and trailing-space variants of them, under four settings).
-  Event parsing of a 256 KiB input of long plain, quoted, literal and folded
-  scalars takes about one eighth of the instructions it took, and so does
-  reading their values as well. The parse benchmark rows need 4% to 53%
-  fewer instructions (block scalars -53%, long scalars -52%, comment runs
-  -34%, Helm values -35%, GitHub Actions workflow -24%, wide maps -22%,
-  small Kubernetes and OpenAPI documents -17% to -19%, compose files -15%,
-  flow-heavy input -7%, deeply nested flow sequences -4%). No row needs
-  more, and no row allocates more.
+  In the benchmark tables of
+  [`docs/performance.md`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md)
+  (CPU instructions counted by valgrind, not wall-clock time; 1.2.0 against
+  the 1.1.0 tables), every parse row needs fewer instructions: block scalars
+  54% fewer, long scalars 52%, Helm values 41%, comment runs 39%, deeply
+  nested block mappings 30%, the Kubernetes, OpenAPI, compose, GitHub
+  Actions, wide-map and whitespace rows 17% to 25%, anchors 13%, flow-heavy
+  input 8% and deeply nested flow sequences 5%. Serde reads need 5% to 25%
+  fewer, `Document` parses 7% to 20% fewer and edit scripts 1% to 26% fewer;
+  serde writes need up to 1% more. Allocation counts are unchanged; a parsed
+  `Document` of each of the three inputs below 100 KB retains up to 2% more
+  bytes.
 
 ## 1.1.0 — 2026-10-10
 

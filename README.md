@@ -48,11 +48,10 @@ better; hatched bars are workloads where oneyaml is slower):
   fuzzed ([crates/fuzz](crates/fuzz/README.md)) and tested against five
   other YAML libraries.
 - **Fast, with the losses shown.** Fewer instructions than each
-  competitor on most workloads in the chart above. Not everywhere: a
-  typed read of the OpenAPI workload and edits of the smallest file take
-  more instructions, and in wall-clock time typed reads are slower on
-  most of these workloads, `Document` parsing is level or slightly slower
-  on some, and yaml-edit edits small files faster
+  competitor on every workload in the chart above but one: yaml-edit
+  edits the smallest file in fewer instructions and less time. A typed
+  read of the OpenAPI workload is slower in wall-clock time, and some
+  serde reads outside the chart are slower or level
   ([every loss](docs/performance.md#results-at-a-glance)).
 
 More in the [crate README](crates/oneyaml/README.md#why-oneyaml), and

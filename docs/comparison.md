@@ -72,29 +72,40 @@ disagree. Each serde row is compared with the fastest feature-complete
 serde library on that row, and `Document` rows with yaml-edit.
 
 **Where oneyaml is ahead:** serde writes, against every feature-complete
-comparator, in instructions and in wall-clock time; `Document` parsing
-against yaml-edit in instructions on every workload (in wall-clock time
-it is at parity or slightly slower on some of them);
-and the edit script against yaml-edit on every workload above a few
-kilobytes.
+comparator, in instructions on every workload and in wall-clock time on
+all but one; typed serde reads in instructions on every workload;
+`Document` parsing against yaml-edit in instructions on every workload
+(in wall-clock time it is at parity on the docker-compose-shaped file
+and faster on the others); and the edit script against yaml-edit on
+every workload above a few kilobytes, in instructions and in wall-clock
+time.
 
 **Where the others win:**
 
-- **Wall-clock serde reads.** oneyaml's typed reads use fewer
-  instructions than `serde_yaml_ng` and `serde_norway` on most workloads,
-  but in wall-clock time oneyaml is slower on most of the benchmark
-  workloads, merge-key files included.
-  If wall-clock read speed is what you are optimising, measure on your
-  own files.
-- **Some serde reads at parity.** `Value` reads of docker-compose-shaped
-  files with merge keys, and typed reads of OpenAPI-shaped files, take a
-  few percent more instructions in oneyaml than in `serde_yaml_ng` or
-  `serde_norway`.
 - **Edits on small documents.** Below a few kilobytes, yaml-edit's edit
-  script costs fewer instructions: oneyaml pays a fixed cost per edit to
-  decide which entry owns each nearby comment and to check that the
-  edited text still reads as the tree says. That cost doesn't grow with
-  the document, which is why oneyaml wins on larger files.
+  script costs fewer instructions and less wall-clock time: oneyaml pays
+  a fixed cost per edit to decide which entry owns each nearby comment
+  and to check that the edited text still reads as the tree says. On
+  every larger file in the benchmark, oneyaml's script is the cheaper
+  one, and it costs about the same on a 10 MB file as on a 100 KB one of
+  the same shape. A patch also reads the keys of each mapping it looks
+  into, once per patch, so its cost grows with the width of those
+  mappings.
+- **Some wall-clock serde reads.** In wall-clock time,
+  `serde_yaml_ng` reads the OpenAPI-shaped file into typed structs
+  faster, although oneyaml uses fewer instructions there; across the full
+  tables, `serde_yaml_ng` or `serde_norway` is also faster on most reads
+  into structs that use a few fields and on some `Value` reads, and level
+  on two typed reads. If wall-clock read speed is what you are
+  optimising, measure on your own files.
+- **Some serde reads in instructions.** Reads into structs that use a
+  few fields take a few percent more instructions in oneyaml than in
+  `serde_norway` on the OpenAPI-shaped files, and `Value` reads of the
+  docker-compose-shaped file with merge keys are at parity with
+  `serde_yaml_ng`.
+- **One wall-clock serde write.** serde-saphyr writes a `Value` of the
+  docker-compose-shaped file slightly faster in wall-clock time, although
+  oneyaml uses fewer instructions.
 - **Partial libraries.** serde_yaml2 is cheaper on some reads, but it
   reads only the first document and has no merge keys, so it isn't
   ranked.
