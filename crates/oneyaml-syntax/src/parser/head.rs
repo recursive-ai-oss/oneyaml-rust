@@ -32,13 +32,13 @@
 use oneyaml_core::code::{
     ALIAS_WITH_PROPERTIES, DUPLICATE_PROPERTY, IMPLICIT_KEY_TOO_LONG, INLINE_COLON_IN_PLAIN_VALUE,
     INVALID_ANCHOR, INVALID_NODE_START, LENIENT_INLINE_COLON, MISSING_MAPPING_COLON,
-    MULTILINE_IMPLICIT_KEY, SCALAR_TOO_LONG, UNEXPECTED_CONTENT,
+    MULTILINE_IMPLICIT_KEY, QUOTED_SCALAR_INDENTATION, SCALAR_TOO_LONG, UNEXPECTED_CONTENT,
 };
 use oneyaml_core::{Applicability, Code, Diagnostic, Label, Replacement, Span, Suggestion};
 
 use super::block::HeadMode;
 use super::polish::{self, Glued, Place};
-use super::scalar::Count;
+use super::scalar::{Count, QuotedError};
 use super::scan::{
     anchor_end, break_or_end, byte, indicator_at, is_nb_json, is_plain_first, key_too_long,
     mark_at, plain_line_end, plain_line_end_lenient, skip_white,
@@ -173,6 +173,10 @@ impl<'a> Parser<'a> {
         // (production 200's `s-l-comments` after properties).
         if !props.is_empty() && (break_or_end(src, i) || self.comment_at(i)) {
             let HeadMode::Node { ctx, .. } = mode else {
+                // The line break (or comment) after the properties is the
+                // first character that cannot belong: a key and its `:`
+                // share a line.
+                self.blame.set(Some(i));
                 return self.fail(MISSING_MAPPING_COLON, "properties without a key", false);
             };
             if !self.merge_props(props) {
@@ -217,16 +221,26 @@ impl<'a> Parser<'a> {
                 }
             }
             Some(q @ (b'"' | b'\'')) => {
-                scalar::quoted::<Count>(src, i, parent, q == b'"').map(|f| Content::Scalar {
-                    style: if q == b'"' {
-                        ScalarStyle::DoubleQuoted
-                    } else {
-                        ScalarStyle::SingleQuoted
-                    },
-                    len: f.len,
-                    multiline: f.multiline,
-                    first_end: f.end,
-                })
+                let double = q == b'"';
+                let faulty = |e: QuotedError| {
+                    if e.0 == QUOTED_SCALAR_INDENTATION {
+                        let at = scalar::indentation_fault(src, i, parent, double);
+                        self.blame.set(at);
+                    }
+                    e
+                };
+                scalar::quoted::<Count>(src, i, parent, double)
+                    .map_err(faulty)
+                    .map(|f| Content::Scalar {
+                        style: if q == b'"' {
+                            ScalarStyle::DoubleQuoted
+                        } else {
+                            ScalarStyle::SingleQuoted
+                        },
+                        len: f.len,
+                        multiline: f.multiline,
+                        first_end: f.end,
+                    })
             }
             Some(b'|' | b'>') => match mode {
                 HeadMode::Node { ctx, .. } => return self.block_scalar(ctx, events, props),
@@ -329,6 +343,9 @@ impl<'a> Parser<'a> {
         }
         if is_key && !multiline && key_too_long(src, self.pos, colon) {
             let message = "an implicit key must be at most 1024 characters";
+            // Up to the `:` the text can still be a longer scalar; the
+            // character after it settles that it was a key.
+            self.blame.set(Some(colon.saturating_add(1)));
             return self.fail(IMPLICIT_KEY_TOO_LONG, message, slot_open);
         }
 
@@ -357,6 +374,7 @@ impl<'a> Parser<'a> {
                     };
                     if continued {
                         let message = "an implicit key must be on one line";
+                        self.blame.set(Some(colon.saturating_add(1)));
                         return self.fail(MULTILINE_IMPLICIT_KEY, message, false);
                     }
                     return self.missing_colon(&key);
@@ -457,6 +475,11 @@ impl<'a> Parser<'a> {
                     // message says how the node became a key.
                     let message = "this plain scalar runs onto the next line and is followed by `:`, so it reads as a key, and a key must be on one line";
                     let nested = ctx.parent.is_some();
+                    // The `:` may still be part of a longer scalar (`c:d`);
+                    // what follows it is the first character that cannot
+                    // belong.
+                    let colon = skip_white(src, f.end);
+                    self.blame.set(Some(colon.saturating_add(1)));
                     self.fail_with(MULTILINE_IMPLICIT_KEY, message, true, |d| {
                         if nested {
                             d.with_help(
@@ -574,6 +597,9 @@ impl<'a> Parser<'a> {
         };
         let colon_label = Span::new(colon, colon.saturating_add(1));
         if !self.lenient_inline_colons {
+            // `b:` can still be the start of a longer scalar; the character
+            // after the colon is the first that cannot belong.
+            self.blame.set(Some(colon.saturating_add(1)));
             let message = "`: ` inside an unquoted value starts a nested mapping, which cannot begin on this line";
             return self.fail_with(INLINE_COLON_IN_PLAIN_VALUE, message, true, |d| {
                 d.with_secondary(Label::new(colon_label, "this `: ` starts a mapping"))
@@ -623,6 +649,8 @@ impl<'a> Parser<'a> {
             _ => None,
         };
         let message = "a mapping key needs `:`";
+        // The key line ends where its text does: no `:` follows.
+        self.blame.set(Some(key.content_end));
         let Some(at) = glued else {
             return self.fail(MISSING_MAPPING_COLON, message, false);
         };

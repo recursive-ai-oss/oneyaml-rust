@@ -14,6 +14,69 @@ MSRV change is always announced here (the MSRV policy is in the
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md).
 
+## Unreleased
+
+Changes to what the parser reports and accepts, how errors are placed, and
+how a few scalars are written. Each follows YAML 1.2.2 more closely.
+
+### Added
+
+- `Y0033` (`DUPLICATE_YAML_DIRECTIVE`): a second `%YAML` directive in one
+  document prefix. It is reported where the second directive starts.
+  `Y1004` stays the code for a repeated `%TAG` handle.
+- `Y0034` (`INVALID_COMMENT_CHARACTER`): a character that cannot appear in
+  a comment (a control character, U+007F, or one of U+0080 to U+009F other
+  than U+0085). The error is at the first such character; the comment is
+  kept as written and the parse goes on.
+
+### Changed
+
+- Parse errors point at the first character that cannot belong, not at the
+  start of the construct around it. This moves the position of many
+  diagnostics (the code and the message are unchanged unless listed below):
+  a bad escape, an invalid anchor or tag, a flow collection glued to a key
+  or property, a missing `:`, an unterminated quoted scalar, a plain
+  scalar with a second `: `, a bad block scalar header, an implicit key that
+  is too long, a line break inside an implicit key, and so on. A quoted
+  scalar that is still open on a line that is not indented more than its
+  parent is reported at the start of that line (the closing quote of a
+  nested scalar at the margin included), and properties on a line of their
+  own before a key of an open mapping are reported where the key starts.
+  Rendered snippets and `(line:column)` texts move with them.
+- Columns reported by `LineIndex` for characters and UTF-16 units leave out
+  a byte order mark at the start of the text: the first character after it
+  is column 0 (byte columns still count it).
+- A document ends only at its end marker, at the next document start, or at
+  the end of the stream. Content on a later line after a plain scalar root
+  is an error inside that document; it no longer starts a second one. The
+  events of such inputs no longer contain an early document end.
+- A line holding only a tab after a block scalar, at the end of the text, is
+  no longer an error.
+- A percent escape in a tag (`!a%41`, `!<tag:x,2000:%41>`) is decoded when
+  it is ASCII, and kept as written when it is not (the UTF-8 bytes of a
+  non-ASCII character stay as `%XX`). Because such a tag cannot be written
+  back as a valid tag, the emitter refuses a `Value::Tagged` whose tag has a
+  non-ASCII character (`Y3015`).
+- An escaped surrogate pair in a double-quoted scalar (`"\uD83D\uDE00"`)
+  reads as one character.
+- A float that is outside the range of a double (`1e400`, `1e-400`) keeps
+  its exact value as a key, so `1e400` and `2e400` are different keys
+  instead of both reading as infinity; they still read as the double they
+  round to.
+- Strings that other readers would read as numbers are quoted when
+  written: forms with two signs (`+-1`), with a leading `_`, with an
+  inner sign after a radix prefix (`0b-1`, `0X-F`), and radix prefixes in
+  any case.
+
+### Fixed
+
+- Inputs the parser accepted though they are invalid are errors now: a
+  flow collection directly after a property, an empty key, an explicit key
+  or a plain key (`&a[b]`, `{:{0}}`), a verbatim tag that is not a URI, and
+  a second anchor on one node.
+- A second `%YAML` directive was reported as `Y1004`; it is `Y0033` now
+  (see above).
+
 ## 1.1.0 — 2026-10-10
 
 `oneyaml` 1.1.0, `oneyaml-core` 1.1.0, `oneyaml-syntax` 0.1.2.

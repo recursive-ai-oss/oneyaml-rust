@@ -426,6 +426,12 @@ impl<'a> Emitter<'_, '_> {
         if !self.rules.tag_fits(len) {
             return Err(self.rules.tag_too_long(len));
         }
+        // No spelling of a non-ASCII character reads back in a tag.
+        if !name.is_ascii() {
+            return Err(unrepresentable(format!(
+                "the tag `!{name}` has no spec-valid form that reads back as the same tag"
+            )));
+        }
         if !slot.compact {
             self.out.push(' ');
         }

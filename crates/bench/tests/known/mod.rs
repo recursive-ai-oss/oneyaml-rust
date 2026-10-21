@@ -10,7 +10,9 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use oneyaml_core::Span;
-use oneyaml_core::code::{DIRECTIVE_WITHOUT_DOCUMENT, LENIENT_INLINE_COLON};
+use oneyaml_core::code::{
+    DIRECTIVE_WITHOUT_DOCUMENT, LENIENT_INLINE_COLON, UNTERMINATED_QUOTED_SCALAR,
+};
 use oneyaml_syntax::tree::{SyntaxKind, SyntaxTree};
 
 /// Mismatches excused as the known exception, by this copy of the module.
@@ -45,8 +47,9 @@ fn shape(tree: &SyntaxTree) -> bool {
 /// does (a quote read on past a byte order mark): either their tokens
 /// (kind and text, in order) first differ at a quoted scalar or a byte
 /// order mark on either side, or, with the same tokens, their first
-/// differing diagnostic (on either side) starts at a quote or touches a
-/// quoted scalar or a byte order mark. A mismatch elsewhere is not it.
+/// differing diagnostic (on either side) is an unclosed quote, starts at a
+/// quote or touches a quoted scalar or a byte order mark. A mismatch
+/// elsewhere is not it.
 fn quote_or_bom_mismatch(edited: &SyntaxTree, again: &SyntaxTree) -> bool {
     let special = |k: SyntaxKind| {
         matches!(
@@ -82,8 +85,12 @@ fn quote_or_bom_mismatch(edited: &SyntaxTree, again: &SyntaxTree) -> bool {
     };
     [da.get(i), db.get(i)].into_iter().flatten().any(|d| {
         let s = d.primary.span;
-        text.get(s.start..)
-            .is_some_and(|t| t.starts_with(['\'', '"']))
+        // An unclosed quote is reported where the quote is cut off, not at
+        // the quote.
+        d.code == UNTERMINATED_QUOTED_SCALAR
+            || text
+                .get(s.start..)
+                .is_some_and(|t| t.starts_with(['\'', '"']))
             || a.iter()
                 .any(|(k, t, _)| special(*k) && t.start <= s.end && s.start <= t.end)
     })

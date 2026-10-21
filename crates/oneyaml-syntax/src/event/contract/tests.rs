@@ -298,10 +298,10 @@ fn valid_fixtures_pass() {
 
 #[test]
 fn verbatim_non_specific_and_crlf() {
-    let src = "!<x> a\r\n";
+    let src = "!<x:y> a\r\n";
     let mut x = b(src).doc();
-    let tag = x.span_of("!<x>").start;
-    x = x.tr(TriviaKind::Tag, "!<x>").ws(" ").e(
+    let tag = x.span_of("!<x:y>").start;
+    x = x.tr(TriviaKind::Tag, "!<x:y>").ws(" ").e(
         |s| {
             Event::scalar(
                 s,

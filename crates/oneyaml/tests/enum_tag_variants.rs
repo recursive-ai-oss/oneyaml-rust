@@ -226,13 +226,14 @@ fn every_reader_reads_the_same_variant() {
     }
 }
 
-/// A prefix that ends in a multi-byte character the suffix completes, and
-/// a prefix starting with `!` (the variant name drops it): matched without
-/// a copy, as the tag's text reads.
+/// A prefix that ends in an escape the suffix continues (non-ASCII escapes
+/// stay as written, so the name holds them), and a prefix starting with `!`
+/// (the variant name drops it): matched without a copy, as the tag's text
+/// reads.
 #[test]
 fn split_characters_and_local_prefixes_match() {
     set_variants(vec![
-        "tag:x,1:\u{e9}t\u{e9}".to_owned(),
+        "tag:x,1:%C3%A9t%C3%A9".to_owned(),
         "loc-a".to_owned(),
         "!".to_owned(),
     ]);

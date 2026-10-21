@@ -13,7 +13,6 @@
 mod common;
 
 use oneyaml_core::Settings;
-use oneyaml_core::code::INVALID_TAG;
 use oneyaml_syntax::tree::SyntaxTree;
 
 use common::{events, first_code, first_error};
@@ -69,56 +68,45 @@ fn escaped_prefixes_decode() {
 }
 
 #[test]
-fn multibyte_escapes_split_across_prefix_and_suffix() {
-    resolves("%TAG !e! tag:x,1:%C3\n--- !e!%A9 a\n", "tag:x,1:é");
-    resolves("--- !<tag:x,1:%C3%A9> a\n", "tag:x,1:é");
-    // A four-byte character split 1 + 3 and 3 + 1.
-    resolves("%TAG !e! u:%F0\n--- !e!%9F%98%80 a\n", "u:\u{1F600}");
-    resolves("%TAG !e! u:%F0%9F%98\n--- !e!%80 a\n", "u:\u{1F600}");
+fn escapes_of_non_ascii_bytes_stay_as_written() {
+    // Tag characters are kept as presented; only escaped ASCII characters are
+    // expanded. A multi-byte character split across prefix and suffix, or
+    // spelled in one piece, keeps its escapes.
+    resolves("%TAG !e! tag:x,1:%C3\n--- !e!%A9 a\n", "tag:x,1:%C3%A9");
+    resolves("--- !<tag:x,1:%C3%A9> a\n", "tag:x,1:%C3%A9");
+    resolves("%TAG !e! u:%F0\n--- !e!%9F%98%80 a\n", "u:%F0%9F%98%80");
+    // An escape that is no UTF-8 at all is no error either: it is not read.
+    resolves("%TAG !e! tag:x,1:%FF\n--- !e!x a\n", "tag:x,1:%FFx");
+    resolves("!a%FF x\n", "!a%FF");
+    resolves("--- !<a:%FF> x\n", "a:%FF");
+    resolves("%TAG ! !%FF\n--- !x a\n", "!%FFx");
+    // ASCII escapes beside them are still expanded.
+    resolves("--- !<a:%21%C3%A9%41> x\n", "a:!%C3%A9A");
 }
 
 #[test]
-fn invalid_utf8_prefixes_are_y0013() {
+fn escaped_tags_are_not_errors_and_round_trip() {
     let s = Settings::new();
     for src in [
-        // Invalid in the prefix alone.
         "%TAG !e! %FF\n--- !e!x a\n",
-        "%TAG !e! tag:x,1:%FF\n--- !e!x a\n",
-        // A lead byte in the prefix with no continuation.
-        "%TAG !e! tag:x,1:%C3\n--- !e!x a\n",
         "%TAG !e! tag:x,1:%C3\n--- !e!%41 a\n",
-        // Split, but not a valid sequence together.
-        "%TAG !e! tag:x,1:%C3\n--- !e!%C3 a\n",
-        // The `!` handle overridden with an escape.
-        "%TAG ! !%FF\n--- !x a\n",
-        // The `!!` handle overridden with an escape.
         "%TAG !! tag:yaml.org,2002:%FF\n--- !!str a\n",
-        // In flow context.
         "%TAG !e! %FF\n--- [!e!x a]\n",
-        // As before prefix decoding: invalid in the suffix, or verbatim.
         "!a%FF x\n",
         "!<a:%FF> x\n",
     ] {
-        assert_eq!(first_code(src, &s), Some(INVALID_TAG), "{src:?}");
-        let d = first_error(src, &s).unwrap();
-        assert_eq!(
-            d.message, "tag is not valid UTF-8 after %-decoding",
-            "{src:?}"
-        );
+        assert_eq!(first_code(src, &s), None, "{src:?}");
         let tree = SyntaxTree::parse(src);
-        assert!(tree.has_errors(), "{src:?}");
+        assert!(!tree.has_errors(), "{src:?}");
         assert_eq!(tree.emit().as_bytes(), src.as_bytes());
     }
-    // A declared prefix that no tag uses is not an error (§6.8.2.2: the
-    // prefix is only a URI prefix; a tag is formed when a node uses it).
-    assert_eq!(first_code("%TAG !e! %FF\n--- a\n", &s), None);
 }
 
 #[test]
 fn default_handle_overrides() {
     // `!` overridden: its escapes are decoded like any prefix.
     resolves("%TAG ! !%21\n--- !x a\n", "!!x");
-    resolves("%TAG ! tag:x,1:%C3\n--- !%A9 a\n", "tag:x,1:é");
+    resolves("%TAG ! tag:x,1:%C3\n--- !%A9 a\n", "tag:x,1:%C3%A9");
     // `!` redeclared as itself keeps its own text.
     resolves("%TAG ! !\n--- !x a\n", "!x");
     // `!!` overridden with an escaped Core prefix resolves to the Core tag
@@ -212,8 +200,8 @@ fn tag_sources_resolve_like_tags() {
     assert_eq!(sources[0].prefix_key(), sources[2].prefix_key());
     assert!(sources[3].prefix_key().is_none() && sources[4].prefix_key().is_none());
     let prefix = sources[0].directive_prefix().unwrap();
-    assert_eq!(&*prefix, b"tag:x,1:\xC3");
-    assert_eq!(&*sources[1].decoded_suffix(), b"\xA9");
+    assert_eq!(&*prefix, b"tag:x,1:%C3");
+    assert_eq!(&*sources[1].decoded_suffix(), b"%A9");
     assert_eq!(sources[3].default_prefix(), Some("tag:yaml.org,2002:"));
     assert_eq!(sources[0].default_prefix(), None);
     assert_eq!(sources[4].default_prefix(), None);

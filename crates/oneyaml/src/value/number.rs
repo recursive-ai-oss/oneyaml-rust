@@ -28,7 +28,10 @@ use std::sync::OnceLock;
 ///   re-reads as a `Number` that is **not** `==` to this one; see the
 ///   bound below).
 ///   The radix is presentation only: it never affects `==` or `Hash`.
-/// * **Floats** are `f64`.
+/// * **Floats** are `f64`. A float written with a value outside the range of
+///   a double (`1e400`, `1e-400`) reads as the double it rounds to (infinity,
+///   zero) but keeps its exact decimal value, so two such floats are equal
+///   only when they have the same value, and neither equals `.inf` or `0.0`.
 ///
 /// # Equality and hashing
 ///
@@ -98,7 +101,102 @@ enum N {
         mag: u128,
     },
     Float(f64),
+    /// A float outside the range of `f64`, kept with its exact value.
+    OutOfRange(Box<OutOfRange>),
     Big(Box<BigInt>),
+}
+
+/// The exact value of a float that a double cannot hold: a nonzero decimal
+/// value that rounds to infinity or to zero. It is `±d.ddd × 10^exp`.
+#[derive(Clone, Debug)]
+struct OutOfRange {
+    neg: bool,
+    /// The significant digits: no leading or trailing zeros, never empty.
+    digits: Box<str>,
+    /// The decimal exponent of the first digit, signed, no leading zeros
+    /// (`0` has no sign). It may have millions of digits.
+    exp: Box<str>,
+    /// The double it rounds to: an infinity or a zero.
+    value: f64,
+}
+
+/// `a + b` for decimal magnitudes without leading zeros.
+fn add_magnitudes(a: &str, b: &str) -> String {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    let mut out = Vec::with_capacity(a.len().max(b.len()).saturating_add(1));
+    let mut carry = 0u8;
+    let mut ai = a.iter().rev();
+    let mut bi = b.iter().rev();
+    loop {
+        let (x, y) = (ai.next(), bi.next());
+        if x.is_none() && y.is_none() {
+            break;
+        }
+        let sum = x
+            .map_or(0, |d| d.saturating_sub(b'0'))
+            .saturating_add(y.map_or(0, |d| d.saturating_sub(b'0')))
+            .saturating_add(carry);
+        out.push(b'0'.saturating_add(sum % 10));
+        carry = sum / 10;
+    }
+    if carry > 0 {
+        out.push(b'0'.saturating_add(carry));
+    }
+    out.reverse();
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// `a - b` for decimal magnitudes without leading zeros and `a >= b`.
+fn sub_magnitudes(a: &str, b: &str) -> String {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    let mut out = Vec::with_capacity(a.len());
+    let mut borrow = 0u8;
+    let mut bi = b.iter().rev();
+    for x in a.iter().rev() {
+        let x = x.saturating_sub(b'0');
+        let y = bi
+            .next()
+            .map_or(0, |d| d.saturating_sub(b'0'))
+            .saturating_add(borrow);
+        let (d, br) = if x >= y {
+            (x.saturating_sub(y), 0)
+        } else {
+            (x.saturating_add(10).saturating_sub(y), 1)
+        };
+        out.push(b'0'.saturating_add(d));
+        borrow = br;
+    }
+    while out.len() > 1 && out.last() == Some(&b'0') {
+        out.pop();
+    }
+    out.reverse();
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Orders decimal magnitudes without leading zeros.
+fn cmp_magnitudes(a: &str, b: &str) -> std::cmp::Ordering {
+    a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+}
+
+/// The signed decimal `(neg, mag) + k`, as a canonical signed string
+/// (`0` is never negative). Linear in the digits of `mag`.
+fn add_small(neg: bool, mag: &str, k: i128) -> String {
+    let kneg = k < 0;
+    let kmag = k.unsigned_abs().to_string();
+    let (rneg, rmag) = if neg == kneg {
+        (neg, add_magnitudes(mag, &kmag))
+    } else {
+        match cmp_magnitudes(mag, &kmag) {
+            std::cmp::Ordering::Equal => (false, "0".to_owned()),
+            std::cmp::Ordering::Greater => (neg, sub_magnitudes(mag, &kmag)),
+            std::cmp::Ordering::Less => (kneg, sub_magnitudes(&kmag, mag)),
+        }
+    };
+    if rneg && rmag != "0" {
+        format!("-{rmag}")
+    } else {
+        rmag
+    }
 }
 
 /// The radix a wide integer was written in, as the resolver passes it to
@@ -175,10 +273,58 @@ impl Number {
         }
     }
 
+    /// A float whose decimal value is outside the range of a double, from
+    /// the validated body `text` (digits, an optional `.` and an optional
+    /// exponent, no sign, no `_`) and the double it rounds to. `None` when
+    /// the value is zero, or the text is not a float body.
+    pub(crate) fn out_of_range(neg: bool, text: &str, value: f64) -> Option<Self> {
+        let (mantissa, exponent) = match text.find(['e', 'E']) {
+            Some(i) => (text.get(..i)?, text.get(i.checked_add(1)?..)?),
+            None => (text, ""),
+        };
+        let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        let all: String = int.chars().chain(frac.chars()).collect();
+        let trimmed = all.trim_start_matches('0');
+        let digits = trimmed.trim_end_matches('0');
+        if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        let zeros = trimmed.len().saturating_sub(digits.len());
+        // value = digits × 10^(exp0 - frac + zeros); the exponent of the first
+        // digit adds the digits after it.
+        let shift = i128::try_from(zeros)
+            .ok()?
+            .checked_add(i128::try_from(digits.len()).ok()?)?
+            .checked_sub(1)?
+            .checked_sub(i128::try_from(frac.len()).ok()?)?;
+        let (eneg, emag) = match exponent.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, exponent.strip_prefix('+').unwrap_or(exponent)),
+        };
+        let emag = emag.trim_start_matches('0');
+        let emag = if emag.is_empty() { "0" } else { emag };
+        if !emag.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        Some(Self {
+            n: N::OutOfRange(Box::new(OutOfRange {
+                neg,
+                digits: digits.into(),
+                exp: add_small(eneg, emag, shift).into(),
+                value,
+            })),
+        })
+    }
+
+    /// True for a float that a double cannot hold (see the type docs).
+    pub(crate) fn is_out_of_range(&self) -> bool {
+        matches!(self.n, N::OutOfRange(_))
+    }
+
     /// True for an integer (exact or wide).
     #[must_use]
     pub fn is_integer(&self) -> bool {
-        !matches!(self.n, N::Float(_))
+        !matches!(self.n, N::Float(_) | N::OutOfRange(_))
     }
 
     /// True for an integer too wide for `i128`/`u128`.
@@ -190,7 +336,7 @@ impl Number {
     /// True for a float (including infinities and NaN).
     #[must_use]
     pub fn is_float(&self) -> bool {
-        matches!(self.n, N::Float(_))
+        matches!(self.n, N::Float(_) | N::OutOfRange(_))
     }
 
     /// True for an integer that fits `i64`.
@@ -220,7 +366,11 @@ impl Number {
     /// True for a positive or negative infinite float.
     #[must_use]
     pub fn is_infinite(&self) -> bool {
-        matches!(self.n, N::Float(f) if f.is_infinite())
+        match &self.n {
+            N::Float(f) => f.is_infinite(),
+            N::OutOfRange(w) => w.value.is_infinite(),
+            _ => false,
+        }
     }
 
     /// The integer as `i128`, if it is one and fits.
@@ -258,11 +408,12 @@ impl Number {
     /// the nearest `f64`; `None` for wide integers.
     #[must_use]
     pub fn as_f64(&self) -> Option<f64> {
-        match self.n {
-            N::Float(f) => Some(f),
+        match &self.n {
+            N::Float(f) => Some(*f),
+            N::OutOfRange(w) => Some(w.value),
             N::Int { neg, mag } => {
-                let f = mag as f64;
-                Some(if neg { -f } else { f })
+                let f = *mag as f64;
+                Some(if *neg { -f } else { f })
             }
             N::Big(_) => None,
         }
@@ -271,8 +422,9 @@ impl Number {
     /// The float, only if this number is a float.
     #[must_use]
     pub fn as_float(&self) -> Option<f64> {
-        match self.n {
-            N::Float(f) => Some(f),
+        match &self.n {
+            N::Float(f) => Some(*f),
+            N::OutOfRange(w) => Some(w.value),
             _ => None,
         }
     }
@@ -654,6 +806,11 @@ impl PartialEq for Number {
             // exactly when non-NaN values are equal and signs of zero match).
             (N::Float(a), N::Float(b)) => (a.is_nan() && b.is_nan()) || a.to_bits() == b.to_bits(),
             (N::Big(a), N::Big(b)) => a.same_value(b),
+            // By exact value: `1e400` and `2e400` are different numbers
+            // although both round to infinity, and neither is `.inf`.
+            (N::OutOfRange(a), N::OutOfRange(b)) => {
+                a.neg == b.neg && a.digits == b.digits && a.exp == b.exp
+            }
             _ => false,
         }
     }
@@ -682,6 +839,12 @@ impl Hash for Number {
                 b.neg.hash(state);
                 state.write_u64(b.residue());
             }
+            N::OutOfRange(w) => {
+                state.write_u8(3);
+                w.neg.hash(state);
+                w.digits.hash(state);
+                w.exp.hash(state);
+            }
         }
     }
 }
@@ -709,6 +872,19 @@ impl fmt::Display for Number {
             // `{:?}` is the shortest round-trip form and always keeps a `.`
             // or an exponent (`1.0`, `1e300`).
             N::Float(x) => write!(f, "{x:?}"),
+            // The exact value as `d.ddde+X`: a `.` and a signed exponent,
+            // which every reader reads as a float.
+            N::OutOfRange(w) => {
+                let (first, rest) = w.digits.split_at(w.digits.len().min(1));
+                let rest = if rest.is_empty() { "0" } else { rest };
+                let sign = if w.neg { "-" } else { "" };
+                let exp = if w.exp.starts_with('-') {
+                    w.exp.to_string()
+                } else {
+                    format!("+{}", w.exp)
+                };
+                write!(f, "{sign}{first}.{rest}e{exp}")
+            }
             N::Big(b) => {
                 if b.neg {
                     f.write_str("-")?;
@@ -1169,5 +1345,71 @@ mod tests {
         let text = small.to_core_string();
         let reread = Number::big(true, Radix::Dec, text.strip_prefix('-').unwrap());
         assert_eq!(reread, small);
+    }
+
+    fn wide(neg: bool, text: &str, v: f64) -> Number {
+        Number::out_of_range(neg, text, v).unwrap()
+    }
+
+    #[test]
+    fn out_of_range_floats_compare_by_exact_value() {
+        let a = wide(false, "1e400", f64::INFINITY);
+        let b = wide(false, "2e400", f64::INFINITY);
+        assert_ne!(a, b);
+        assert_ne!(a, Number::from(f64::INFINITY));
+        // The same value written differently is equal and hashes alike.
+        let c = wide(false, "10e399", f64::INFINITY);
+        let d = wide(false, "0.1e401", f64::INFINITY);
+        let e = wide(false, "1000e397", f64::INFINITY);
+        assert_eq!(a, c);
+        assert_eq!(a, d);
+        assert_eq!(a, e);
+        assert_eq!(h(&a), h(&c));
+        assert_eq!(h(&a), h(&e));
+        assert_ne!(a, wide(true, "1e400", f64::NEG_INFINITY));
+        let tiny = wide(false, "1e-400", 0.0);
+        assert_ne!(tiny, wide(false, "2e-400", 0.0));
+        assert_ne!(tiny, Number::from(0.0));
+        assert_eq!(tiny.as_float(), Some(0.0));
+        assert_eq!(a.as_f64(), Some(f64::INFINITY));
+        assert!(a.is_float() && !a.is_integer());
+    }
+
+    #[test]
+    fn out_of_range_float_with_a_huge_exponent() {
+        let big = format!("1e{}", "9".repeat(100_000));
+        let a = wide(false, &big, f64::INFINITY);
+        let b = wide(false, &format!("10e{}8", "9".repeat(99_999)), f64::INFINITY);
+        // 10e(99..98) is 1e(99..99) written with the mantissa shifted.
+        assert_eq!(a, b);
+        assert_ne!(
+            a,
+            wide(false, &format!("1e{}", "9".repeat(99_999)), f64::INFINITY)
+        );
+    }
+
+    #[test]
+    fn out_of_range_zero_is_not_a_wide_float() {
+        assert!(Number::out_of_range(false, "0e999", 0.0).is_none());
+        assert!(Number::out_of_range(false, "0.000", 0.0).is_none());
+        assert!(Number::out_of_range(false, "x", 0.0).is_none());
+    }
+
+    #[test]
+    fn out_of_range_text_is_a_float_with_a_signed_exponent() {
+        assert_eq!(
+            wide(false, "2.5e400", f64::INFINITY).to_string(),
+            "2.5e+400"
+        );
+        assert_eq!(wide(true, "1e-400", -0.0).to_string(), "-1.0e-400");
+    }
+
+    #[test]
+    fn decimal_exponent_arithmetic() {
+        assert_eq!(add_small(false, "99", 1), "100");
+        assert_eq!(add_small(false, "5", -7), "-2");
+        assert_eq!(add_small(true, "5", 5), "0");
+        assert_eq!(add_small(true, "100", 1), "-99");
+        assert_eq!(add_small(true, "1", -1), "-2");
     }
 }

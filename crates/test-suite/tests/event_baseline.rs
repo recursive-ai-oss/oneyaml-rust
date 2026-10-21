@@ -112,6 +112,14 @@ fn recorded_message(src: &str, d: &Diagnostic, innermost: Option<u8>) -> Option<
         .and_then(|i| src.as_bytes().get(i))
         .copied();
     let text = src.get(start..d.primary.span.end).unwrap_or("");
+    // The continuation line that ends a quoted scalar is reported at its
+    // first character after the white space, with no width.
+    let at_line_start = text.is_empty()
+        && src.get(..start).is_some_and(|head| {
+            head.rsplit(['\n', '\r'])
+                .next()
+                .is_some_and(|line| line.bytes().all(|b| b == b' ' || b == b'\t'))
+        });
     const FLOW: &str = "flow content must be indented more than its block parent";
     const QUOTED: &str = "quoted scalar continuation line is not indented enough";
     const GLUED: &str = "unexpected content after a node";
@@ -131,10 +139,10 @@ fn recorded_message(src: &str, d: &Diagnostic, innermost: Option<u8>) -> Option<
             (at != innermost && innermost == Some(b'}'), FLOW)
         }
         "a single-quoted scalar is still open at a line that is not indented more than its parent; a closing `'` may be missing" => {
-            (at == Some(b'\''), QUOTED)
+            (at == Some(b'\'') || at_line_start, QUOTED)
         }
         "a double-quoted scalar is still open at a line that is not indented more than its parent; a closing `\"` may be missing" => {
-            (at == Some(b'"'), QUOTED)
+            (at == Some(b'"') || at_line_start, QUOTED)
         }
         "a `'` inside a single-quoted scalar ends it early" => {
             (before == Some(b'\'') && text.ends_with('\''), GLUED)

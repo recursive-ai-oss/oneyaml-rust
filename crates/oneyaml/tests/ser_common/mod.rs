@@ -1035,11 +1035,12 @@ pub fn gen_block_shape(r: &mut Rng) -> String {
 }
 
 /// A random tag with a spec-valid written form: a local `!…` tag or a
-/// `tag:` URI over awkward tag characters (escaped when written), or one of
-/// the usual shapes.
+/// `tag:` URI over awkward ASCII tag characters (escaped when written; a
+/// non-ASCII character has no written form that reads back), or one of the
+/// usual shapes.
 pub fn gen_tag(r: &mut Rng) -> String {
     const CHARS: &[&str] = &[
-        "a", "Z", "0", "!", "%", " ", "é", ",", "[", "]", "{", "}", "/", ":", "#", "~", "<", ">",
+        "a", "Z", "0", "!", "%", " ", "_", ",", "[", "]", "{", "}", "/", ":", "#", "~", "<", ">",
         "\"", "'", "^", "\\", "|", "-", ".", "%41", "\t", "*", "&",
     ];
     let body: String = (0..1 + r.below(5))
@@ -1052,7 +1053,7 @@ pub fn gen_tag(r: &mut Rng) -> String {
             "!t",
             "!long-tag.name",
             "tag:example.com,2000:x",
-            "!é",
+            "!tt",
             "tag:yaml.org,2002:binary",
         ][r.below(5)]
         .to_owned(),

@@ -271,6 +271,14 @@ fn drivers() -> Vec<(Code, Driver)> {
             events("%YAML\n---\n", Settings::new()),
         ),
         (
+            code::DUPLICATE_YAML_DIRECTIVE,
+            events("%YAML 1.2\n%YAML 1.2\n---\n", Settings::new()),
+        ),
+        (
+            code::INVALID_COMMENT_CHARACTER,
+            events("a: 1 # c\u{7f}\n", Settings::new()),
+        ),
+        (
             code::DIRECTIVE_IN_DOCUMENT,
             events("---\n%YAML 1.2\n---\n", Settings::new()),
         ),
@@ -368,7 +376,7 @@ fn drivers() -> Vec<(Code, Driver)> {
         ),
         (
             code::DUPLICATE_DIRECTIVE,
-            events("%YAML 1.2\n%YAML 1.2\n---\n", Settings::new()),
+            events("%TAG !a! x\n%TAG !a! y\n---\n", Settings::new()),
         ),
         (
             code::UNDEFINED_TAG_HANDLE,

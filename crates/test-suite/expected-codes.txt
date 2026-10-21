@@ -20,7 +20,7 @@ B63P Y0001      # %YAML followed by `...`, no document
 H7TQ Y0002      # %YAML with an extra parameter
 MUS6/00 Y0002   # %YAML 1.1#... (comment not separated: malformed version)
 MUS6/01 Y0003   # %YAML inside a document not ended with `...`
-SF5V Y1004      # second %YAML directive for one document
+SF5V Y0033      # second %YAML directive for one document
 SY6V Y0006      # block sequence after properties on the same line
 
 # %YAML 1.1 is parsed as 1.2 with a warning.

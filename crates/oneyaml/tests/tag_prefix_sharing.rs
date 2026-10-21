@@ -245,7 +245,7 @@ fn root_tag(src: &str) -> Tag {
 }
 
 /// Equal logical text is one tag, however spelled: `%TAG` + shorthand,
-/// verbatim, a split multi-byte character, overlapping prefixes, and
+/// verbatim, an escape split between prefix and suffix, overlapping prefixes, and
 /// `Tag::new`; equal, hash equal, ordered equal, written the same.
 #[test]
 fn spellings_of_one_tag_are_equal() {
@@ -256,15 +256,15 @@ fn spellings_of_one_tag_are_equal() {
         "--- !<tag:x,1:ab%C3%A9> v\n",
         "%TAG !e! tag:x,\n%TAG !f! tag:x,1:ab\n--- !f!%C3%A9 v\n",
     ];
-    let want = Tag::new("tag:x,1:ab\u{e9}");
+    let want = Tag::new("tag:x,1:ab%C3%A9");
     let s = std::collections::hash_map::RandomState::new();
     for src in spellings {
         let t = root_tag(src);
         assert_eq!(t, want, "{src:?}");
         assert_eq!(s.hash_one(&t), s.hash_one(&want), "{src:?}");
         assert_eq!(t.cmp(&want), std::cmp::Ordering::Equal);
-        assert_eq!(t.to_string(), "tag:x,1:ab\u{e9}");
-        assert!(t == "tag:x,1:ab\u{e9}" && t.len() == want.len());
+        assert_eq!(t.to_string(), "tag:x,1:ab%C3%A9");
+        assert!(t == "tag:x,1:ab%C3%A9" && t.len() == want.len());
         let doc = Document::parse(src).unwrap();
         assert_eq!(doc.root().unwrap().tag().unwrap().unwrap(), want);
         // The emitter writes it back as the same tag.

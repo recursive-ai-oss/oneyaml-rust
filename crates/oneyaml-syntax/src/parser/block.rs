@@ -11,8 +11,8 @@ use oneyaml_core::code::{
 };
 
 use super::scan::{
-    TagPrefix, TagScan, UriRead, Utf8, anchor_end, any_marker_at, blank_or_end, byte, indicator_at,
-    scan_tag, skip_white,
+    TagPrefix, TagScan, UriRead, anchor_end, any_marker_at, blank_or_end, byte, indicator_at,
+    scan_tag, skip_white, tag_blame,
 };
 use super::stream::ROOT;
 use super::{Frame, MapPhase, NodeCtx, Parser, State};
@@ -210,6 +210,9 @@ impl<'a> Parser<'a> {
                 seq_at_parent: true,
             });
         } else if indicator_at(src, i, b'-') {
+            // The dash may still start a key (`-x`); the white space after
+            // it is the first character that cannot belong.
+            self.blame.set(Some(i.saturating_add(1)));
             self.fail(
                 INVALID_INDENTATION,
                 "a sequence entry cannot start at the indentation of mapping keys",
@@ -351,9 +354,11 @@ impl<'a> Parser<'a> {
                     let from = i.saturating_add(1);
                     let end = anchor_end(src, from);
                     if end == from || !blank_or_end(src, end) {
+                        self.blame.set(Some(end));
                         return Err((INVALID_ANCHOR, "invalid anchor name"));
                     }
                     if props.anchor.is_some() {
+                        self.blame.set(Some(i));
                         return Err((DUPLICATE_PROPERTY, "a node can have only one anchor"));
                     }
                     props.anchor = Some(i);
@@ -361,10 +366,15 @@ impl<'a> Parser<'a> {
                     i = end;
                 }
                 Some(b'!') => {
-                    let scan = scan_tag(src, i).filter(|t| blank_or_end(src, t.end));
-                    let scan = scan.ok_or((INVALID_TAG, "malformed tag"))?;
+                    let scanned = scan_tag(src, i);
+                    let scan = scanned.filter(|t| blank_or_end(src, t.end));
+                    let Some(scan) = scan else {
+                        self.blame.set(Some(tag_blame(src, i, scanned)));
+                        return Err((INVALID_TAG, "malformed tag"));
+                    };
                     let prefix = validate_tag(src, &self.tags, scan, self.max_scalar_len)?;
                     if props.tag.is_some() {
+                        self.blame.set(Some(i));
                         return Err((DUPLICATE_PROPERTY, "a node can have only one tag"));
                     }
                     props.tag = Some(i);
@@ -411,13 +421,9 @@ pub(super) fn validate_tag(
     max_len: usize,
 ) -> Result<Option<usize>, Failure> {
     /// The default handles' prefixes (§6.8.2.2), read like a `%TAG` one.
-    const PRIMARY: UriRead = UriRead {
-        len: 1,
-        utf8: Some(Utf8::START),
-    };
+    const PRIMARY: UriRead = UriRead { len: 1 };
     const SECONDARY: UriRead = UriRead {
         len: "tag:yaml.org,2002:".len(),
-        utf8: Some(Utf8::START),
     };
     if t.form == TagForm::NonSpecific {
         return Ok(None);
@@ -436,14 +442,10 @@ pub(super) fn validate_tag(
         _ => (None, UriRead::EMPTY),
     };
     // §6.8.2.2: the tag is the URI prefix + suffix, decoded as one
-    // string (what `read::tag_at` resolves), so a prefix escape counts and a
-    // character may be split across the two. The prefix
-    // was read once at its directive; this continues from its end state,
+    // string (what `read::tag_at` resolves), so a prefix escape counts. The
+    // prefix was read once at its directive; this continues from its end,
     // O(suffix) per tag.
     let whole = read.then(suffix);
-    if !whole.is_utf8() {
-        return Err((INVALID_TAG, "tag is not valid UTF-8 after %-decoding"));
-    }
     // A resolved tag is bounded like a scalar.
     if whole.len > max_len {
         return Err((SCALAR_TOO_LONG, "the resolved tag is too long"));

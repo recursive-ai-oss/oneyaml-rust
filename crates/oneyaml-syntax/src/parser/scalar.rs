@@ -20,7 +20,7 @@ use oneyaml_core::code::{
 use oneyaml_core::{Code, Replacement, Span};
 
 use super::scan::{
-    any_marker_at, break_len, byte, char_at, is_nb_json, plain_line_end, skip_white,
+    any_marker_at, break_len, byte, char_at, is_nb_json, line_end, plain_line_end, skip_white,
 };
 
 /// Where a scalar value is built: a `String`, or a byte count.
@@ -242,17 +242,39 @@ pub(super) fn plain_value<S: Sink>(text: &str) -> S {
     out
 }
 
+/// The value of the `n` hexadecimal digits at `from`, if they are all there.
+fn hex_value(src: &str, from: usize, n: usize) -> Option<u32> {
+    let digits = src.get(from..from.saturating_add(n))?;
+    if digits.len() != n || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    u32::from_str_radix(digits, 16).ok()
+}
+
 /// Decodes the escape whose character follows the `\` at `e - 1`
 /// (`c-ns-esc-char`, production 62): the char and the escape's length after
 /// the backslash.
 fn escape(src: &str, e: usize) -> Option<(char, usize)> {
     let hex = |n: usize| -> Option<(char, usize)> {
         let from = e.saturating_add(1);
-        let digits = src.get(from..from.saturating_add(n))?;
-        if digits.len() != n || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+        let v = hex_value(src, from, n)?;
+        if n == 4 && (0xD800..0xDC00).contains(&v) {
+            // A high surrogate escape directly followed by a low surrogate
+            // escape is the one character they encode, as JSON writes a
+            // character outside the Basic Multilingual Plane (RFC 8259 §7).
+            let next = from.saturating_add(4);
+            if src.get(next..next.saturating_add(2)) == Some("\\u") {
+                let low = hex_value(src, next.saturating_add(2), 4)?;
+                if (0xDC00..0xE000).contains(&low) {
+                    let high = v.saturating_sub(0xD800).checked_shl(10)?;
+                    let c = high
+                        .saturating_add(low.saturating_sub(0xDC00))
+                        .saturating_add(0x10000);
+                    return Some((char::from_u32(c)?, 11));
+                }
+            }
             return None;
         }
-        let v = u32::from_str_radix(digits, 16).ok()?;
         Some((char::from_u32(v)?, n.saturating_add(1)))
     };
     let simple = match char_at(src, e)? {
@@ -279,6 +301,117 @@ fn escape(src: &str, e: usize) -> Option<(char, usize)> {
         _ => return None,
     };
     Some((simple, 1))
+}
+
+/// Where the escape whose character is at `e` (`escape` refused it) stops
+/// being one: the unknown letter, the first character that is no hexadecimal
+/// digit, or the character after digits that name no character.
+fn escape_fault(src: &str, e: usize) -> usize {
+    let digits = match char_at(src, e) {
+        Some('x') => 2,
+        Some('u') => 4,
+        Some('U') => 8,
+        _ => return e,
+    };
+    let from = e.saturating_add(1);
+    (0..digits)
+        .map(|k| from.saturating_add(k))
+        .find(|k| !byte(src, *k).is_some_and(|b| b.is_ascii_hexdigit()))
+        .unwrap_or_else(|| from.saturating_add(digits))
+}
+
+/// The first character that cannot belong to the quoted scalar that failed
+/// with `code` (an invalid escape, or no closing quote), for a scalar
+/// whose opening quote is the first quote at or after `start`. `None` for
+/// any other code.
+pub(super) fn quoted_fault(src: &str, start: usize, code: Code) -> Option<usize> {
+    if code != INVALID_ESCAPE && code != UNTERMINATED_QUOTED_SCALAR {
+        return None;
+    }
+    let line = src.get(start..line_end(src, start))?;
+    let open = start.saturating_add(line.find(['"', '\''])?);
+    if code == INVALID_ESCAPE {
+        let mut i = open.saturating_add(1);
+        while let Some(c) = char_at(src, i) {
+            if c == '"' {
+                return None;
+            }
+            if c != '\\' {
+                i = i.saturating_add(c.len_utf8());
+                continue;
+            }
+            let e = i.saturating_add(1);
+            let br = break_len(src, e);
+            if br > 0 {
+                i = e.saturating_add(br);
+            } else if let Some((_, len)) = escape(src, e) {
+                i = e.saturating_add(len);
+            } else {
+                return Some(escape_fault(src, e));
+            }
+        }
+        return None;
+    }
+    // No closing quote: the scalar runs to the end of the input, or to a
+    // document marker at the start of a line, whichever comes first.
+    let mut i = line_end(src, open);
+    loop {
+        let br = break_len(src, i);
+        if br == 0 {
+            return Some(src.len());
+        }
+        let next = i.saturating_add(br);
+        if any_marker_at(src, next) {
+            return Some(next);
+        }
+        i = line_end(src, next);
+    }
+}
+
+/// Where a quoted scalar fails with `QUOTED_SCALAR_INDENTATION`: the first
+/// character of the first continuation line that is not indented more than
+/// `parent`, for the scalar whose opening quote is at `open`. That character
+/// (often the closing quote itself) is the first that cannot belong.
+/// `None` when the scalar does not fail that way.
+pub(super) fn indentation_fault(
+    src: &str,
+    open: usize,
+    parent: Option<usize>,
+    double: bool,
+) -> Option<usize> {
+    let mut i = open.saturating_add(1);
+    while let Some(c) = char_at(src, i) {
+        match c {
+            '\'' if !double && byte(src, i.saturating_add(1)) == Some(b'\'') => {
+                i = i.saturating_add(2);
+            }
+            '\'' if !double => return None,
+            '"' if double => return None,
+            '\\' if double => {
+                let e = i.saturating_add(1);
+                if break_len(src, e) > 0 {
+                    let line = next_line(src, e, parent);
+                    match check_line(src, &line, parent, double) {
+                        Ok(()) => i = line.content,
+                        Err((QUOTED_SCALAR_INDENTATION, _)) => return Some(line.content),
+                        Err(_) => return None,
+                    }
+                } else {
+                    i = e.saturating_add(escape(src, e).map_or(1, |(_, len)| len));
+                }
+            }
+            '\n' | '\r' => {
+                let line = next_line(src, i, parent);
+                match check_line(src, &line, parent, double) {
+                    Ok(()) => i = line.content,
+                    Err((QUOTED_SCALAR_INDENTATION, _)) => return Some(line.content),
+                    Err(_) => return None,
+                }
+            }
+            c => i = i.saturating_add(c.len_utf8()),
+        }
+    }
+    None
 }
 
 /// What [`escape_scan`] found on the first line of a double-quoted scalar

@@ -151,7 +151,7 @@ pub enum E {
     EmptyTuple(),
     #[serde(rename = "")]
     Nameless(String),
-    #[serde(rename = "a b!é")]
+    #[serde(rename = "a b!%")]
     Odd(Vec<u8>),
     #[serde(rename = "multi\nline")]
     MultiLine(u8),

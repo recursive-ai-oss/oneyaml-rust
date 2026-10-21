@@ -33,7 +33,7 @@ fn scores_are_pinned() {
     let expected: [Row; 6] = [
         // 4H7K is the one corrected-prefix miss: we do not emit its recorded
         // `-DOC` before the error (see docs/conformance.md).
-        ("oneyaml-syntax", 308, 94, 308, 94, 85, 93, 308),
+        ("oneyaml-syntax", 308, 94, 308, 94, 83, 93, 308),
         ("saphyr-parser", 308, 94, 308, 94, 55, 55, 0),
         // Reproduces the recorded 4H7K prefix, `-DOC` included, so its
         // corrected count equals its vendored one.
@@ -41,7 +41,7 @@ fn scores_are_pinned() {
         // Identical to matrix.yaml.info's c-libyaml-event row (same suite
         // commit 6e6c296a): 252 ok, 78/94 invalid, 330/402. This is the
         // cross-check that the full-fidelity adapter adds no failures.
-        ("libyaml (unsafe-libyaml)", 252, 78, 257, 78, 50, 57, 0),
+        ("libyaml (unsafe-libyaml)", 252, 78, 257, 78, 50, 56, 0),
         ("yaml-edit", 0, 25, 308, 25, 0, 0, 308),
         ("yaml-edit + Validator", 0, 94, 290, 94, 0, 0, 308),
     ];

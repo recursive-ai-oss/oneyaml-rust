@@ -16,12 +16,20 @@
 # bin/yaml-to-test). Both corrections restore the marker and change nothing
 # else. 4H7K's recorded `-DOC` before the error is kept: it is what the
 # spec reference parser (YAML::Parser 0.0.5 via YAML::PP::Ref 0.02) emits,
-# yaml-rust2 0.13.0 reproduces the recorded prefix, and BS4K and EB22 carry
-# the same `-DOC`-before-the-error pattern. Current YAML::PP v0.41.0 omits
-# it, but it also disagrees with 28 of the 94 recorded error trees, so its
-# output is not evidence that a recorded tree is defective.
+# and yaml-rust2 0.13.0 reproduces the recorded prefix. Current YAML::PP
+# v0.41.0 omits it, but it also disagrees with 28 of the 94 recorded error
+# trees, so its output is not evidence that a recorded tree is defective.
 4H7K events +STR; +DOC ---; +SEQ []; =VAL :a; =VAL :b; =VAL :c; -SEQ; -DOC -- test.event omits the [] flow marker on +SEQ
 T833 events +STR; +DOC ---; +MAP {}; =VAL :foo -- test.event omits the {} flow marker on +MAP
+
+# src/BS4K.yaml and src/EB22.yaml on main record `-DOC` before the error.
+# A document ends only at its end marker, at the next document start or at
+# the end of the stream (YAML 1.2.2 section 9.1, productions 211 and 205),
+# and a plain scalar root is not ended by the line that follows it, so the
+# content after it (`word2`, `%YAML 1.2`) is an error inside the open
+# document and no `-DOC` comes first.
+BS4K events +STR; +DOC; =VAL :word1 -- recorded -DOC before the error closes a document that is still open
+EB22 events +STR; +DOC ---; =VAL :scalar1 -- recorded -DOC before the error closes a document that is still open
 
 # src/MUS6.yaml on main: the second entry (`%YAML 1.2` / `---` / `%YAML 1.2`
 # / `---`) has no `tree:`, so bin/YAMLTestSuite.pm (lines 83-90) copies the

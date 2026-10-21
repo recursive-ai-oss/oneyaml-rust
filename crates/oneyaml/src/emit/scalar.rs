@@ -426,11 +426,12 @@ impl Rules {
     /// would cost O(d²), and neither `-0x…` nor base 60 is Core.
     pub(crate) fn write_number(&self, out: &mut String, n: &Number) -> Result<(), Error> {
         match n.as_float() {
-            Some(f) => {
+            // A float no double holds is written with its exact value.
+            Some(f) if !n.is_out_of_range() => {
                 self.write_float(out, f);
                 Ok(())
             }
-            None => n.write_core(out, MAX_CONVERTED_DIGITS).map_err(|()| {
+            _ => n.write_core(out, MAX_CONVERTED_DIGITS).map_err(|()| {
                 Error::new(
                     code::UNREPRESENTABLE_VALUE,
                     format!(
@@ -546,23 +547,25 @@ const YAML_PREFIX: &str = "tag:yaml.org,2002:";
 
 /// Writes the tag property for a resolved tag: `!local` and
 /// `!!name` (for `tag:yaml.org,2002:name`) as shorthands, any other tag
-/// verbatim as `!<…>`. Characters a tag cannot hold literally are
-/// `%`-escaped (UTF-8), which the reader decodes back.
+/// verbatim as `!<…>`. ASCII characters a tag cannot hold literally are
+/// `%`-escaped, which the reader decodes back.
 ///
 /// # Errors
 ///
 /// `Err(())` for a tag no output reads back as the same custom tag: the
-/// empty tag, the core tags the resolver interprets, and every tag with no
-/// spec-valid form (YAML 1.2.2 §6.8.2.1, Example 6.25): `!` alone (the
-/// non-specific tag, `!<!>` is invalid) and a global tag that is not a URI
-/// with a scheme (`!<$:?>` is invalid).
+/// empty tag, the core tags the resolver interprets, a tag with a
+/// non-ASCII character (a reader keeps the escapes of non-ASCII bytes as
+/// written, so no spelling reads back as that character, §5.6), and every
+/// tag with no spec-valid form (YAML 1.2.2 §6.8.2.1, Example 6.25): `!`
+/// alone (the non-specific tag, `!<!>` is invalid) and a global tag that is
+/// not a URI with a scheme (`!<$:?>` is invalid).
 #[allow(clippy::result_unit_err, reason = "the caller builds the diagnostic")]
 ///
 /// `tag` may be in two pieces (a shared `%TAG` prefix and its
 /// suffix); it is written without joining them.
 pub(crate) fn write_tag<'t>(out: &mut String, tag: impl Into<TagStr<'t>>) -> Result<(), ()> {
     let tag = tag.into();
-    if tag.len() == 0 || tag.is("!") {
+    if tag.len() == 0 || tag.is("!") || !tag.bytes().all(|b| b.is_ascii()) {
         return Err(());
     }
     if let Some(name) = tag.strip_prefix(YAML_PREFIX) {
@@ -600,7 +603,7 @@ pub(crate) fn write_tag<'t>(out: &mut String, tag: impl Into<TagStr<'t>>) -> Res
 #[allow(clippy::result_unit_err, reason = "the caller builds the diagnostic")]
 pub(crate) fn write_local_tag<'t>(out: &mut String, name: impl Into<TagStr<'t>>) -> Result<(), ()> {
     let name = name.into();
-    if name.len() == 0 {
+    if name.len() == 0 || !name.bytes().all(|b| b.is_ascii()) {
         return Err(());
     }
     out.push('!');
@@ -832,8 +835,21 @@ fn foreign_yaml11(text: &str) -> bool {
         || yaml11_float(text)
         || underscore_int(text)
         || prefixed_int_any_case(text)
+        || signed_twice(text)
         || psych_number(text)
         || go_number(text)
+}
+
+/// Two or more signs and then a digit, `.` or `_` (`+-1`, `++2`, `-+1.5`):
+/// a reader that strips one sign and parses the rest with a parser that
+/// takes a sign again reads a number.
+fn signed_twice(text: &str) -> bool {
+    let b = text.as_bytes();
+    let sign = |c: &u8| matches!(c, b'-' | b'+');
+    b.iter().take_while(|c| sign(c)).count() >= 2
+        && b.iter()
+            .find(|c| !sign(c))
+            .is_some_and(|c| c.is_ascii_digit() || matches!(c, b'.' | b'_'))
 }
 
 /// Ruby Psych's scalar scanner (one of the readers every plain scalar must
@@ -920,7 +936,7 @@ fn psych_base60(s: &str) -> bool {
 /// case, or a leading `0` for octal) or, when it matches the YAML float
 /// pattern, `strconv.ParseFloat` (`+_1`, `1e_5`, `0_x1F`, `1_e_5`).
 fn go_number(text: &str) -> bool {
-    if !text.starts_with(|c: char| c.is_ascii_digit() || matches!(c, '-' | '+' | '.')) {
+    if !text.starts_with(|c: char| c.is_ascii_digit() || matches!(c, '-' | '+' | '.' | '_')) {
         return false;
     }
     if !text.contains('_') {
@@ -985,18 +1001,25 @@ fn go_float(s: &[u8]) -> bool {
     i == s.len()
 }
 
-/// `[-+]?0[xXoObB][0-9a-fA-F_,]+`: radix prefixes in any case, which some
+/// `[-+]?0[xXoObB][-+]?[0-9a-fA-F_,]+`: radix prefixes in any case, which some
 /// readers (serde-saphyr: `0X1F`) take for numbers though no schema does,
 /// and with `,` among the digits, which Ruby Psych's legacy integer
 /// pattern accepts for binary and hexadecimal (`0b1,0` is 2, `0x,1F` is
-/// 31: it deletes `,` and `_` before parsing).
+/// 31: it deletes `,` and `_` before parsing). A sign after the prefix
+/// (`0b-1`, `0X+F`) is quoted too: some readers strip it and parse the rest.
 fn prefixed_int_any_case(text: &str) -> bool {
     let s = text.strip_prefix(['-', '+']).unwrap_or(text);
     let mut b = s.bytes();
-    b.next() == Some(b'0')
-        && matches!(b.next(), Some(b'x' | b'X' | b'o' | b'O' | b'b' | b'B'))
-        && s.len() > 2
-        && b.all(|c| c.is_ascii_hexdigit() || matches!(c, b'_' | b','))
+    if b.next() != Some(b'0') || !matches!(b.next(), Some(b'x' | b'X' | b'o' | b'O' | b'b' | b'B'))
+    {
+        return false;
+    }
+    let digits = s.get(2..).unwrap_or("");
+    let digits = digits.strip_prefix(['-', '+']).unwrap_or(digits);
+    !digits.is_empty()
+        && digits
+            .bytes()
+            .all(|c| c.is_ascii_hexdigit() || matches!(c, b'_' | b','))
 }
 
 /// `[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}` followed by the end, `T`/`t`, or
@@ -1467,7 +1490,9 @@ mod tests {
         };
         assert_eq!(t("!color").unwrap(), "!color");
         assert_eq!(t("!a!b c").unwrap(), "!a%21b%20c");
-        assert_eq!(t("!é").unwrap(), "!%C3%A9");
+        // A reader keeps the escapes of non-ASCII bytes as written, so a tag
+        // with such a character has no written form.
+        assert!(t("!é").is_err());
         // §6.8.2.1 Example 6.25: `!<!>` and `!<$:?>` are invalid, so
         // those tags have no written form.
         assert!(t("!").is_err());
@@ -1638,6 +1663,7 @@ mod tests {
             || yaml11_float(text)
             || underscore_int(text)
             || prefixed_int_any_case(text)
+            || signed_twice(text)
             || WORDS.iter().any(|w| text.eq_ignore_ascii_case(w))
             || psych_number(text)
             || go_number(text)
@@ -1839,6 +1865,21 @@ mod tests {
             "+0b__",
             // Go reads `1.e3` (yamlStyleFloat) as 1000.
             "1.e3",
+            // Two signs, a sign after a radix prefix, and `_` removed.
+            "+-1",
+            "--1",
+            "-+1.5",
+            "++2",
+            "0X-F",
+            "0B+1",
+            "0b-1",
+            "0o+7",
+            "0b-1_0",
+            "_1",
+            "+_1",
+            "1e3_",
+            "0_x123",
+            "1_0.5",
         ] {
             assert!(foreign_yaml11(s), "{s}");
         }
@@ -1861,6 +1902,13 @@ mod tests {
             "1_a",
             ".in",
             "inf",
+            "--",
+            "+-",
+            "--a",
+            "0b-",
+            "_",
+            "__",
+            "_a",
         ] {
             assert!(!foreign_yaml11(s), "{s}");
         }

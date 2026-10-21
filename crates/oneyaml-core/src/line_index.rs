@@ -49,7 +49,11 @@ struct Wide {
 ///
 /// Built once in O(n); each lookup is O(log n) (binary searches over the
 /// line starts and the multi-byte characters), whatever the line length.
-/// Line breaks are `\n`, `\r\n`, and a lone `\r` (YAML 1.2.2 §5.4). An
+/// Line breaks are `\n`, `\r\n`, and a lone `\r` (YAML 1.2.2 §5.4). A byte
+/// order mark at the very start of the text is not a character of the
+/// document (§5.2): columns counted in `char`s or UTF-16 units on the first
+/// line leave it out, so the first character after it is column 0. Byte
+/// columns count it, because byte offsets do. An
 /// offset past the end, or inside a multi-byte character, has no position
 /// (`None`); nothing here panics.
 ///
@@ -76,6 +80,8 @@ pub struct LineIndex {
     /// Every multi-byte character, in order.
     wide: Vec<Wide>,
     len: usize,
+    /// The text starts with a byte order mark.
+    bom: bool,
 }
 
 impl LineIndex {
@@ -109,6 +115,7 @@ impl LineIndex {
             starts,
             wide,
             len: src.len(),
+            bom: src.starts_with('\u{feff}'),
         }
     }
 
@@ -170,6 +177,12 @@ impl LineIndex {
             ColumnUnit::Char => bytes.checked_sub(at_chars.checked_sub(start_chars)?)?,
             ColumnUnit::Utf16 => bytes.checked_sub(at_utf16.checked_sub(start_utf16)?)?,
             ColumnUnit::Utf8 => bytes,
+        };
+        // The mark is one character and one UTF-16 unit wide.
+        let column = if self.bom && line == 0 && unit != ColumnUnit::Utf8 && offset > 0 {
+            column.saturating_sub(1)
+        } else {
+            column
         };
         Some(LineCol { line, column })
     }
@@ -263,6 +276,26 @@ mod tests {
             ))
         );
         assert_eq!(idx.span(crate::Span::new(0, 999), ColumnUnit::Char), None);
+    }
+
+    #[test]
+    fn a_leading_byte_order_mark_is_not_a_column() {
+        let src = "\u{feff}a: \u{e9}x\n\u{feff}b\n";
+        let idx = LineIndex::new(src);
+        let x = src.find('x').unwrap();
+        // Bytes count the mark; characters and UTF-16 units do not.
+        assert_eq!(idx.line_col(x, ColumnUnit::Utf8), Some(LineCol::new(0, 8)));
+        assert_eq!(idx.line_col(x, ColumnUnit::Char), Some(LineCol::new(0, 4)));
+        assert_eq!(idx.line_col(x, ColumnUnit::Utf16), Some(LineCol::new(0, 4)));
+        // The first character after the mark is column 0; the mark itself too.
+        assert_eq!(idx.line_col(3, ColumnUnit::Char), Some(LineCol::new(0, 0)));
+        assert_eq!(idx.line_col(0, ColumnUnit::Char), Some(LineCol::new(0, 0)));
+        // Only a mark at the start of the text is left out.
+        let second = src.rfind('b').unwrap();
+        assert_eq!(
+            idx.line_col(second, ColumnUnit::Char),
+            Some(LineCol::new(1, 1))
+        );
     }
 
     #[test]

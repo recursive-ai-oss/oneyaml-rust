@@ -190,7 +190,9 @@ impl Numbers<'_> {
                         .get(..x)
                         .and_then(|p| p.iter().rposition(|b| is_break(*b)))
                         .map_or(0, |k| k.saturating_add(1));
-                    chars(start, x)
+                    // A byte order mark at the start of the text is no column.
+                    let mark = usize::from(start == 0 && x > 0 && src.starts_with('\u{feff}'));
+                    chars(start, x).saturating_sub(mark)
                 };
                 (self.line(src, x), column)
             }

@@ -298,7 +298,6 @@ fn every_error_code_is_reachable() {
         ("!!\n", c::INVALID_TAG),
         ("!a\"b\" c\n", c::INVALID_TAG),
         ("!<> a\n", c::INVALID_TAG),
-        ("!a%ff b\n", c::INVALID_TAG),
         ("&a *b\n", c::ALIAS_WITH_PROPERTIES),
         ("!!str\n*b\n", c::ALIAS_WITH_PROPERTIES),
         ("&a &b c\n", c::DUPLICATE_PROPERTY),
@@ -345,7 +344,8 @@ fn every_error_code_is_reachable() {
         ("[a\n]: b\n", c::MULTILINE_IMPLICIT_KEY),
         (long_key.as_str(), c::IMPLICIT_KEY_TOO_LONG),
         ("%YAML 2.0\n---\na\n", c::YAML_VERSION_UNSUPPORTED_MAJOR),
-        ("%YAML 1.2\n%YAML 1.2\n---\n", c::DUPLICATE_DIRECTIVE),
+        ("%YAML 1.2\n%YAML 1.2\n---\n", c::DUPLICATE_YAML_DIRECTIVE),
+        ("# a\u{7f}\n", c::INVALID_COMMENT_CHARACTER),
         ("%TAG !a! x\n%TAG !a! y\n---\n", c::DUPLICATE_DIRECTIVE),
         ("!e!x a\n", c::UNDEFINED_TAG_HANDLE),
         ("%TAG !e! x\n---\na\n--- !e!x b\n", c::UNDEFINED_TAG_HANDLE),
@@ -1308,4 +1308,44 @@ fn a_mark_is_reported_with_the_error_it_causes() {
         codes("%FOO bar\n--- a\n"),
         vec![c::RESERVED_DIRECTIVE_IGNORED]
     );
+}
+
+/// The byte-level pre-check of a comment never hides a character that is not
+/// printable, at any length and position.
+#[test]
+fn the_comment_pre_check_agrees_with_the_character_check() {
+    let chars = [
+        'a',
+        ' ',
+        '\t',
+        '\u{1}',
+        '\u{1f}',
+        '\u{7f}',
+        '\u{80}',
+        '\u{85}',
+        '\u{9f}',
+        '\u{a0}',
+        '\u{e9}',
+        '\u{feff}',
+        '\u{fffe}',
+        '\u{ffff}',
+        '\u{1F600}',
+    ];
+    for len in 0..12 {
+        for pos in 0..len.max(1) {
+            for c in chars {
+                let mut s = String::from("#");
+                s.push_str(&"a".repeat(pos));
+                s.push(c);
+                s.push_str(&"b".repeat(len - pos));
+                let got =
+                    super::comment_char_diagnostic(&s, 0, s.len()).map(|d| d.primary.span.start);
+                let want = s
+                    .char_indices()
+                    .find(|(_, ch)| !super::scan::is_printable(*ch))
+                    .map(|(k, _)| k);
+                assert_eq!(got, want, "{s:?}");
+            }
+        }
+    }
 }

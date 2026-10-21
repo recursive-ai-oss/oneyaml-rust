@@ -50,7 +50,7 @@ pub(crate) fn resolve_tag<'a>(t: &TagSource<'a>) -> Option<Tag<'a>> {
     let text = src.get(at.start..at.end)?;
     let resolved = match t.form {
         TagForm::NonSpecific => Cow::Borrowed("!"),
-        TagForm::Verbatim if suffix.contains('%') => Cow::Owned(percent_decode_concat("", suffix)?),
+        TagForm::Verbatim if suffix.contains('%') => Cow::Owned(percent_decode_concat("", suffix)),
         TagForm::Verbatim => Cow::Borrowed(suffix),
         _ => {
             let prefix = match (t.prefix(), handle) {
@@ -67,7 +67,7 @@ pub(crate) fn resolve_tag<'a>(t: &TagSource<'a>) -> Option<Tag<'a>> {
                 // §6.8.2.2: prefix + suffix is one URI, decoded
                 // as one string, so `%TAG !e! a:%21` + `!e!x`, `!<a:%21x>` and
                 // `%TAG !e! a:` + `!e!%21x` all resolve to `a:!x`.
-                Cow::Owned(percent_decode_concat(prefix, suffix)?)
+                Cow::Owned(percent_decode_concat(prefix, suffix))
             }
         }
     };

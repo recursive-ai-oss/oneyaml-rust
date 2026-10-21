@@ -4,7 +4,8 @@
 
 use oneyaml_core::code::{
     ALIAS_WITH_PROPERTIES, DUPLICATE_PROPERTY, INVALID_ANCHOR, INVALID_NODE_START, INVALID_TAG,
-    MISSING_FLOW_SEPARATOR, MULTILINE_IMPLICIT_KEY, SCALAR_TOO_LONG, UNEXPECTED_FLOW_INDICATOR,
+    MISSING_FLOW_SEPARATOR, MULTILINE_IMPLICIT_KEY, QUOTED_SCALAR_INDENTATION, SCALAR_TOO_LONG,
+    UNEXPECTED_FLOW_INDICATOR,
 };
 
 use super::Owed;
@@ -12,11 +13,19 @@ use super::block::validate_tag;
 use super::flow::{Flow, Frame, Kind, Slot, State, Stop, separated};
 use super::scalar::{self, Count};
 use super::scan::{
-    anchor_end, byte, indicator_at, is_plain_first, plain_line_end, scan_tag, skip_white,
+    anchor_end, byte, indicator_at, is_plain_first, plain_line_end, scan_tag, skip_white, tag_blame,
 };
 use crate::event::{
     CollectionStyle, Event, EventKind, NodeInfo, Properties, ScalarStyle, TriviaKind,
 };
+
+/// What may follow a property (an anchor or a tag) of a flow node: white
+/// space, the end, or a flow indicator that ends the node, which then has
+/// no content. An opening bracket is not one: a collection cannot follow
+/// properties without separation (production 161).
+fn property_separated(src: &str, i: usize) -> bool {
+    separated(src, i) && !matches!(byte(src, i), Some(b'[' | b'{'))
+}
 
 impl<'a> Flow<'_, 'a> {
     /// The node owed by the top frame (or the collection itself when the
@@ -35,10 +44,12 @@ impl<'a> Flow<'_, 'a> {
             Some(b'&') => {
                 let from = i.saturating_add(1);
                 let end = anchor_end(src, from);
-                if end == from || !separated(src, end) {
+                if end == from || !property_separated(src, end) {
+                    self.blame = Some(end);
                     return Err((INVALID_ANCHOR, "invalid anchor name"));
                 }
                 if self.props.anchor.is_some() {
+                    self.blame = Some(i);
                     return Err((DUPLICATE_PROPERTY, "a node can have only one anchor"));
                 }
                 self.props.anchor = Some(i);
@@ -46,10 +57,15 @@ impl<'a> Flow<'_, 'a> {
                 Ok(())
             }
             Some(b'!') => {
-                let scan = scan_tag(src, i).filter(|t| separated(src, t.end));
-                let scan = scan.ok_or((INVALID_TAG, "malformed tag"))?;
+                let scanned = scan_tag(src, i);
+                let scan = scanned.filter(|t| property_separated(src, t.end));
+                let Some(scan) = scan else {
+                    self.blame = Some(tag_blame(src, i, scanned));
+                    return Err((INVALID_TAG, "malformed tag"));
+                };
                 let prefix = validate_tag(src, self.tags, scan, self.max_scalar_len)?;
                 if self.props.tag.is_some() {
+                    self.blame = Some(i);
                     return Err((DUPLICATE_PROPERTY, "a node can have only one tag"));
                 }
                 self.props.tag = Some(i);
@@ -74,7 +90,11 @@ impl<'a> Flow<'_, 'a> {
             }
             Some(q @ (b'"' | b'\'')) => {
                 let double = q == b'"';
-                let f = scalar::quoted::<Count>(src, i, self.min, double)?;
+                let f = scalar::quoted::<Count>(src, i, self.min, double).inspect_err(|e| {
+                    if e.0 == QUOTED_SCALAR_INDENTATION {
+                        self.blame = scalar::indentation_fault(src, i, self.min, double);
+                    }
+                })?;
                 self.check_len(f.len)?;
                 let style = if double {
                     ScalarStyle::DoubleQuoted

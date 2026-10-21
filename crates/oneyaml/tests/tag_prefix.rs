@@ -42,8 +42,9 @@ fn the_three_spellings_of_one_uri_agree() {
         assert_eq!(root_tag(src), "tag:x,1:!a", "{src:?}");
         assert_eq!(from_str::<Value>(src).unwrap(), want, "{src:?}");
     }
-    // Split multibyte escapes, as `é` written whole.
-    let e = tagged("tag:x,1:é", Value::from("a"));
+    // Escapes of non-ASCII bytes are not expanded: split or whole, the tag
+    // keeps them as presented.
+    let e = tagged("tag:x,1:%C3%A9", Value::from("a"));
     for src in [
         "%TAG !e! tag:x,1:%C3\n--- !e!%A9 a\n",
         "%TAG !e! tag:x,1:\n--- !e!%C3%A9 a\n",
@@ -62,7 +63,7 @@ fn emitted_tags_read_back_to_the_same_uri() {
         ("%TAG !e! tag:x,1:%21\n--- !e!a v\n", "!<tag:x,1:!a> v\n"),
         (
             "%TAG !e! tag:x,1:%C3\n--- !e!%A9 a\n",
-            "!<tag:x,1:%C3%A9> a\n",
+            "!<tag:x,1:%25C3%25A9> a\n",
         ),
         (
             "%TAG !e! tag:x,1:%25\n--- !e!41 a\n",
@@ -78,35 +79,36 @@ fn emitted_tags_read_back_to_the_same_uri() {
     }
 }
 
+/// Escapes of non-ASCII bytes are kept as written, so a tag is never
+/// invalid for what its escapes would decode to.
 #[test]
-fn invalid_utf8_after_decoding_is_y0013_everywhere() {
-    for src in [
-        "%TAG !e! %FF\n--- !e!x a\n",
-        "%TAG !e! tag:x,1:%C3\n--- !e!x a\n",
-        "%TAG ! !%FF\n--- !x a\n",
-        "%TAG !! tag:yaml.org,2002:%FF\n--- !!str a\n",
-        "!a%FF x\n",
+fn escapes_that_are_no_utf8_are_kept_everywhere() {
+    for (src, tag) in [
+        ("%TAG !e! %FF\n--- !e!x a\n", "%FFx"),
+        ("%TAG !e! tag:x,1:%C3\n--- !e!x a\n", "tag:x,1:%C3x"),
+        ("%TAG ! !%FF\n--- !x a\n", "!%FFx"),
+        (
+            "%TAG !! tag:yaml.org,2002:%FF\n--- !!str a\n",
+            "tag:yaml.org,2002:%FFstr",
+        ),
+        ("!a%FF x\n", "!a%FF"),
     ] {
+        assert_eq!(root_tag(src), tag, "{src:?}");
+        assert!(Document::parse_recovering(src).diagnostics().is_empty());
+    }
+}
+
+/// A tag with a non-ASCII character has no spelling that reads back as that
+/// character, so the writer refuses it instead of writing another tag.
+#[test]
+fn non_ascii_tags_are_refused_by_the_writer() {
+    for tag in ["!\u{e9}", "tag:x,1:\u{e9}", "tag:yaml.org,2002:\u{e9}"] {
+        let v = tagged(tag, Value::from("a"));
         assert_eq!(
-            from_str::<Value>(src).unwrap_err().code(),
-            code::INVALID_TAG,
-            "{src:?}"
+            to_string(&v).unwrap_err().code(),
+            code::UNREPRESENTABLE_VALUE,
+            "{tag:?}"
         );
-        assert_eq!(
-            Document::parse(src).unwrap_err().code(),
-            code::INVALID_TAG,
-            "{src:?}"
-        );
-        // Recovering: the document keeps its bytes and reports it.
-        let parsed = Document::parse_recovering(src);
-        assert!(
-            parsed
-                .diagnostics()
-                .iter()
-                .any(|d| d.code == code::INVALID_TAG),
-            "{src:?}"
-        );
-        assert_eq!(parsed.value().to_string().as_bytes(), src.as_bytes());
     }
 }
 

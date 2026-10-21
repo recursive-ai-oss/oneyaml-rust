@@ -25,11 +25,15 @@ const INVALID: [&[u8]; 8] = [
     b"a\n---\nb: \xff\n---\n\xfe c\n",
 ];
 
-/// The 1-based line and column (in characters) of byte `at` of `text`.
+/// The 1-based line and column (in characters) of byte `at` of `text`; a
+/// byte order mark at the start of the text is not counted.
 fn line_col(text: &str, at: usize) -> (usize, usize) {
     let before = &text[..at];
     let line = before.matches('\n').count() + 1;
-    let col = before.rsplit('\n').next().unwrap().chars().count() + 1;
+    let mut col = before.rsplit('\n').next().unwrap().chars().count() + 1;
+    if line == 1 && at > 0 && text.starts_with('\u{feff}') {
+        col -= 1;
+    }
     (line, col)
 }
 

@@ -5,8 +5,9 @@ use std::collections::BTreeMap;
 
 use oneyaml_core::code::{
     CONTENT_AFTER_DOCUMENT, DIRECTIVE_IN_DOCUMENT, DIRECTIVE_WITHOUT_DOCUMENT, DUPLICATE_DIRECTIVE,
-    MALFORMED_DIRECTIVE, RESERVED_DIRECTIVE_IGNORED, SCALAR_TOO_LONG, TOO_MANY_DOCUMENTS,
-    YAML_VERSION_1_0, YAML_VERSION_1_1, YAML_VERSION_NEWER_MINOR, YAML_VERSION_UNSUPPORTED_MAJOR,
+    DUPLICATE_YAML_DIRECTIVE, MALFORMED_DIRECTIVE, RESERVED_DIRECTIVE_IGNORED, SCALAR_TOO_LONG,
+    TOO_MANY_DOCUMENTS, YAML_VERSION_1_0, YAML_VERSION_1_1, YAML_VERSION_NEWER_MINOR,
+    YAML_VERSION_UNSUPPORTED_MAJOR,
 };
 use oneyaml_core::{Code, Diagnostic, Label, Span};
 
@@ -276,21 +277,12 @@ impl<'a> Parser<'a> {
             self.doc_end_line = true;
             self.state = State::Stream;
         } else if self.fresh {
-            // A new line after a complete root: the document is certainly
-            // over (implicit end, C4), and what follows cannot start another
-            // one without `...` or `---` (production 211). If the root's own
-            // end is still unconfirmed (deferred), the document stays open
-            // and the error is repaired inside it.
-            // Timing convention T4 (parser module docs), not a contract rule.
-            // Only a plain scalar root needs the next line to end it: having
-            // looked, the parser knows the document is over before reading
-            // the offending content. A root that ends at its own delimiter
-            // (quote, bracket) or whose end is still deferred stays open.
-            let plain_root = self.deferred.is_empty() && self.out.last_plain;
-            if plain_root {
-                self.zero(EventKind::document_end(false));
-                self.stack.pop();
-            }
+            // A new line after a complete root: what follows cannot start
+            // another document without `...` or `---` (production 211). A
+            // document ends only at its end marker, at the next document
+            // start, or at the end of the stream, so it is still open
+            // here and the error is repaired inside it (timing convention
+            // T4 in the parser module docs).
             if line_head && byte(src, i) == Some(b'%') {
                 self.fail(
                     DIRECTIVE_IN_DOCUMENT,
@@ -342,21 +334,28 @@ impl<'a> Parser<'a> {
             },
             _ => None,
         };
+        // A second `%YAML` is reported where it starts, the first character
+        // that cannot belong, before its own token.
+        let repeated = matches!(d.kind, DirectiveKind::Yaml { .. })
+            && core::mem::replace(&mut self.yaml_seen, true);
+        if repeated {
+            self.soft_error(DUPLICATE_YAML_DIRECTIVE, "duplicate %YAML directive");
+        }
         self.token(EventKind::Directive(d.kind.directive()), d.end);
         self.directives_pending = true;
         match (d.kind, prefix) {
-            (DirectiveKind::Yaml { version }, _) => self.yaml_directive(version),
+            (DirectiveKind::Yaml { version }, _) => self.yaml_directive(version, repeated),
             (DirectiveKind::Tag { handle, .. }, Some(p)) => self.tag_directive(handle, p),
             _ => self.warning(RESERVED_DIRECTIVE_IGNORED, "reserved directive ignored"),
         }
     }
 
     /// The `%YAML` policy (§6.8.1).
-    fn yaml_directive(&mut self, version: &str) {
+    fn yaml_directive(&mut self, version: &str, repeated: bool) {
         let (major, minor) = version_parts(version).unwrap_or(("1", "2"));
         let (major, minor) = (number(major), number(minor));
-        if core::mem::replace(&mut self.yaml_seen, true) {
-            self.soft_error(DUPLICATE_DIRECTIVE, "duplicate %YAML directive");
+        if repeated {
+            // Already reported, before the directive.
         } else if major != 1 {
             self.soft_error(
                 YAML_VERSION_UNSUPPORTED_MAJOR,
