@@ -71,6 +71,62 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
   - A copied or moved value is written out in full, so an alias inside it
     becomes its content, and comments inside a moved value are not kept.
 
+### Changed
+
+- Setting a value over an existing node (`set`, `set_scalar`, `set_path`,
+  `replace_at`, `insert` on an existing key) now writes exactly that value
+  and changes only that value's text:
+  - A literal (`|`) or folded (`>`) block scalar stays a block scalar of the
+    same kind. Its chomping indicator changes only as far as the new text
+    needs: no final line break gives `-`, exactly one gives the clear form
+    (no indicator), more give `+`, and an indicator that already holds the
+    text stays (a `|+` set to one final line break stays `|+`, without the
+    empty line the old text ended with). The content keeps the indentation
+    the old content had. A folded scalar writes one line break between
+    lines of text as an empty line, so it reads back as written.
+    Before, any block scalar was rewritten as a literal block with the
+    default indentation, or as a plain scalar when the new text had no
+    final line break.
+  - A plain, single-quoted or double-quoted scalar set to text with a line
+    break becomes a double-quoted scalar with `\n` escapes on the same line.
+    Before it became a literal block scalar.
+  - A string set over a node is written plain when the document's schema
+    reads it as a string (`yes`, `no`, `on` are strings under the default
+    Core schema), and quoted when it would read as another type or plain
+    syntax cannot hold it. Before, such words were quoted for the sake of
+    YAML 1.1 readers. Documents read with `Settings::yaml11_booleans` (or
+    `Compat::yaml_1_1()`) still get them quoted. New entries and items
+    keep the stricter quoting for every reader.
+  - A tag stays on a scalar while the new value reads back under it as
+    exactly that value: a custom tag on a string, `!!str` on a string,
+    `!!int` on an integer, `!!float` on a float, `!!bool` and `!!null`.
+    Any other tag (`!!binary` on a string, `!!int` on a string) is dropped
+    as before. The anchor and tag keep the order the source had.
+  - The white space between `:` (or `-`) and the value stays as the
+    document wrote it (a tab, several spaces), unless the new value is a
+    block collection, which starts after one space.
+  - A block scalar that ends the file without a line break, set to text
+    that needs none, leaves the line break missing (`a: |` with `old` set
+    to `n` gives `a: |-` with `n`).
+  - A text too long to write as a block scalar within
+    `max_document_size` at the scalar's indentation is written another way
+    instead of being built first.
+- Removing the last entry of a block collection after an entry that ends
+  with a block scalar also removes the lines right under it that would
+  otherwise become part of that scalar's text: a comment indented as far as
+  the scalar's content, or white space wider than it. A line that is not
+  empty and narrower than the content ends the scalar, so it and the lines
+  after it stay. The comments taken are in `Removed::comments`, and
+  `insert_removed_at` writes them back. Before, the removal was refused as
+  not reading back. Removing the only entry of a mapping whose key is a
+  block scalar, when a `:` at the margin follows, now leaves `{}` and keeps
+  that entry.
+- A path segment of `""` names the entry whose key has no content (`: v`,
+  `[: v]`, `&a : v`), and the entry with a quoted empty key (`'': v`). When
+  both are present the segment is refused as ambiguous (lookups return
+  `None`, edits `EditError::Unsupported`), and `set_path` never adds a second
+  empty key.
+
 ## 1.1.0 — 2026-10-10
 
 `oneyaml` 1.1.0, `oneyaml-core` 1.1.0, `oneyaml-syntax` 0.1.2.

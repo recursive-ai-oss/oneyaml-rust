@@ -32,7 +32,7 @@ fn set_path_replaces_scalars_in_place() {
     d.set_path(&path!["a"], 2).unwrap();
     assert_eq!(d.to_string(), "a: 2 # one\nb:\n  c: x\n");
     d.set_path(&path!["b", "c"], "yes").unwrap();
-    assert_eq!(d.to_string(), "a: 2 # one\nb:\n  c: 'yes'\n");
+    assert_eq!(d.to_string(), "a: 2 # one\nb:\n  c: yes\n");
     agrees_with_its_text(&d);
     d.set_path(&path!["b", "c"], vec![1, 2]).unwrap();
     assert_eq!(d.to_string(), "a: 2 # one\nb:\n  c:\n    - 1\n    - 2\n");
@@ -174,30 +174,29 @@ fn block_scalars() {
     // another entry keeps the line structure.
     let mut d = doc("a: |\n  x\nb: 1\n");
     d.set_path(&path!["a"], "z").unwrap();
-    assert_eq!(d.to_string(), "a: z\nb: 1\n");
+    assert_eq!(d.to_string(), "a: |-\n  z\nb: 1\n");
     agrees_with_its_text(&d);
     let mut d = doc("a: 1\nb: |\n  x\nc: 2\n");
     let r = d.remove_path(&path!["b"]).unwrap();
     assert_eq!(r.text(), "b: |\n  x\n");
     assert_eq!(d.to_string(), "a: 1\nc: 2\n");
     agrees_with_its_text(&d);
-    // New multi-line strings
-    // are `|` block scalars wherever the context permits. This
-    // expectation was the one-line `a: "l1\nl2"` flow fallback while the
-    // syntax layer could not splice at a block scalar's line break.
+    // New multi-line strings are `|` block scalars wherever the context
+    // permits; a multi-line string set over an inline scalar stays on its
+    // line, double-quoted.
     let mut d = doc("a: 1\nb: 2\n");
     d.set_path(&path!["a"], "l1\nl2").unwrap();
     d.set_path(&path!["c"], vec!["x\ny"]).unwrap();
     assert_eq!(
         d.to_string(),
-        "a: |-\n  l1\n  l2\nb: 2\nc:\n  - |-\n    x\n    y\n"
+        "a: \"l1\\nl2\"\nb: 2\nc:\n  - |-\n    x\n    y\n"
     );
     agrees_with_its_text(&d);
     // A block scalar ending its collection is replaced through its line
     // break (`replace_to_line_end`).
     let mut d = doc("a: 1\nb: |\n  x\n");
     d.set_path(&path!["b"], "z").unwrap();
-    assert_eq!(d.to_string(), "a: 1\nb: z\n");
+    assert_eq!(d.to_string(), "a: 1\nb: |-\n  z\n");
     agrees_with_its_text(&d);
     d.set_path(&path!["b"], "p\nq\n").unwrap();
     assert_eq!(d.to_string(), "a: 1\nb: |\n  p\n  q\n");
@@ -205,32 +204,49 @@ fn block_scalars() {
     d.set_path(&path!["c"], "r\ns").unwrap();
     assert_eq!(d.to_string(), "a: 1\nb: |\n  p\n  q\nc: |-\n  r\n  s\n");
     agrees_with_its_text(&d);
-    // A same-line comment on the replaced value moves onto the block header
-    // line. This expectation was the double-quoted fallback `a: "l1\nl2" # c`.
+    // A same-line comment on the replaced value stays after it.
     let mut d = doc("a: 1 # c\nb: 2\n");
     d.set_path(&path!["a"], "l1\nl2").unwrap();
-    assert_eq!(d.to_string(), "a: |- # c\n  l1\n  l2\nb: 2\n");
+    assert_eq!(d.to_string(), "a: \"l1\\nl2\" # c\nb: 2\n");
     agrees_with_its_text(&d);
     // The last entry (its comment lies after the mapping), a sequence
     // item, an anchored value, and CRLF: the comment's bytes are kept.
     let mut d = doc("a: 0\nb: 1   #  c\n");
     d.set_path(&path!["b"], "l1\nl2\n").unwrap();
-    assert_eq!(d.to_string(), "a: 0\nb: |   #  c\n  l1\n  l2\n");
+    assert_eq!(d.to_string(), "a: 0\nb: \"l1\\nl2\\n\"   #  c\n");
     agrees_with_its_text(&d);
     let mut d = doc("k:\n  - x # one\n  - y\n");
     d.set_path(&path!["k", 0], "p\nq").unwrap();
-    assert_eq!(d.to_string(), "k:\n  - |- # one\n    p\n    q\n  - y\n");
+    assert_eq!(d.to_string(), "k:\n  - \"p\\nq\" # one\n  - y\n");
     agrees_with_its_text(&d);
     let mut d = doc("a: &x 1 # c\nb: *x\n");
     d.set_path(&path!["a"], "p\nq").unwrap();
-    assert_eq!(d.to_string(), "a: &x |- # c\n  p\n  q\nb: *x\n");
+    assert_eq!(d.to_string(), "a: &x \"p\\nq\" # c\nb: *x\n");
     agrees_with_its_text(&d);
     let mut d = doc("a: 1 # c\r\nb: 2\r\n");
     d.set_path(&path!["a"], "l1\nl2").unwrap();
-    assert_eq!(d.to_string(), "a: |- # c\r\n  l1\r\n  l2\r\nb: 2\r\n");
+    assert_eq!(d.to_string(), "a: \"l1\\nl2\" # c\r\nb: 2\r\n");
     agrees_with_its_text(&d);
     // Setting a one-line value keeps the comment where it was.
     d.set_path(&path!["b"], "z").unwrap();
-    assert_eq!(d.to_string(), "a: |- # c\r\n  l1\r\n  l2\r\nb: z\r\n");
+    assert_eq!(d.to_string(), "a: \"l1\\nl2\" # c\r\nb: z\r\n");
+    agrees_with_its_text(&d);
+    // A collection replaced by a multi-line string is new content: a block
+    // scalar, with the comment on the node's line moved onto its header.
+    let mut d = doc("a: 0\nb: [1]   #  c\n");
+    d.set_path(&path!["b"], "l1\nl2\n").unwrap();
+    assert_eq!(d.to_string(), "a: 0\nb: |   #  c\n  l1\n  l2\n");
+    agrees_with_its_text(&d);
+    let mut d = doc("k:\n  - [x] # one\n  - y\n");
+    d.set_path(&path!["k", 0], "p\nq").unwrap();
+    assert_eq!(d.to_string(), "k:\n  - |- # one\n    p\n    q\n  - y\n");
+    agrees_with_its_text(&d);
+    let mut d = doc("a: &x [1] # c\nb: *x\n");
+    d.set_path(&path!["a"], "p\nq").unwrap();
+    assert_eq!(d.to_string(), "a: &x |- # c\n  p\n  q\nb: *x\n");
+    agrees_with_its_text(&d);
+    let mut d = doc("a: [1] # c\r\nb: 2\r\n");
+    d.set_path(&path!["a"], "l1\nl2").unwrap();
+    assert_eq!(d.to_string(), "a: |- # c\r\n  l1\r\n  l2\r\nb: 2\r\n");
     agrees_with_its_text(&d);
 }

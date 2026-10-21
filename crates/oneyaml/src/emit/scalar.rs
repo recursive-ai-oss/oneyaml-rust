@@ -119,6 +119,10 @@ pub(crate) struct Rules {
     /// The reading settings' `Limits::max_scalar_len`: the longest tag the
     /// output may carry (a longer one would not read back).
     max_tag_len: usize,
+    /// Text written into an existing document by the edit layer: a string
+    /// stays plain when the document's own schema reads it as a string,
+    /// not only when every YAML reader would (the serializer's rule).
+    schema_floor: bool,
 }
 
 impl Rules {
@@ -189,7 +193,17 @@ impl Rules {
             tagged_scalar_variants: flavor == Flavor::SerdeYaml
                 && reading.get_resolve_tagged_variant_content(),
             max_tag_len: reading.get_limits().get_max_scalar_len(),
+            schema_floor: false,
         })
+    }
+
+    /// These rules for text an edit writes into a document: a string is
+    /// quoted only when the document's schema would read it as another
+    /// type, or plain text cannot hold it (the serializer keeps its
+    /// stricter every-reader rule).
+    pub(crate) fn for_edit(mut self) -> Self {
+        self.schema_floor = self.flavor == Flavor::Default;
+        self
     }
 
     /// Whether a tag resolving to `len` bytes reads back
@@ -264,11 +278,22 @@ impl Rules {
         if has_escape(text) {
             return Style::Double;
         }
-        if self.plain_ok(text) {
-            Style::Plain
+        let plain = if self.schema_floor {
+            self.plain_schema_ok(text)
         } else {
-            self.quoted()
-        }
+            self.plain_ok(text)
+        };
+        if plain { Style::Plain } else { self.quoted() }
+    }
+
+    /// Plain when the document's schema reads a string and the text is
+    /// safe as plain syntax (the edit layer's rule, see [`Rules::for_edit`]).
+    fn plain_schema_ok(&self, text: &str) -> bool {
+        let edge = |c: Option<char>| c.is_some_and(char::is_whitespace);
+        !edge(text.chars().next())
+            && !edge(text.chars().next_back())
+            && plain_syntax_ok(text, true)
+            && self.reads_back_as_string(text)
     }
 
     /// Every-reader-safe: plain only when every reader reads a string.
@@ -1076,6 +1101,19 @@ fn first_content_line_indented(text: &str) -> bool {
     text.split('\n')
         .find(|l| !l.is_empty())
         .is_some_and(|l| l.starts_with(' '))
+}
+
+/// Whether `text` can be the content of a literal or folded block scalar:
+/// nothing that needs an escape other than a line feed or a tab, and no tab
+/// at the start of the first content line (readers take it for indentation).
+pub(crate) fn block_text_ok(text: &str) -> bool {
+    !text
+        .chars()
+        .any(|c| c != '\n' && c != '\t' && needs_escape(c))
+        && !text
+            .split('\n')
+            .find(|l| !l.is_empty())
+            .is_some_and(|l| l.starts_with('\t'))
 }
 
 /// Whether a literal block represents `text` exactly at `block`.

@@ -752,7 +752,8 @@ impl<'d> NodeRef<'d> {
                         return Err(EditError::NotAMapping { at });
                     };
                     at.push_key(k.clone());
-                    m.get(k)
+                    m.segment(k, false)
+                        .map_err(|e| e.located(&at))?
                         .ok_or_else(|| EditError::NotFound { at: at.clone() })?
                 }
                 oneyaml_core::PathSegment::Index(i) => {
@@ -1061,6 +1062,45 @@ impl<'d> MappingRef<'d> {
         match v.as_sequence() {
             Some(seq) => seq.iter().filter_map(NodeRef::as_mapping).collect(),
             None => v.as_mapping().into_iter().collect(),
+        }
+    }
+
+    /// The value a path segment names: for `key` as [`MappingRef::get`]
+    /// (`own`: only this mapping's own entries, as the last segment of a
+    /// set does), except that the empty segment goes by the key's text.
+    ///
+    /// The empty segment names the entry whose key has no content: a key
+    /// written as nothing (`: v`, `[: v]`) is a scalar of empty text, though
+    /// it reads as null, and so is a quoted empty key (`'': v`), whatever
+    /// properties either has (`&a : v`, `!!null : v`). When both kinds are
+    /// present the segment names two entries and the lookup is refused.
+    pub(super) fn segment(self, key: &str, own: bool) -> Result<Option<NodeRef<'d>>, EditError> {
+        if !key.is_empty() {
+            return Ok(if own {
+                self.own_value(key)
+            } else {
+                self.get_in(KeyQuery::Str(key), false)
+            });
+        }
+        let (mut written, mut quoted) = (None, None);
+        for (k, v) in self.iter() {
+            let Some(s) = k.as_scalar().filter(|s| s.value().is_empty()) else {
+                continue;
+            };
+            // (The last of a repeated key counts.)
+            match s.style() {
+                ScalarStyle::Plain => written = Some(v),
+                _ => quoted = Some(v),
+            }
+        }
+        match (written, quoted) {
+            (Some(_), Some(_)) => Err(EditError::Unsupported {
+                at: Path::new(),
+                reason: "the empty key names two entries, one written as nothing and one quoted",
+            }),
+            (Some(v), None) | (None, Some(v)) => Ok(Some(v)),
+            (None, None) if own => Ok(None),
+            (None, None) => Ok(self.get_in(KeyQuery::Str(""), false)),
         }
     }
 
