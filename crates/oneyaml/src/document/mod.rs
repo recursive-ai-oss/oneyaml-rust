@@ -3051,9 +3051,16 @@ impl Document {
 
     /// The document's bytes: exactly the input for an untouched document,
     /// in its original encoding (invalid bytes restored).
+    ///
+    /// Cost: O(the document's bytes) copied at memory speed: one copy of an
+    /// untouched tree's text, and one per run (an edited stretch, and the
+    /// untouched text between edits) of an edited one, plus O(1) per run; it
+    /// is not a walk over the tree. A UTF-8 document with nothing invalid in
+    /// it is returned without a second copy. Retained: nothing but the
+    /// result.
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
-        let text = self.to_string();
+        let text = self.text();
         let origin = &self.shared.origin;
         // The text is the source from `base` on (a stream document's
         // span); each invalid run inside it gets its original bytes back.
@@ -3063,17 +3070,22 @@ impl Document {
             self.span().start
         };
         let end = base.saturating_add(text.len());
-        let mut out = Vec::with_capacity(text.len());
-        let mut at = 0usize;
         // The runs are in source order; binary-search this
         // document's instead of filtering the whole stream's.
         let lo = origin.invalid.first_at(base);
-        let inside = origin
+        let mut inside = origin
             .invalid
             .iter()
             .skip(lo)
             .take_while(|r| r.text.start <= end)
-            .filter(|r| r.text.end <= end);
+            .filter(|r| r.text.end <= end)
+            .peekable();
+        // UTF-8 text with nothing invalid in it is its own bytes.
+        if inside.peek().is_none() && origin.encoder.encoding() == Encoding::Utf8 {
+            return text.into_bytes();
+        }
+        let mut out = Vec::with_capacity(text.len());
+        let mut at = 0usize;
         for run in inside {
             let start = run.text.start.saturating_sub(base);
             let before = text.get(at..start).unwrap_or("");
@@ -3083,6 +3095,16 @@ impl Document {
         }
         out.extend(origin.encoder.encode(text.get(at..).unwrap_or("")));
         out
+    }
+
+    /// The document's text (what `Display` writes). A document of its own
+    /// (not one of a [`Stream`]) takes the tree's text, copied in whole
+    /// runs; one of a stream is written token by token over its region.
+    fn text(&self) -> String {
+        if self.index.is_none() {
+            return self.shared.tree.emit();
+        }
+        self.to_string()
     }
 
     /// The encoding the input was read in.
@@ -3140,11 +3162,7 @@ impl core::fmt::Display for Document {
         let tree = &self.shared.tree;
         let Some(d) = self.doc_node().filter(|_| self.index.is_some()) else {
             if self.index.is_none() {
-                for n in tree.root().descendants() {
-                    if n.is_token() {
-                        f.write_str(&n.text())?;
-                    }
-                }
+                f.write_str(&tree.text())?;
             }
             return Ok(());
         };

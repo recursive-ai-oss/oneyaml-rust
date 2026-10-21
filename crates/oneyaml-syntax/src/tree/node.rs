@@ -581,6 +581,7 @@ impl<'t> Node<'t> {
         if self.edited() {
             let loc = self.tree.locate_hinted(text.idx(), text.hint())?;
             let span = loc.flat.token_span(loc.local);
+            super::cost::count_decoded(span.end.saturating_sub(span.start));
             let header = self.local_block_header();
             let Some(h) = header.filter(|h| h.chomping == crate::event::Chomping::Keep) else {
                 return crate::parser::scalar_value(loc.flat.source, span, style, header);
@@ -612,7 +613,9 @@ impl<'t> Node<'t> {
         } else {
             None
         };
-        crate::parser::scalar_value(&self.tree.source, text.span(), style, header)
+        let span = text.span();
+        super::cost::count_decoded(span.end.saturating_sub(span.start));
+        crate::parser::scalar_value(&self.tree.source, span, style, header)
     }
 
     /// An alias node's anchor name, without `*`.

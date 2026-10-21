@@ -465,6 +465,30 @@ impl Resolver {
         self.merge_keys
     }
 
+    /// Whether an untagged scalar certainly resolves to a string, from its
+    /// style and first byte alone: any quoted scalar (every schema that
+    /// resolves at all), and a plain one under Core or Failsafe when its
+    /// first byte is an ASCII letter that starts none of Core's null, bool,
+    /// number or YAML 1.1 bool words (`n`, `t`, `f`, `y`, `o`, either case);
+    /// under Failsafe, any plain scalar but one starting with `<` (a merge key
+    /// is decided apart).
+    /// `false` means "not known": the caller resolves the text. O(1).
+    pub(crate) fn untagged_is_string(&self, plain: bool, first: Option<u8>) -> bool {
+        match &self.active {
+            Active::Unsupported => false,
+            Active::Json(_) | Active::Core(_) | Active::Failsafe(_) if !plain => true,
+            Active::Failsafe(_) => first.is_some_and(|b| b != b'<'),
+            Active::Core(_) => first.is_some_and(|b| {
+                b.is_ascii_alphabetic()
+                    && !matches!(
+                        b,
+                        b'n' | b'N' | b't' | b'T' | b'f' | b'F' | b'y' | b'Y' | b'o' | b'O'
+                    )
+            }),
+            Active::Json(_) => false,
+        }
+    }
+
     /// Whether untagged plain scalars resolve exactly as under the Core
     /// schema with no YAML 1.1 behaviour (`Resolver::new(&Settings::new())`):
     /// the schema is Core and no 1.1 extension is on. Merge keys do not

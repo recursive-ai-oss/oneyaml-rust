@@ -1,10 +1,15 @@
 //! Key and position lookups in **wide** collections in O(log width), never
-//! O(width).
+//! O(width), once the collection is read more than a few times.
 //!
-//! A mapping or sequence with at least [`WIDE`] YAML nodes gets, on its
-//! first key- or position-addressed lookup, a **lookup index**
-//! ([`CollIndex`]); smaller collections are read linearly, as before (the
-//! scan is bounded by the constant). The index holds:
+//! A mapping or sequence with at least [`WIDE`] YAML nodes gets, on a
+//! key- or position-addressed lookup after [`LINEAR_READS`] earlier ones, a
+//! **lookup index** ([`CollIndex`]); smaller collections are read linearly,
+//! as before (the scan is bounded by the constant), and so is a wide one
+//! for its first reads: a scan of w entries costs a fraction of the index
+//! build, so a collection read once or twice (one edit does a few lookups)
+//! never pays for an index, and one read often pays for it after at most
+//! [`LINEAR_READS`] scans. The count of those reads is one small entry per
+//! wide collection, dropped with its collection. The index holds:
 //!
 //! * the collection's YAML nodes in order, in an implicit treap (an
 //!   order-statistics tree: k-th item and insertion/removal at a position
@@ -85,6 +90,31 @@ impl Slot {
 /// mapping of 32 entries, a sequence of 64 items): a linear scan of fewer
 /// costs a constant.
 pub(super) const WIDE: usize = 64;
+
+/// How many reads of a wide collection are answered by the linear scan
+/// before its index is built, at most. A scan of small entries costs about
+/// a fifth of the build (measured: 8 lookups' scans of 3,700 short keys
+/// against one build), so a collection read a few times (one edit does a
+/// handful of lookups) never pays for an index. The price of waiting is paid
+/// by a collection read just over this many times: its scans and the build
+/// together cost about 2.6 times the build alone (measured, short keys);
+/// fewer reads cost less than the build, more reads amortise both. Large
+/// entries make a scan about as dear as the build, so they get fewer scans
+/// ([`linear_reads`]): one for entries of 1 KiB, never fewer than one.
+pub(super) const LINEAR_READS: u8 = 8;
+
+/// The scans a wide collection gets before its index, from the source
+/// bytes `first` of its first [`WIDE`] YAML nodes: [`LINEAR_READS`] while
+/// they average at most 64 bytes, fewer as they grow (one scan reads the
+/// text, as the build does), never none.
+fn linear_reads(first: usize) -> u8 {
+    let allowed = usize::from(LINEAR_READS)
+        .saturating_mul(64)
+        .saturating_mul(WIDE)
+        .checked_div(first.max(1))
+        .unwrap_or(1);
+    u8::try_from(allowed.clamp(1, usize::from(LINEAR_READS))).unwrap_or(1)
+}
 
 // ============================================================== treap
 
@@ -462,8 +492,8 @@ pub(super) enum Class {
     Never,
     /// A merge key (`<<` with `merge_keys` on).
     Merge,
-    /// An alias: read live.
-    Alias,
+    /// Read live on every lookup (an alias key).
+    Live,
     /// A scalar key whose resolved value has this digest.
     Digest(u32),
 }
@@ -472,7 +502,8 @@ pub(super) enum Class {
 pub(super) enum KeyKind {
     Never,
     Merge,
-    Alias,
+    /// An alias key: read live.
+    Live,
     Value(Value),
 }
 
@@ -617,7 +648,7 @@ pub(super) struct CollIndex {
     hasher: RandomState,
     keys: HashMap<u32, Members>,
     merges: Members,
-    aliases: Members,
+    live: Members,
     /// The lists of more than one member (apart, so a key's
     /// entry in `keys` is 8 bytes).
     lists: Lists,
@@ -647,7 +678,7 @@ impl CollIndex {
 
     /// The merge keys' list and the alias keys' list.
     pub(super) const fn merge_lists(&self) -> [Members; 2] {
-        [self.merges, self.aliases]
+        [self.merges, self.live]
     }
 
     /// The members of `m`, last first (O(log k) each).
@@ -667,15 +698,15 @@ impl CollIndex {
     }
 
     /// The alias keys, last first.
-    pub(super) fn aliases_rev(&self) -> impl Iterator<Item = Slot> + '_ {
-        self.rev(self.aliases)
+    pub(super) fn live_rev(&self) -> impl Iterator<Item = Slot> + '_ {
+        self.rev(self.live)
     }
 
     fn class(&self, kind: KeyKind) -> Class {
         match kind {
             KeyKind::Never => Class::Never,
             KeyKind::Merge => Class::Merge,
-            KeyKind::Alias => Class::Alias,
+            KeyKind::Live => Class::Live,
             KeyKind::Value(v) => Class::Digest(self.digest(&v)),
         }
     }
@@ -686,7 +717,7 @@ impl CollIndex {
         match class {
             Class::Never => None,
             Class::Merge => Some(self.merges),
-            Class::Alias => Some(self.aliases),
+            Class::Live => Some(self.live),
             Class::Digest(d) => Some(self.keys.get(&d).copied().unwrap_or_default()),
         }
     }
@@ -708,7 +739,7 @@ impl CollIndex {
         match class {
             Class::Never => Some(()),
             Class::Merge => self.merges.insert(lists, pos, id, rng),
-            Class::Alias => self.aliases.insert(lists, pos, id, rng),
+            Class::Live => self.live.insert(lists, pos, id, rng),
             Class::Digest(d) => self.keys.entry(d).or_default().insert(lists, pos, id, rng),
         }
     }
@@ -718,7 +749,7 @@ impl CollIndex {
         match class {
             Class::Never => Some(()),
             Class::Merge => self.merges.remove(lists, pos, id),
-            Class::Alias => self.aliases.remove(lists, pos, id),
+            Class::Live => self.live.remove(lists, pos, id),
             Class::Digest(d) => {
                 let list = self.keys.get_mut(&d)?;
                 list.remove(lists, pos, id)?;
@@ -770,6 +801,10 @@ pub(super) struct Indexes {
     log: Vec<Op>,
     /// Edits reported since the last sweep of dead collections.
     touches: usize,
+    /// Reads of wide collections that have no index yet (see
+    /// [`LINEAR_READS`]): one small entry per such collection, dropped when
+    /// its index is built or its collection is gone.
+    reads: BTreeMap<Slot, (u8, u8)>,
 }
 
 impl Default for Indexes {
@@ -781,6 +816,7 @@ impl Default for Indexes {
             next_generation: 0,
             log: Vec::new(),
             touches: 0,
+            reads: BTreeMap::new(),
         }
     }
 }
@@ -821,6 +857,21 @@ impl Indexes {
 
     fn drop_all(&mut self) {
         self.map.clear();
+        self.reads.clear();
+    }
+
+    /// Counts a read of the wide collection `coll`, which has no index:
+    /// `true` once it has been read as many times as `limit` allows (set by
+    /// its first read), from when its index is worth building (and its count
+    /// is dropped).
+    fn worth_building(&mut self, coll: Slot, limit: u8) -> bool {
+        let (n, allowed) = self.reads.entry(coll).or_insert((0, limit));
+        if *n >= *allowed {
+            self.reads.remove(&coll);
+            return true;
+        }
+        *n = n.saturating_add(1);
+        false
     }
 
     pub(super) fn drop_one(&mut self, coll: Slot) {
@@ -845,7 +896,7 @@ impl Indexes {
             hasher: self.hasher.clone(),
             keys: HashMap::new(),
             merges: Members::Empty,
-            aliases: Members::Empty,
+            live: Members::Empty,
             lists: Lists::default(),
         };
         // (Sized once: at most one entry per key.)
@@ -1003,6 +1054,7 @@ impl Indexes {
         if self.touches > self.map.len().saturating_mul(2).saturating_add(16) {
             self.touches = 0;
             self.map.retain(|id, _| live(*id));
+            self.reads.retain(|id, _| live(*id));
         }
     }
 }
@@ -1056,10 +1108,23 @@ impl Document {
     }
 
     /// Runs `f` on the lookup index of collection `coll`, building it
-    /// first when `coll` is wide ([`WIDE`]; any width when `force`).
+    /// first when `coll` is wide ([`WIDE`]) and has been read more than
+    /// [`LINEAR_READS`] times (any width, at once, when `force`).
     /// `None`: no index (a narrow collection: read linearly), or `f` found
     /// the index inconsistent with the tree (it is dropped: never a
     /// stale answer; a bug, caught by `debug_assert!`).
+    ///
+    /// Cost, for a collection of w YAML nodes: O(1) with an index to find
+    /// (O(log c) for c indexed collections, plus the lock). Without one:
+    /// O(min(w, [`WIDE`])) to see whether it is wide, and for a wide one
+    /// the caller's scan, O(w), for its first [`LINEAR_READS`] reads, then
+    /// the build, once: O(w) times the work to class a key (O(its text) for
+    /// a key whose text settles its meaning, a resolution otherwise)
+    /// and O(1) expected per node for the position tree and the digest
+    /// table. Retained: 16 bytes per node and about 17 per scalar key for an
+    /// index; before it, one 9-byte entry for the collection in the read
+    /// count (at most one per wide collection, so one per 64 nodes of text at
+    /// most), dropped when the index is built or the collection is gone.
     ///
     /// Also in a document with errors. Its reads go
     /// through the nodes presented in place of the error regions, as the
@@ -1082,13 +1147,16 @@ impl Document {
         if g.get(id).is_none() {
             if !force {
                 let mut n = 0usize;
-                for _ in coll.children().filter(|c| c.kind().is_yaml_node()) {
+                let mut bytes = 0usize;
+                let start = coll.span().start;
+                for c in coll.children().filter(|c| c.kind().is_yaml_node()) {
                     n = n.saturating_add(1);
                     if n >= WIDE {
+                        bytes = c.span().end.saturating_sub(start);
                         break;
                     }
                 }
-                if n < WIDE {
+                if n < WIDE || !g.worth_building(id, linear_reads(bytes)) {
                     return None;
                 }
             }
@@ -1134,6 +1202,17 @@ impl Document {
             debug_assert!(false, "a lookup index disagrees with its tree");
         }
         r
+    }
+
+    /// Whether collection `coll` has its lookup index now (it is never
+    /// built here). O(log c) for c indexed collections, plus the lock.
+    pub(super) fn has_lookup_index(&self, coll: TreeNode<'_>) -> bool {
+        let g = self
+            .shared
+            .lookups
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        g.get(Slot::of(coll)).is_some()
     }
 
     /// Whether `n`, a YAML node child of wide mapping `map`, is at an even
@@ -1341,6 +1420,25 @@ impl Document {
 
     /// **Test support, not part of the stable API**: only with the
     /// unstable `__internal-checks` feature (semver-exempt, may
+    /// change or go in any release). The bytes of key text that key
+    /// lookups compared against the strings asked for on this thread since
+    /// the last call (decoding is counted apart, by the syntax tree).
+    ///
+    /// ```
+    /// let doc = oneyaml::Document::parse("ab: 1\ncd: 2\n").unwrap();
+    /// let _ = oneyaml::Document::take_key_compared_bytes();
+    /// assert!(doc.get("cd").is_some());
+    /// assert!(oneyaml::Document::take_key_compared_bytes() > 0);
+    /// ```
+    #[cfg(feature = "__internal-checks")]
+    #[doc(hidden)]
+    #[must_use]
+    pub fn take_key_compared_bytes() -> u64 {
+        super::view::take_key_compared()
+    }
+
+    /// **Test support, not part of the stable API**: only with the
+    /// unstable `__internal-checks` feature (semver-exempt, may
     /// change or go in any release). For the edit fuzzes, which
     /// check that both readers agree: every collection of this document gets a
     /// lookup index (whatever its width), and every lookup through it —
@@ -1496,7 +1594,7 @@ mod tests {
             hasher: RandomState::new(),
             keys: HashMap::new(),
             merges: Members::Empty,
-            aliases: Members::Empty,
+            live: Members::Empty,
             lists: Lists::default(),
         };
         let d = ix.digest(&Value::from("a"));
@@ -1538,16 +1636,16 @@ mod tests {
         e.insert(&mut l, 0, pool[0], &mut rng).unwrap();
         assert_eq!((l.treaps.len(), l.free.len()), (1, 0));
         assert_eq!(e.kth(&l, 0), Some(pool[0]));
-        for (class, k) in [(Class::Merge, 0), (Class::Alias, 1), (Class::Never, 2)] {
+        for (class, k) in [(Class::Merge, 0), (Class::Live, 1), (Class::Never, 2)] {
             ix.add_key((pool[k], class, 0), &mut rng).unwrap();
         }
         assert_eq!(ix.rev(ix.merge_lists()[0]).collect::<Vec<_>>(), [pool[0]]);
-        assert_eq!(ix.aliases_rev().collect::<Vec<_>>(), [pool[1]]);
+        assert_eq!(ix.live_rev().collect::<Vec<_>>(), [pool[1]]);
         assert_eq!(ix.list(Class::Never), None);
         ix.remove_key((pool[0], Class::Merge, 0)).unwrap();
-        ix.remove_key((pool[1], Class::Alias, 0)).unwrap();
+        ix.remove_key((pool[1], Class::Live, 0)).unwrap();
         ix.remove_key((pool[2], Class::Never, 0)).unwrap();
-        assert!(!ix.has_merges() && ix.aliases_rev().next().is_none());
+        assert!(!ix.has_merges() && ix.live_rev().next().is_none());
     }
 
     /// The check's error arm: an index that went stale (corrupted here by
@@ -1568,13 +1666,31 @@ mod tests {
         assert!(doc.check_lookup_indexes().is_err());
     }
 
+    /// The scans a wide collection gets fall with the size of its entries.
+    #[test]
+    fn linear_reads_fall_with_entry_size() {
+        assert_eq!(linear_reads(0), LINEAR_READS);
+        assert_eq!(linear_reads(64 * WIDE), LINEAR_READS);
+        assert_eq!(linear_reads(128 * WIDE), 4);
+        assert_eq!(linear_reads(1_100 * WIDE), 1);
+        assert_eq!(linear_reads(usize::MAX), 1);
+    }
+
+    /// Reads the root of `doc` until its lookup index stands.
+    fn build_index(doc: &Document) {
+        for _ in 0..=LINEAR_READS {
+            assert!(doc.get("k79").is_some());
+        }
+        assert!(!doc.shared.lookups.lock().unwrap().is_empty());
+    }
+
     /// An unknown range (handles of another tree) drops every index;
     /// rollback marks of a shared tree are empty.
     #[test]
     fn unknown_ranges_drop_the_indexes() {
         let src: String = (0..80).map(|i| format!("k{i}: {i}\n")).collect();
         let mut doc = Document::parse(src.as_str()).unwrap();
-        assert!(doc.get("k79").is_some());
+        build_index(&doc);
         let other = Document::parse("a: 1\n").unwrap();
         let foreign = other.root().unwrap().tree_node().id();
         let p = doc.lookup_before(foreign, foreign);
@@ -1585,7 +1701,7 @@ mod tests {
         assert_eq!(doc.lookup_mark().log, 0);
         drop(copy);
         // Undo after a failed rollback drops everything.
-        assert!(doc.get("k79").is_some());
+        build_index(&doc);
         doc.lookup_undo(Mark::default(), false);
         assert!(doc.shared.lookups.lock().unwrap().is_empty());
     }

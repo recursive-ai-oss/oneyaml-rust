@@ -3284,6 +3284,7 @@ impl SyntaxTree {
 
     /// Re-reads the window in its context and compares.
     fn reread(&self, w: &Window) -> Result<(), TreeEditError> {
+        super::cost::count_reread(w.end.saturating_sub(w.start));
         #[cfg(test)]
         REREADS.with(|n| n.set(n.get().saturating_add(1)));
         #[cfg(test)]

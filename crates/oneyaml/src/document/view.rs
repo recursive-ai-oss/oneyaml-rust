@@ -802,6 +802,37 @@ impl<'d> MappingRef<'d> {
         core::iter::from_fn(move || Some((items.next()?, items.next()?)))
     }
 
+    /// Whether this mapping's lookup index is built now. Asking never
+    /// builds it: a wide mapping (64 or more keys and values) gets its
+    /// index on its first reads, after a few have been answered by a scan
+    /// of the entries; a narrow one never has one, and edits that remove
+    /// the mapping's entries or change its directives may drop it. With the
+    /// index, key lookups, [`MappingRef::len`] and entries by position cost
+    /// O(log width) instead of O(width).
+    ///
+    /// Cost: O(log c) for c indexed collections in the document.
+    ///
+    /// ```
+    /// use std::fmt::Write as _;
+    /// use oneyaml::Document;
+    ///
+    /// let mut text = String::new();
+    /// for i in 0..100 {
+    ///     writeln!(text, "k{i}: {i}").unwrap();
+    /// }
+    /// let doc = Document::parse(text).unwrap();
+    /// let root = doc.root().unwrap().as_mapping().unwrap();
+    /// assert!(!root.is_indexed());
+    /// for _ in 0..20 {
+    ///     assert!(root.get("k99").is_some());
+    /// }
+    /// assert!(root.is_indexed());
+    /// ```
+    #[must_use]
+    pub fn is_indexed(self) -> bool {
+        self.0.doc.has_lookup_index(self.0.node)
+    }
+
     /// Number of entries as written. O(1) for a wide mapping (its lookup
     /// index), else O(entries).
     #[must_use]
@@ -840,9 +871,19 @@ impl<'d> MappingRef<'d> {
 
     /// The last of this mapping's own keys (merge keys aside) that `q`
     /// matches (the last one's value counts). Through the lookup
-    /// index of a wide mapping (O(1) expected, plus its alias
-    /// keys, which are read live), else (or `linear`) O(entries). The two
-    /// make the same comparisons: the index only picks the candidates.
+    /// index of a wide mapping that has been read more than a few times
+    /// (O(1) expected, plus its alias keys, read live), else (or `linear`) a
+    /// scan of the entries. The two make the same comparisons: the index
+    /// only picks the candidates.
+    ///
+    /// Cost, for a mapping of w entries and a string query of k bytes: the
+    /// scan is O(w) with, per entry, O(min(k, the key's text up to its first
+    /// difference, line break or escape)) while the key can still be told
+    /// from the query by its source text, and a decode, a tag read and a
+    /// resolution only for a key that may be the query. So a scan of a
+    /// mapping with one 4 MB key reads a few bytes of it, not 4 MB. The
+    /// indexed lookup is O(k) to digest the query and O(1) expected per
+    /// candidate, O(live keys) more. No allocation but the query's digest.
     fn own_key(self, r: &Resolver, q: KeyQuery<'_>, linear: bool) -> Option<NodeRef<'d>> {
         let (doc, tree) = (self.0.doc, self.0.node.tree());
         let indexed = (!linear)
@@ -859,16 +900,18 @@ impl<'d> MappingRef<'d> {
                     let mut best: Option<(usize, TreeNode<'d>)> = None;
                     for id in ix.bucket_rev(digest) {
                         let n = id.node(tree)?;
-                        if q.matches(NodeRef::new(doc, n), r) {
+                        // (A digest's candidate: its text is nearly always the
+                        // query's, so it is not held against it twice.)
+                        if q.matches(NodeRef::new(doc, n), r, false) {
                             best = Some((n.preorder_index(), n));
                             break;
                         }
                     }
                     // Alias keys are read live (their meaning follows their
                     // anchored node), the last match first.
-                    for id in ix.aliases_rev() {
+                    for id in ix.live_rev() {
                         let n = id.node(tree)?;
-                        if q.matches(NodeRef::new(doc, n), r) {
+                        if q.matches(NodeRef::new(doc, n), r, true) {
                             let at = n.preorder_index();
                             if best.is_none_or(|(b, _)| at > b) {
                                 best = Some((at, n));
@@ -881,9 +924,21 @@ impl<'d> MappingRef<'d> {
             })
             .flatten();
         indexed.unwrap_or_else(|| {
+            // (A key whose source text cannot be the string asked for is
+            // passed over before it is wrapped: `matches` would refuse it
+            // the same way.)
+            let text = q.text();
             let mut found = None;
-            for (k, _) in self.iter() {
-                if q.matches(k, r) {
+            let mut items = self.0.node.children().filter(|c| c.kind().is_yaml_node());
+            while let (Some(k), Some(_)) = (items.next(), items.next()) {
+                let k = presented(k);
+                if text.is_some_and(|t| node_content_rules_out(k, t)) {
+                    continue;
+                }
+                // (A scalar key was held against the query above.)
+                let prefilter = k.kind() != SyntaxKind::Scalar;
+                let k = NodeRef::new(self.0.doc, k);
+                if q.matches(k, r, prefilter) {
                     found = Some(k);
                 }
             }
@@ -961,7 +1016,7 @@ impl<'d> MappingRef<'d> {
                     if ix.has_merges() {
                         return Some(Ok(true));
                     }
-                    for id in ix.aliases_rev() {
+                    for id in ix.live_rev() {
                         match NodeRef::new(doc, id.node(tree)?).is_merge_key() {
                             Ok(false) => {}
                             found => return Some(found),
@@ -1157,10 +1212,28 @@ impl<'a> KeyQuery<'a> {
 }
 
 impl KeyQuery<'_> {
+    /// The string asked for, when the query is for a string.
+    fn text(&self) -> Option<&str> {
+        match self {
+            KeyQuery::Str(q) => Some(q),
+            KeyQuery::Value(Value::String(q)) => Some(q.as_str()),
+            KeyQuery::Value(_) => None,
+        }
+    }
+
     /// Whether own key `k` (merge keys aside) is the one asked for: the
     /// comparisons the linear scans have always made.
-    fn matches(self, k: NodeRef<'_>, r: &Resolver) -> bool {
+    ///
+    /// With `prefilter`, a string query is first held against the key's source text
+    /// ([`ScalarRef::content_rules_out`]): a key whose text cannot be the
+    /// string is refused without decoding it, resolving it or reading its
+    /// tag, and the refusal is the answer the full comparison gives
+    /// (a match needs equal content under any tag).
+    fn matches(self, k: NodeRef<'_>, r: &Resolver, prefilter: bool) -> bool {
         k.as_scalar().is_some_and(|s| {
+            if prefilter && self.text().is_some_and(|q| s.content_rules_out(q)) {
+                return false;
+            }
             !(r.merge_keys() && lookup_hit(s.is_merge_key(r)))
                 && match self {
                     KeyQuery::Str(key) => s.is_string(r, key),
@@ -1196,16 +1269,142 @@ fn value_after(k: NodeRef<'_>) -> Option<NodeRef<'_>> {
     None
 }
 
+/// A scalar node's text token (its last child) and that token's kind.
+fn text_token(scalar: TreeNode<'_>) -> Option<(TreeNode<'_>, SyntaxKind)> {
+    let t = scalar.last_child()?;
+    matches!(
+        t.kind(),
+        SyntaxKind::PlainScalar
+            | SyntaxKind::SingleQuotedScalar
+            | SyntaxKind::DoubleQuotedScalar
+            | SyntaxKind::LiteralScalar
+            | SyntaxKind::FoldedScalar
+    )
+    .then(|| (t, t.kind()))
+}
+
+/// Whether scalar node `scalar`'s content certainly differs from `q`,
+/// decided from its source text without decoding it (`false`: not known,
+/// or not a scalar; the caller compares the decoded content).
+///
+/// The text is held against `q` byte by byte from its start. Plain text and
+/// the inside of a quoted scalar are content as written until the first
+/// line break (which folds), the first `\` of a double-quoted scalar (an
+/// escape), or a `'` of a single-quoted one (`''` is one quote): there the
+/// answer is "not known". Before that, the first byte that differs
+/// refuses; so does a text that ends before `q` has, or goes on after it
+/// (every written character adds at least one to the content). A block
+/// scalar is never refused here.
+///
+/// Cost: O(the shorter of `q` and the text up to its first byte that
+/// differs, line break or escape), never O(the text): a 4 MB key is refused
+/// by a short `q` after a few bytes. No allocation, no decoding.
+fn node_content_rules_out(scalar: TreeNode<'_>, q: &str) -> bool {
+    if scalar.kind() != SyntaxKind::Scalar {
+        return false;
+    }
+    let Some((token, kind)) = text_token(scalar) else {
+        return false;
+    };
+    let text = token.text();
+    let (mut raw, quote) = match kind {
+        SyntaxKind::PlainScalar => (text.as_bytes(), None),
+        SyntaxKind::SingleQuotedScalar => (text.as_bytes(), Some(b'\'')),
+        SyntaxKind::DoubleQuotedScalar => (text.as_bytes(), Some(b'"')),
+        _ => return false,
+    };
+    if let Some(quote) = quote {
+        // Both quotes must be there (a recovered scalar may lack the
+        // closing one: not known).
+        let last = raw.len().saturating_sub(1);
+        if last < 1 || raw.first() != Some(&quote) || raw.get(last) != Some(&quote) {
+            return false;
+        }
+        match raw.get(1..last) {
+            Some(inner) => raw = inner,
+            None => return false,
+        }
+    }
+    // The bytes after which the text is no longer content as written.
+    let special = |b: u8| {
+        matches!(b, b'\n' | b'\r')
+            || (quote == Some(b'\'') && b == b'\'')
+            || (quote == Some(b'"') && b == b'\\')
+    };
+    // White space before a line break is dropped by the fold (§7.3.1 to
+    // §7.3.3), so it is content only when something else follows it on
+    // its line. A run too long to look through is not known either.
+    let white_run_is_content = |from: usize| {
+        let rest = raw.get(from..).unwrap_or_default();
+        let run = rest
+            .iter()
+            .take(WHITE_LOOKAHEAD)
+            .take_while(|b| matches!(b, b' ' | b'\t'))
+            .count();
+        run < WHITE_LOOKAHEAD && !rest.get(run).is_some_and(|&b| special(b))
+    };
+    let mut at = 0usize;
+    for &want in q.as_bytes() {
+        key_compare_work(1);
+        let Some(&got) = raw.get(at) else {
+            // The text ended: its content is shorter than `q`.
+            return true;
+        };
+        if special(got) {
+            return false;
+        }
+        if matches!(got, b' ' | b'\t') && !white_run_is_content(at) {
+            return false;
+        }
+        if got != want {
+            return true;
+        }
+        at = at.saturating_add(1);
+    }
+    // `q` is used up. Whatever follows adds to the content, unless it is a
+    // break, an escape, a quote or white space (not known).
+    raw.get(at)
+        .is_some_and(|&b| !special(b) && !matches!(b, b' ' | b'\t'))
+}
+
+/// How many bytes of white space `node_content_rules_out` looks through to
+/// see whether a line break follows.
+const WHITE_LOOKAHEAD: usize = 64;
+
+/// Counts `bytes` of key text compared by `node_content_rules_out` (tests
+/// only; nothing in library builds).
+#[inline(always)]
+fn key_compare_work(bytes: u64) {
+    #[cfg(any(test, feature = "__internal-checks"))]
+    KEY_COMPARED.with(|c| c.set(c.get().saturating_add(bytes)));
+    #[cfg(not(any(test, feature = "__internal-checks")))]
+    let _ = bytes;
+}
+
+#[cfg(any(test, feature = "__internal-checks"))]
+thread_local! {
+    static KEY_COMPARED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// The bytes of key text compared on this thread since the last call.
+#[cfg(feature = "__internal-checks")]
+pub(super) fn take_key_compared() -> u64 {
+    KEY_COMPARED.with(|c| c.replace(0))
+}
+
 /// What mapping key `k` is to the lookup index (`lookup.rs`):
 /// an alias (read live), a merge key, a scalar with its resolved meaning,
 /// or a key no lookup matches.
 pub(super) fn key_kind(k: NodeRef<'_>, r: &Resolver) -> KeyKind {
     if k.node.kind() == SyntaxKind::Alias {
-        return KeyKind::Alias;
+        return KeyKind::Live;
     }
     let Some(s) = k.as_scalar() else {
         return KeyKind::Never;
     };
+    if let Some(kind) = s.plain_key_kind(r) {
+        return kind;
+    }
     match s.is_merge_key(r) {
         Ok(true) if r.merge_keys() => return KeyKind::Merge,
         Ok(_) => {}
@@ -1412,6 +1611,57 @@ impl<'d> ScalarRef<'d> {
         Ok(scalar_value(resolved, value, &tag))
     }
 
+    /// Whether the scalar has a tag property (`!x`, `!!str`, `!`).
+    /// O(its children: properties and text).
+    fn has_tag(self) -> bool {
+        self.0.node.children().any(|c| c.kind() == SyntaxKind::Tag)
+    }
+
+    /// Whether the scalar's content certainly differs from `q`, decided
+    /// from its source text without decoding it (`false`: not known, the
+    /// caller compares the decoded content).
+    ///
+    /// The text is held against `q` byte by byte from its start. Plain
+    /// text and the inside of a quoted scalar are content as written until
+    /// the first line break (which folds), the first `\` of a double-quoted
+    /// scalar (an escape), or a `'` of a single-quoted one (`''` is one
+    /// quote): there the answer is "not known". So it is at white space
+    /// that a line break follows (the fold drops it), or that is too long
+    /// to look through. Before that, the first byte
+    /// that differs refuses; so does a text that ends before `q` has, or
+    /// goes on after it (every written character adds at least one to the
+    /// content). A block scalar is never refused here.
+    ///
+    /// Cost: O(the shorter of `q` and the text up to its first byte that
+    /// differs, line break or escape), never O(the text): a 4 MB key is
+    /// refused by a short `q` after a few bytes. No allocation.
+    fn content_rules_out(self, q: &str) -> bool {
+        node_content_rules_out(self.0.node, q)
+    }
+
+    /// What the scalar is as a mapping key, when its text and style tell
+    /// without resolving it (`None`: resolve it).
+    ///
+    /// * An untagged quoted scalar, or a plain one starting with a letter
+    ///   that begins no null, bool or number ([`Resolver::untagged_is_string`]),
+    ///   is the string of its content, which is no merge key.
+    ///
+    /// Cost: O(children + the key's text, decoded once for its digest).
+    fn plain_key_kind(self, r: &Resolver) -> Option<KeyKind> {
+        let (token, kind) = text_token(self.0.node)?;
+        if self.has_tag() {
+            return None;
+        }
+        let text = token.text();
+        let plain = match kind {
+            SyntaxKind::PlainScalar => true,
+            SyntaxKind::SingleQuotedScalar | SyntaxKind::DoubleQuotedScalar => false,
+            _ => return None,
+        };
+        r.untagged_is_string(plain, text.as_bytes().first().copied())
+            .then(|| KeyKind::Value(Value::String(self.value().into_owned())))
+    }
+
     /// Whether the scalar resolves to the string `key` (what
     /// `resolved_with(r) == Ok(Value::String(key))` says). A scalar
     /// resolves to a string only with its own content as the string, so
@@ -1448,7 +1698,13 @@ impl<'d> ScalarRef<'d> {
     /// # Errors
     ///
     /// `Y9000` for a tag that does not resolve.
+    ///
+    /// An untagged scalar whose source text cannot be `<<` is no merge key,
+    /// which is told without decoding it ([`ScalarRef::content_rules_out`]).
     fn is_merge_key(self, r: &Resolver) -> Result<bool, Error> {
+        if !self.has_tag() && self.content_rules_out("<<") {
+            return Ok(false);
+        }
         let plain = self.style() == ScalarStyle::Plain;
         let tag = self.0.doc.shared.tags.try_tag(self.0.node)?;
         Ok(is_merge_key(r, &tag, plain, &self.value()))

@@ -326,6 +326,27 @@ mod cost;
 pub fn take_work() -> u64 {
     cost::take_total()
 }
+
+/// Bytes of the edited text the tree has re-read on this thread to
+/// validate edits since the last call (behind the unstable
+/// `__internal-checks` feature, like [`take_work`]). A local edit re-reads
+/// a number of bytes that depends on the edited region and its
+/// neighbouring entries, never on the size of the document.
+#[cfg(feature = "__internal-checks")]
+#[doc(hidden)]
+pub fn take_reread_bytes() -> u64 {
+    cost::take_reread()
+}
+
+/// Bytes of scalar source text [`Node::value`] has decoded on this thread
+/// since the last call (behind the unstable `__internal-checks` feature,
+/// like [`take_work`]). A key lookup that can tell from the source text
+/// that a key differs decodes nothing of it.
+#[cfg(feature = "__internal-checks")]
+#[doc(hidden)]
+pub fn take_decoded_bytes() -> u64 {
+    cost::take_decoded()
+}
 mod edit;
 mod facts;
 mod fragment;
@@ -877,24 +898,31 @@ impl SyntaxTree {
         copy
     }
 
+    /// The text of the tree as [`SyntaxTree::emit`] gives it, borrowed from
+    /// the tree when it was not edited (nothing is copied) and built run by
+    /// run when it was.
+    #[must_use]
+    pub fn text(&self) -> Cow<'_, str> {
+        match self.edits.as_deref() {
+            Some(e) => Cow::Owned(self.edited_emit(e)),
+            None => Cow::Borrowed(&self.source),
+        }
+    }
+
     /// The text of the tree: its tokens' bytes in order. For a tree that
     /// was not edited this is exactly the input; for an edited tree,
-    /// exactly the input with each edit's bytes spliced in. O(n): an edited
-    /// tree's text is copied run by run, O(1) per run beyond its bytes, with
-    /// no map lookup (a run holds at least one element).
+    /// exactly the input with each edit's bytes spliced in. O(n) bytes
+    /// copied, at memory speed: an untouched tree's text is one copy of its
+    /// input, an edited tree's is copied run by run, O(1) per run beyond its
+    /// bytes, with no map lookup (a run holds at least one element).
     #[must_use]
     pub fn emit(&self) -> String {
         if let Some(e) = self.edits.as_deref() {
             return self.edited_emit(e);
         }
-        let mut out = String::with_capacity(self.source.len());
-        // A flat loop over the arena; no recursion.
-        for node in self.root().descendants() {
-            if node.is_token() {
-                out.push_str(&node.text());
-            }
-        }
-        out
+        // The tokens of a tree that was not edited tile its input, so the
+        // text is the input: one copy, no walk over the arena.
+        self.source.clone()
     }
 
     // ------------------------------------------------------------ storage

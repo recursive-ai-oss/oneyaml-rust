@@ -40,6 +40,8 @@ thread_local! {
     static COUNTS: core::cell::Cell<(u64, u64)> = const { core::cell::Cell::new((0, 0)) };
     static VISITS: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
     static NAVS: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
+    static REREAD: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
+    static DECODED: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
 }
 
 /// Counts one step (tests only; nothing in library builds).
@@ -86,4 +88,43 @@ pub(super) fn take_total() -> u64 {
         .saturating_add(edges)
         .saturating_add(visits)
         .saturating_add(navs)
+}
+
+/// Counts `bytes` of edited text re-read to validate an edit (tests only;
+/// nothing in library builds).
+#[inline(always)]
+pub(super) fn count_reread(bytes: u64) {
+    #[cfg(any(test, feature = "__internal-checks"))]
+    REREAD.with(|v| v.set(v.get().saturating_add(bytes)));
+    #[cfg(not(any(test, feature = "__internal-checks")))]
+    let _ = bytes;
+}
+
+/// The bytes counted by [`count_reread`] on this thread since the last
+/// call, and resets them.
+#[cfg(feature = "__internal-checks")]
+pub(super) fn take_reread() -> u64 {
+    REREAD.with(|v| v.replace(0))
+}
+
+/// Counts `bytes` of scalar source text decoded by [`Node::value`](super::Node::value)
+/// (tests only; nothing in library builds).
+#[inline(always)]
+pub(super) fn count_decoded(bytes: usize) {
+    #[cfg(any(test, feature = "__internal-checks"))]
+    DECODED.with(|v| {
+        v.set(
+            v.get()
+                .saturating_add(u64::try_from(bytes).unwrap_or(u64::MAX)),
+        )
+    });
+    #[cfg(not(any(test, feature = "__internal-checks")))]
+    let _ = bytes;
+}
+
+/// The bytes counted by [`count_decoded`] on this thread since the last
+/// call, and resets them.
+#[cfg(feature = "__internal-checks")]
+pub(super) fn take_decoded() -> u64 {
+    DECODED.with(|v| v.replace(0))
 }
