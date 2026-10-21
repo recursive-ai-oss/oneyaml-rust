@@ -38,7 +38,7 @@ use super::comments as cm;
 use super::key::{self, AsKey, KeyArg};
 use super::path_arg::{self, IntoPath};
 use super::place::{self, Coll, SlotKind};
-use super::render::{Render, multiline, reindent};
+use super::render::{BlockStyle, Render, multiline, reindent};
 use super::view::KeyQuery;
 use super::{CommentId, Document, EditError, NodeId, NodeKind, NodeRef, ScalarStyle};
 use crate::error::Error;
@@ -158,6 +158,10 @@ fn ends_break(t: &str) -> bool {
 
 /// The block scalar `n` ends with (itself, or its last value's, at any
 /// depth), if any. A loop down the last children, not recursion.
+///
+/// A missing last value (the empty node after `? key` with no `:`) has no
+/// text, so what ends the text before it is the item before it: a block
+/// scalar key ends with its line break there.
 fn last_block(n: TreeNode<'_>) -> Option<TreeNode<'_>> {
     let mut at = Some(n);
     while let Some(x) = at {
@@ -165,6 +169,9 @@ fn last_block(n: TreeNode<'_>) -> Option<TreeNode<'_>> {
             return Some(x);
         }
         at = x.last_child().filter(|c| c.kind().is_yaml_node());
+        if let Some(c) = at.filter(|c| c.span().is_empty()) {
+            at = c.prev_sibling().filter(|p| p.kind().is_yaml_node());
+        }
     }
     None
 }
@@ -279,6 +286,174 @@ fn break_after(v: TreeNode<'_>) -> Option<TreeNode<'_>> {
 /// `comment` (and the white space before it) on its first line, the line
 /// of its key, `-`, or properties; a compact collection item (`- - a`)
 /// gets its collection below the comment (`- # c⏎  - a`).
+/// The lines after the last entry (value `last`) of a block collection whose
+/// previous entry ends with a block scalar (`prev_value`) that would read as
+/// content of that scalar once the entry is removed: comment lines indented
+/// as far as its content, and white space wider than that. The first and last
+/// such element (siblings, with the lines between them kept in the range),
+/// the lines as written without their breaks, and the comments among the
+/// lines scanned. `None` when there are none.
+fn block_tail(
+    prev_value: TreeNode<'_>,
+    last: TreeNode<'_>,
+) -> Option<(TreeId, TreeId, Vec<String>, Vec<TreeId>)> {
+    let indent = last_block(prev_value)?.block_header()?.content_indent;
+    if ends_line(last) {
+        return None;
+    }
+    // The line after the entry's last line.
+    let mut at = place::next_token(last);
+    let mut from = loop {
+        match at {
+            Some(x) if matches!(x.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment) => {
+                at = place::next_token(x);
+            }
+            Some(x) if x.kind() == SyntaxKind::LineBreak => break place::next_token(x),
+            _ => return None,
+        }
+    };
+    let mut lines: Vec<String> = Vec::new();
+    let mut comments: Vec<TreeId> = Vec::new();
+    let mut first: Option<TreeNode<'_>> = None;
+    let mut end: Option<(TreeNode<'_>, usize)> = None;
+    while let Some(head) = from {
+        let (ws, rest) = if head.kind() == SyntaxKind::Whitespace {
+            (Some(head), place::next_token(head))
+        } else {
+            (None, Some(head))
+        };
+        let ws_text = ws.map(|w| w.text().into_owned()).unwrap_or_default();
+        if ws_text.contains('\t') {
+            break;
+        }
+        let width = ws_text.chars().count();
+        let Some(r) = rest else {
+            break;
+        };
+        if r.kind() == SyntaxKind::Comment {
+            comments.push(r.id());
+        }
+        let (last_tok, text, reads) = match r.kind() {
+            SyntaxKind::LineBreak => (r, ws_text, width > indent),
+            SyntaxKind::Comment => {
+                let text = format!("{ws_text}{}", r.text());
+                match place::next_token(r) {
+                    Some(b) if b.kind() == SyntaxKind::LineBreak => (b, text, width >= indent),
+                    None => (r, text, width >= indent),
+                    _ => break,
+                }
+            }
+            _ => break,
+        };
+        if reads {
+            first.get_or_insert(head);
+            lines.push(text);
+            end = Some((last_tok, lines.len()));
+        } else if first.is_some() {
+            lines.push(text);
+        }
+        from = place::next_token(last_tok);
+    }
+    let (first, (end, n)) = (first?, end?);
+    if first.parent() != end.parent() {
+        return None;
+    }
+    lines.truncate(n);
+    Some((first.id(), end.id(), lines, comments))
+}
+
+/// `text` (which starts with the single space after an indicator) with that
+/// space replaced by `gap`, the white space the document has there.
+fn with_gap(text: &str, gap: Option<&str>) -> String {
+    match (gap, text.strip_prefix(' ')) {
+        (Some(g), Some(rest)) => format!("{g}{rest}"),
+        _ => text.to_owned(),
+    }
+}
+
+/// The properties (anchor, tag) a node written in place of `n` keeps, as the
+/// source wrote them and in its order. The anchor always stays. The tag stays
+/// only when reading the new value back under it gives exactly that value:
+/// a custom tag on a string, `!!str` on a string, `!!int` on an integer and
+/// so on; any other tag would change what the new value means.
+fn node_props(n: TreeNode<'_>, v: &Value) -> Option<String> {
+    let keep_tag = n.kind() == SyntaxKind::Scalar && keeps_tag(n, v);
+    let mut out: Vec<String> = Vec::new();
+    for c in n.children() {
+        match c.kind() {
+            SyntaxKind::Anchor => out.push(c.text().into_owned()),
+            SyntaxKind::Tag if keep_tag => out.push(c.text().into_owned()),
+            SyntaxKind::Whitespace | SyntaxKind::LineBreak | SyntaxKind::Comment => {}
+            _ => break,
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out.join(" "))
+    }
+}
+
+/// Whether scalar `n`'s tag still describes `v` (see [`node_props`]).
+fn keeps_tag(n: TreeNode<'_>, v: &Value) -> bool {
+    const CORE: &str = "tag:yaml.org,2002:";
+    if !matches!(
+        v,
+        Value::String(_) | Value::Bool(_) | Value::Null | Value::Number(_)
+    ) {
+        return false;
+    }
+    let Some(tag) = n.tag() else {
+        return false;
+    };
+    // A document with `%TAG` directives gives tags meanings the text of an
+    // edit is not read under (see `Document::synth`): the tag goes, as it
+    // always did.
+    let directives = n
+        .ancestors()
+        .find(|a| a.kind() == SyntaxKind::Document)
+        .is_some_and(|d| d.children().any(|c| c.kind() == SyntaxKind::TagDirective));
+    if directives {
+        return false;
+    }
+    let t: &str = &tag.resolved;
+    let core = |name: &str| t.strip_prefix(CORE) == Some(name);
+    match v {
+        Value::String(_) => core("str") || !t.starts_with(CORE),
+        Value::Bool(_) => core("bool"),
+        Value::Null => core("null"),
+        Value::Number(x) => {
+            if x.is_integer() {
+                core("int")
+            } else {
+                core("float")
+            }
+        }
+        _ => false,
+    }
+}
+
+/// The style of block scalar `n` in `slot`, for writing its replacement the
+/// same way; `None` where the replacement is not written after `key:` or
+/// `-` on the same line, or the old scalar has no usable layout.
+fn block_style(n: TreeNode<'_>, slot: SlotKind) -> Option<BlockStyle> {
+    let parent = match slot {
+        SlotKind::MapValue { col } | SlotKind::SeqItem { col } => col,
+        _ => return None,
+    };
+    let h = n.block_header()?;
+    let folded = n
+        .last_child()
+        .is_some_and(|c| c.kind() == SyntaxKind::FoldedScalar);
+    Some(BlockStyle {
+        folded,
+        chomping: h.chomping,
+        indicator: h.indent_indicator,
+        content: h.content_indent,
+        parent,
+    })
+}
+
 fn header_text(kind: SlotKind, text: &str, comment: &str, nl: &str) -> Option<String> {
     match (kind, text.strip_prefix(' ')) {
         (SlotKind::SeqItem { col }, Some(rest))
@@ -1442,6 +1617,19 @@ impl Document {
     /// slot's indicator, or the node's own text).
     /// The second value: the text ends with a block scalar.
     fn slot_fragment(&self, kind: SlotKind, text: &str) -> Result<(Fragment, bool), EditError> {
+        self.slot_fragment_in(kind, text, None)
+    }
+
+    /// [`Document::slot_fragment`]; `gap`: the white space the document has
+    /// between the indicator and the value, written in place of the single
+    /// space `text` starts with.
+    fn slot_fragment_in(
+        &self,
+        kind: SlotKind,
+        text: &str,
+        gap: Option<&str>,
+    ) -> Result<(Fragment, bool), EditError> {
+        let text = &with_gap(text, gap);
         let with = |t: &SyntaxTree, a, b: TreeNode<'_>| {
             Self::extract(t, a, b).map(|f| (f, last_block(b).is_some()))
         };
@@ -1496,6 +1684,18 @@ impl Document {
     /// [`Document::slot_fragment`] ending with the line break that ends
     /// its line (for `replace_to_line_end`).
     fn slot_line_fragment(&self, kind: SlotKind, text: &str) -> Result<Fragment, EditError> {
+        self.slot_line_fragment_in(kind, text, None)
+    }
+
+    /// [`Document::slot_line_fragment`]; `gap` as for
+    /// [`Document::slot_fragment_in`].
+    fn slot_line_fragment_in(
+        &self,
+        kind: SlotKind,
+        text: &str,
+        gap: Option<&str>,
+    ) -> Result<Fragment, EditError> {
+        let text = &with_gap(text, gap);
         // Text that already ends its line (a block scalar's, kept as
         // written: `|+` keeps its trailing lines) gets no other break.
         let nl = if ends_break(text) { "" } else { self.nl() };
@@ -2362,9 +2562,17 @@ impl Document {
             self.check_removal(n, n, Some(n.id()))?;
             let slot = place::slot_of(n)?;
             carried = Some(self.replace_carry(n, slot.first, slot.last, keep)?);
-            let anchor = n.anchor().map(|a| a.name.to_owned());
+            let anchor = node_props(n, v);
             let context = n.parent().filter(|p| Coll::of(*p).is_some());
             let render = self.render(context, flat)?;
+            // A string set over an existing node is quoted when the
+            // document's own schema reads it as another type, not whenever
+            // some YAML reader might (`yes` is a string in YAML 1.2).
+            let render = if matches!(v, Value::String(_)) {
+                render.schema_floor()
+            } else {
+                render
+            };
             let block = matches!(v.untag_ref(), Value::Sequence(s) if !s.is_empty())
                 || matches!(v.untag_ref(), Value::Mapping(m) if !m.is_empty());
             let compact = block && !v.is_tagged();
@@ -2376,6 +2584,14 @@ impl Document {
                     match style {
                         Some(st @ (ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted)) => {
                             render.keep_style(sv, st)
+                        }
+                        // A plain scalar stays plain unless the new text has a
+                        // line break, which it writes double-quoted.
+                        Some(ScalarStyle::Plain) if sv.contains('\n') && !n.span().is_empty() => {
+                            render.keep_style(sv, ScalarStyle::Plain)
+                        }
+                        Some(ScalarStyle::Literal | ScalarStyle::Folded) => {
+                            block_style(n, slot.kind).and_then(|old| render.block_scalar(sv, &old))
                         }
                         _ => None,
                     }
@@ -2427,17 +2643,17 @@ impl Document {
                 Some(a) => match slot.kind {
                     SlotKind::SeqItem { col } if compact && forced.is_none() => {
                         let rest = text.strip_prefix(' ').ok_or(EditError::Internal)?;
-                        format!(" &{a}{nl}{}{rest}", sp(col.saturating_add(2)))
+                        format!(" {a}{nl}{}{rest}", sp(col.saturating_add(2)))
                     }
                     SlotKind::MapValue { .. }
                     | SlotKind::SeqItem { .. }
                     | SlotKind::AfterMarker => {
-                        format!(" &{a}{text}")
+                        format!(" {a}{text}")
                     }
                     SlotKind::Own { col } if compact && forced.is_none() => {
-                        format!("&{a}{nl}{}{text}", sp(col))
+                        format!("{a}{nl}{}{text}", sp(col))
                     }
-                    SlotKind::Own { .. } | SlotKind::Flow => format!("&{a} {text}"),
+                    SlotKind::Own { .. } | SlotKind::Flow => format!("{a} {text}"),
                     // A value written without `:` has no properties (they
                     // would need the `:`).
                     SlotKind::ExplicitValue { .. } | SlotKind::FlowValue => {
@@ -2536,26 +2752,41 @@ impl Document {
             // Content that ends its line (a block scalar's text ends with
             // its line break) is replaced through the line's end,
             // old or new.
+            // The white space between `:` (or `-`) and the value stays as the
+            // document wrote it (a tab, several spaces) when the new text
+            // starts on the same line: only the value's own text changes.
+            let gap_text = match slot.kind {
+                SlotKind::MapValue { .. } | SlotKind::SeqItem { .. }
+                    if slot.first != n
+                        && slot.first.kind() == SyntaxKind::Whitespace
+                        && slot.first.next_sibling() == Some(n)
+                        && text.starts_with(' ') =>
+                {
+                    Some(slot.first.text().into_owned())
+                }
+                _ => None,
+            };
+            let gap = gap_text.as_deref();
             let range = (slot.first.id(), slot.last.id());
             if matches!(slot.kind, SlotKind::ExplicitValue { .. }) && place::key_ends_line(n) {
                 // `? |` alone: the empty value sits at the start of the
                 // next line; the new `: value` line ends with its own line
                 // break, spliced in there (never through that line's end).
-                let frag = self.slot_line_fragment(slot.kind, &text)?;
+                let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
                 (range, frag, false, None)
             } else if let Some((w, c)) = outer {
                 // The comment written back (see `outer`), once it has left
                 // (then this is `? a⏎` alone): a new block scalar goes
                 // through the line's end, as there.
-                let (frag, new_block) = self.slot_fragment(slot.kind, &text)?;
+                let (frag, new_block) = self.slot_fragment_in(slot.kind, &text, gap)?;
                 if new_block {
-                    let frag = self.slot_line_fragment(slot.kind, &text)?;
+                    let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
                     (range, frag, true, Some((w.id(), c.id())))
                 } else {
                     (range, frag, false, Some((w.id(), c.id())))
                 }
             } else {
-                let (frag, new_block) = self.slot_fragment(slot.kind, &text)?;
+                let (frag, new_block) = self.slot_fragment_in(slot.kind, &text, gap)?;
                 if ends_line(n) || new_block {
                     // A same-line comment after
                     // the replaced value moves onto the new block scalar's
@@ -2575,11 +2806,11 @@ impl Document {
                         Some((w, c)) => {
                             let text = with_header_comment(&text, &place::range_text(w, c))
                                 .ok_or_else(bad)?;
-                            let frag = self.slot_line_fragment(slot.kind, &text)?;
+                            let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
                             (range, frag, true, Some((w.id(), c.id())))
                         }
                         None => {
-                            let frag = self.slot_line_fragment(slot.kind, &text)?;
+                            let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
                             (range, frag, true, None)
                         }
                     }
@@ -2597,7 +2828,7 @@ impl Document {
                         Some((w, c)) => {
                             let text = header_text(slot.kind, &text, &place::range_text(w, c), nl)
                                 .ok_or_else(bad)?;
-                            let (frag, _) = self.slot_fragment(slot.kind, &text)?;
+                            let (frag, _) = self.slot_fragment_in(slot.kind, &text, gap)?;
                             (range, frag, false, Some((w.id(), c.id())))
                         }
                         None => (range, frag, false, None),
@@ -3871,6 +4102,9 @@ impl Document {
             carry: Carry,
             /// The last entry's same-line comment, after the collection.
             outside: Option<(TreeId, TreeId)>,
+            /// Lines right after the last entry that would read as content of
+            /// the block scalar before it once the entry is gone.
+            block_tail: Option<(TreeId, TreeId)>,
             only: bool,
             flow: bool,
             empty: (bool, Option<crate::value::Tag>),
@@ -3976,6 +4210,19 @@ impl Document {
                     outside = Some((w.id(), w.id()));
                 }
             }
+            // The last entry after a block scalar: lines under it that are
+            // indented as the scalar's content (a comment, or white space
+            // wider than its indentation) would become part of the scalar's
+            // text, so they go with the entry.
+            let tail_lines = match (&prev, &next) {
+                (Some(p), None) if !flow => block_tail(p.value, e.value),
+                _ => None,
+            };
+            let block_tail = tail_lines.as_ref().map(|t| (t.0, t.1));
+            let tail_comments: HashSet<TreeId> = tail_lines
+                .as_ref()
+                .map(|t| t.3.iter().copied().collect())
+                .unwrap_or_default();
             // A block sequence item's separator after its `-`.
             let head = (kind == Coll::BlockSeq && e.first != e.value)
                 .then(|| e.first.next_sibling())
@@ -4047,6 +4294,11 @@ impl Document {
             };
             let around = (only && !flow).then_some(coll);
             let mut carry = self.entry_carry(coll, &e, prev.is_some(), rehome, around)?;
+            // The comments removed with the lines after the entry are no
+            // longer expected to stay where their owner had them.
+            carry
+                .rest
+                .retain(|x| !x.old.is_some_and(|c| tail_comments.contains(&c)));
             if keep_lead && (only || flow) && carry.kept_lead > 0 {
                 return Err(unsupported(
                     "the leading comments of a flow entry or of a collection's only entry \
@@ -4118,10 +4370,13 @@ impl Document {
                 })
             };
             let lead = lines(carry.lead.as_ref().map(|l| &l.2), false);
-            let tail = lines(
+            let mut tail = lines(
                 carry.tail.as_ref().map(|l| &l.2),
                 carry.tail.as_ref().is_some_and(|l| l.3),
             );
+            if let Some((_, _, extra, _)) = tail_lines {
+                tail.extend(extra);
+            }
             let tree = self.tree();
             // Another owner's comments between the entry and its `,` (rule
             // 9): the removal writes them back as lines of their own (see
@@ -4195,6 +4450,7 @@ impl Document {
                 removed,
                 carry,
                 outside,
+                block_tail,
                 only,
                 flow,
                 // The document's tag table (a `%TAG` prefix is
@@ -4212,6 +4468,7 @@ impl Document {
             removed,
             carry,
             outside,
+            block_tail,
             only,
             flow,
             empty,
@@ -4230,6 +4487,9 @@ impl Document {
                 d.t_remove(f, l)?;
             }
             if let Some((f, l, _)) = carry.lead {
+                d.t_remove(f, l)?;
+            }
+            if let Some((f, l)) = block_tail {
                 d.t_remove(f, l)?;
             }
             let new = if flow {
@@ -6304,6 +6564,15 @@ impl Document {
     /// content follows its neighbours' layout: multi-line strings
     /// are `|` block scalars wherever the context permits (else
     /// double-quoted), and new lines use the document's line break.
+    /// A string set over an existing scalar keeps that scalar's style where
+    /// the style can hold the text, and changes only the text: a block scalar
+    /// stays a block scalar of its kind and indentation, with its chomping
+    /// indicator changed only as far as the final line breaks need; a quoted
+    /// scalar keeps its quotes; a text with a line break on a plain or quoted
+    /// scalar is written double-quoted on the same line; a tag stays while the
+    /// new value reads back under it as exactly that value; the white space
+    /// after `:` or `-` stays. Such a string is written plain unless the
+    /// document's schema reads it as another type.
     /// Setting a node to the value it already has (as [`Value`] equality
     /// says) changes no byte: its style, comments, anchor and handle stay;
     /// except that a node which is or holds an alias or a merge key is
@@ -6935,8 +7204,10 @@ impl<'d> NodeMut<'d> {
 
     /// Sets a scalar's content to the string `text`, keeping the scalar's
     /// quoting style when it can hold `text` (style inference: `'a'`
-    /// stays single-quoted, `"a"` double-quoted), else the every-reader-
-    /// safe style. The handle follows the new node.
+    /// stays single-quoted, `"a"` double-quoted), else plain unless the
+    /// document's schema reads `text` as another type (as
+    /// [`Document::set_path`] writes a string). The handle follows the new
+    /// node.
     ///
     /// # Errors
     ///

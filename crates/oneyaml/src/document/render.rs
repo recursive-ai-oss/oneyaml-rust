@@ -22,6 +22,7 @@
 //! section 5.4 `b-break`), keeping each break as written.
 
 use oneyaml_core::{Emit, Limits, QuoteStyle, Settings, code};
+use oneyaml_syntax::event::Chomping;
 
 use super::{EditError, ScalarStyle};
 use crate::emit::scalar::{self, BlockIndent, Rules, Style};
@@ -38,6 +39,20 @@ pub(super) struct Render {
     nl: &'static str,
     /// Multi-line strings as one-line flow text (the fallback).
     one_line: bool,
+}
+
+/// How the block scalar being replaced is written: what a new block scalar
+/// in its place keeps.
+pub(super) struct BlockStyle {
+    /// Folded (`>`), else literal (`|`).
+    pub(super) folded: bool,
+    pub(super) chomping: Chomping,
+    /// The indentation indicator, if the old header had one.
+    pub(super) indicator: Option<u8>,
+    /// Column of the old content lines.
+    pub(super) content: usize,
+    /// Column of the key or dash that holds the scalar.
+    pub(super) parent: usize,
 }
 
 /// The flow writer's explicit stack.
@@ -77,6 +92,13 @@ impl Render {
             nl,
             one_line: false,
         })
+    }
+
+    /// The renderer for a string that replaces a node: plain unless the
+    /// document's schema reads the text as another type.
+    pub(super) fn schema_floor(mut self) -> Self {
+        self.rules = self.rules.for_edit();
+        self
     }
 
     /// The fallback renderer: multi-line strings as one-line flow text.
@@ -209,10 +231,13 @@ impl Render {
         };
         let chosen = self.rules.string_style(text, block);
         let st = match (style, chosen) {
-            (ScalarStyle::DoubleQuoted, Style::Plain | Style::Single | Style::Double) => {
-                Style::Double
-            }
+            (
+                ScalarStyle::DoubleQuoted,
+                Style::Plain | Style::Single | Style::Double | Style::Literal,
+            ) => Style::Double,
             (ScalarStyle::SingleQuoted, Style::Plain | Style::Single) => Style::Single,
+            // A line break is written as the escape, on the line of the value it replaces.
+            (ScalarStyle::SingleQuoted | ScalarStyle::Plain, Style::Literal) => Style::Double,
             (ScalarStyle::Plain, Style::Plain) if !text.contains([',', '[', ']', '{', '}']) => {
                 Style::Plain
             }
@@ -220,6 +245,98 @@ impl Render {
         };
         let mut out = String::new();
         self.rules.write_string(&mut out, text, st, block);
+        Some(out)
+    }
+
+    /// `text` as a block scalar in the style of the one it replaces: the text
+    /// after `key:` (or `-`) without its leading space, the content lines at
+    /// the old content's indentation `content`. `parent` is the column of the
+    /// key (or dash), which an indentation indicator counts from.
+    ///
+    /// The chomping indicator changes only as far as the value needs: strip
+    /// holds no final line break, clip exactly one, keep one or more. Folded
+    /// text writes a line break between lines of text as an empty line,
+    /// because a single break folds to a space.
+    ///
+    /// `None` when a block scalar cannot hold the text (it needs escapes, or
+    /// has no content); the caller then writes it as any other string.
+    pub(super) fn block_scalar(&self, text: &str, old: &BlockStyle) -> Option<String> {
+        let content = text.trim_end_matches('\n');
+        if content.is_empty() || !scalar::block_text_ok(text) || self.one_line {
+            return None;
+        }
+        let breaks = text.len().saturating_sub(content.len());
+        let chomp = match (old.chomping, breaks) {
+            (Chomping::Strip, 0) | (Chomping::Clip, 1) | (Chomping::Keep, 1..) => old.chomping,
+            (_, 0) => Chomping::Strip,
+            (_, 1) => Chomping::Clip,
+            _ => Chomping::Keep,
+        };
+        let indent = old.content.checked_sub(old.parent).filter(|d| *d > 0)?;
+        let spaced = |l: &str| l.starts_with([' ', '\t']);
+        let first = content.split('\n').find(|l| !l.is_empty())?;
+        let needs = first.starts_with(' ');
+        let digit = match old.indicator {
+            Some(d) => Some(d),
+            None if needs => Some(u8::try_from(indent).ok()?),
+            None => None,
+        };
+        if digit.is_some_and(|d| !(1..=9).contains(&d) || usize::from(d) != indent) {
+            return None;
+        }
+        let mut lines: Vec<&str> = Vec::new();
+        if old.folded {
+            // Between two lines of text a break needs as many empty lines as
+            // it stands for; next to a more-indented line one break is kept
+            // as it is, so one fewer.
+            let mut prev: Option<&str> = None;
+            let mut empties = 0usize;
+            for l in content.split('\n') {
+                if l.is_empty() {
+                    empties = empties.saturating_add(1);
+                    if prev.is_none() {
+                        lines.push(l);
+                    }
+                    continue;
+                }
+                if let Some(p) = prev {
+                    let m = empties.saturating_add(1);
+                    let extra = if spaced(p) || spaced(l) {
+                        m.saturating_sub(1)
+                    } else {
+                        m
+                    };
+                    lines.extend(std::iter::repeat_n("", extra));
+                }
+                lines.push(l);
+                prev = Some(l);
+                empties = 0;
+            }
+        } else {
+            lines.extend(content.split('\n'));
+        }
+        let mut out = String::new();
+        out.push(if old.folded { '>' } else { '|' });
+        if let Some(d) = digit {
+            out.push(char::from(b'0'.saturating_add(d)));
+        }
+        match chomp {
+            Chomping::Strip => out.push('-'),
+            Chomping::Keep => out.push('+'),
+            _ => {}
+        }
+        for l in lines {
+            out.push_str(self.nl);
+            if !l.is_empty() {
+                out.extend(std::iter::repeat_n(' ', old.content));
+                out.push_str(l);
+            }
+        }
+        if chomp == Chomping::Keep {
+            for _ in 0..breaks {
+                out.push_str(self.nl);
+            }
+        }
         Some(out)
     }
 

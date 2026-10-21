@@ -735,7 +735,16 @@ impl<'d> NodeRef<'d> {
                         return Err(EditError::NotAMapping { at });
                     };
                     at.push_key(k.clone());
+                    // The empty segment also names the entry whose key has no
+                    // content (`: v`, `[: v]`): a key written as nothing is
+                    // the empty text, though it reads as null.
                     m.get(k)
+                        .or_else(|| {
+                            k.is_empty()
+                                .then(|| m.iter().find(|(key, _)| key.text().is_empty()))
+                                .flatten()
+                                .map(|(_, v)| v)
+                        })
                         .ok_or_else(|| EditError::NotFound { at: at.clone() })?
                 }
                 oneyaml_core::PathSegment::Index(i) => {

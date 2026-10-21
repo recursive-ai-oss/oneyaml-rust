@@ -581,6 +581,20 @@ pub(crate) struct Tally {
     explicit_moves: usize,
 }
 
+/// Whether `tag`, on a scalar, still gives exactly `v` when read back: a
+/// custom tag on a string, a core tag on the type it names.
+fn tag_describes(tag: &oneyaml::Tag, v: &Value) -> bool {
+    const CORE: &str = "tag:yaml.org,2002:";
+    let core = |name: &str| *tag == format!("{CORE}{name}");
+    match v {
+        Value::String(_) => core("str") || !tag.starts_with(CORE),
+        Value::Bool(_) => core("bool"),
+        Value::Null => core("null"),
+        Value::Number(n) => core(if n.is_integer() { "int" } else { "float" }),
+        _ => false,
+    }
+}
+
 /// The meaning oracle (see the module docs).
 fn check_meaning(
     doc: &Document,
@@ -591,7 +605,7 @@ fn check_meaning(
     t: &mut Tally,
 ) {
     let text = doc.to_string();
-    let after = match Value::try_from(doc) {
+    let mut after = match Value::try_from(doc) {
         Ok(after) => after,
         Err(e) => {
             // An accepted edit that turns a meaning into an error never passes
@@ -623,6 +637,20 @@ fn check_meaning(
             return;
         }
     };
+    // A scalar set to a value keeps its tag when the tag still describes the
+    // value (a custom tag on a string, `!!str` on a string, ...): the node
+    // then reads as that value under its tag, which is the value set.
+    if let Some((path, Want::Value(v))) = &model.at {
+        let kept = match vget(&after, path) {
+            Some(Value::Tagged(t)) => t.value == *v && tag_describes(&t.tag, v),
+            _ => false,
+        };
+        if kept {
+            if let Some(slot) = vget_mut(&mut after, path) {
+                *slot = v.clone();
+            }
+        }
+    }
     if let Some((path, want)) = model.at {
         let got = vget(&after, &path);
         match want {

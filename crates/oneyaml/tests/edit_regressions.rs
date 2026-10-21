@@ -75,12 +75,13 @@ fn new_text_uses_the_documents_line_break() {
         d.set_path(&path!["c"], 3).unwrap();
         d.set_path(&path!["d", "e"], vec![1, 2]).unwrap();
         d.set_path(&path!["a"], "l1\nl2").unwrap();
+        d.set_path(&path!["f"], "m1\nm2").unwrap();
         d.get_mut("b")
             .unwrap()
             .set(serde_json::json!({"k": [true]}))
             .unwrap();
         let want = format!(
-            "a: |-{nl}  l1{nl}  l2{nl}b:{nl}  k:{nl}    - true{nl}c: 3{nl}d:{nl}  e:{nl}    - 1{nl}    - 2{nl}"
+            "a: \"l1\\nl2\"{nl}b:{nl}  k:{nl}    - true{nl}c: 3{nl}d:{nl}  e:{nl}    - 1{nl}    - 2{nl}f: |-{nl}  m1{nl}  m2{nl}"
         );
         assert_eq!(d.to_string(), want, "{nl:?}");
         assert!(!d.to_string().replace(nl, "").contains(['\n', '\r']));
