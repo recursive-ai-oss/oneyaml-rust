@@ -61,12 +61,12 @@ pub enum EditError {
     /// text"), e.g. a block value moved into a flow collection. Nothing
     /// was changed.
     ///
-    /// One documented 0.2 limitation is also refused this way rather than
+    /// One documented limitation is also refused this way rather than
     /// as [`EditError::Unsupported`]: under
     /// `lenient_inline_colons`, an edit whose validation window holds a
     /// `Y0028` warning attached to an element the edit moves, even when
     /// its result would be well formed (see [`crate::Document`],
-    /// *Limitations in 0.2*).
+    /// *Editing in depth*).
     #[non_exhaustive]
     NotWellFormed {
         /// The path of the node the edit was aimed at (empty when unknown).

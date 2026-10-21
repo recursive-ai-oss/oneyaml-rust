@@ -1,6 +1,6 @@
 # yaml-test-suite conformance: oneyaml vs. other Rust YAML parsers
 
-Measured on 2026-10-03 at workspace revision `4c6d70c`, on the vendored
+Measured on 2026-10-21 at workspace revision `e24c4f8`, on the vendored
 yaml-test-suite (release `data-2022-01-17`, commit `6e6c296a`; 402 cases:
 308 valid, 94 error; see `crates/test-suite/data/yaml-test-suite/SOURCE.md`),
 with rustc 1.97.1.
@@ -50,7 +50,7 @@ The criterion other projects publish (and the one matrix.yaml.info uses):
 
 | Parser | Version | Valid | Error | Total | Error + prefix (vendored / corrected) | Notes |
 |---|---|---|---|---|---|---|
-| oneyaml-syntax | 0.1.2 | 308/308 | 94/94 | 402/402 | 83 / 94 of 94 |  |
+| oneyaml-syntax | 0.2.0 | 308/308 | 94/94 | 402/402 | 83 / 94 of 94 |  |
 | saphyr-parser | 0.1.0 | 308/308 | 94/94 | 402/402 | 55 / 55 of 94 | API lacks `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
 | yaml-rust2 | 0.13.0 | 308/308 | 94/94 | 402/402 | 57 / 56 of 94 | API lacks `---` marker, `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
 | libyaml (unsafe-libyaml) | 0.2.11 | 252/308 | 78/94 | 330/402 | 50 / 55 of 94 |  |

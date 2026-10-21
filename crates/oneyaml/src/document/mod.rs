@@ -1968,6 +1968,14 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///   **restricted**: its error regions are [`NodeKind::Error`] nodes;
 ///   edits next to an error region are refused ([`EditError::ReadOnly`]),
 ///   edits elsewhere work.
+/// * **Patches and pointers**: [`Document::apply_patch`] applies a JSON
+///   Patch (RFC 6902) and [`Document::apply_merge_patch`] a merge patch
+///   (RFC 7396), all or nothing, keeping the layout and the comments of
+///   what they do not name; `copy` and `move` write the value, not its
+///   text, so its comments and anchors are not kept ([`Patch`] lists the
+///   differences from JSON and what each operation keeps).
+///   [`Document::get_pointer`] reads a node by JSON Pointer (RFC 6901).
+///   [`DocumentMut`] and [`Stream`] apply patches too.
 /// * **Handles**: [`NodeId`]s name nodes across edits; the id-taking
 ///   methods of `Document` (`set_leading(id, …)`, `set_anchor(id, …)`,
 ///   `remove_node(id)`) are the base layer under [`NodeMut`], for handles
@@ -1980,7 +1988,9 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// footer, or the document header or footer) decided by the numbered rules
 /// of the [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md). Edits carry comments with
 /// their owner: a removed entry takes its own comments (listed on the
-/// [`Removed`]), a moved entry brings them along, and
+/// [`Removed`]), an entry moved with [`NodeMut::move_entry`] or
+/// [`NodeMut::insert_removed`] brings them along (a patch `move` writes the
+/// value afresh and does not: see [`Patch`]), and
 /// [`Document::explain_comment`] says which rule decided:
 ///
 /// ```
@@ -2080,10 +2090,15 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// quotes of the strings at the end of that collection (the nearest string
 /// decides; a plain one means plain), a new key takes those of the keys
 /// there, and text that needs escapes or a block stays as it must be.
-/// Numbers, booleans and nulls are never quoted. A new mapping key is plain
-/// whenever the document's schema reads it as a string (`y`, `n` and `no`
-/// are strings under the Core schema), and quoted when the schema, or the
-/// YAML 1.1 settings in use, would read another type. Nested block content
+/// Numbers, booleans and nulls are never quoted. A new mapping key or
+/// string value is plain whenever the document's schema reads it as a
+/// string (`y`, `n` and `no` are strings under the Core schema), and quoted
+/// when the schema would read another type. A document that declares
+/// `%YAML 1.1`, or is read with a YAML 1.1 setting
+/// ([`Settings::yaml11_booleans`](crate::Settings::yaml11_booleans) and the
+/// others, or `Compat::yaml_1_1()`), is meant for YAML 1.1 readers: its new
+/// string values are quoted wherever a YAML 1.1 reader would read another
+/// type, and so are its new keys when it declares `%YAML 1.1`. Nested block content
 /// copies the indentation of the first nested collection found among the first
 /// 1,024 entries around it (read only when the new text has a layout to
 /// copy). An insertion reads at most those entries and a few dozen siblings
@@ -2139,7 +2154,7 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// line is written double-quoted instead of `|+`, so it keeps its own
 /// value; removing the entry after a kept scalar (`z` of `k: |+⏎  x⏎⏎z: 1⏎␠`)
 /// removes the final line of spaces too, so `k` keeps its value; comment
-/// writes that would change it are refused `Unsupported`, as in 0.3.
+/// writes that would change it are refused `Unsupported`.
 ///
 /// **Comments through node edits** (the
 /// [rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md) decides every owner).
@@ -2265,12 +2280,12 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///
 /// The same classes, met by moves to a middle index and by re-inserting a
 /// [`Removed`] into another collection, and the refusals that keep
-/// comments the 0.2 edits deleted:
+/// comments from being lost:
 ///
-/// * **P1 — a block entry with comments into a flow collection**: the 0.2
+/// * **P1 — a block entry with comments into a flow collection**: the
 ///   limitation above, `Unsupported` ("block content or comments cannot
-///   move into a flow collection"; the 0.2 [`Removed`] dropped the
-///   comments). E.g. re-inserting `a` from `a: 1 # t⏎b: {c: 2}⏎` into `b`.
+///   move into a flow collection"), so the [`Removed`] keeps its
+///   comments. E.g. re-inserting `a` from `a: 1 # t⏎b: {c: 2}⏎` into `b`.
 /// * **P2 — S1/S2 re-owning on moves and re-insertions**:
 ///   `CommentReattaches`. E.g. moving entry 2 to index 1 in
 ///   `a: 1⏎  # c⏎: # e⏎ # d⏎"q":⏎- e⏎`.

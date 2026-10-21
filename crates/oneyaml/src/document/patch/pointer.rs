@@ -13,11 +13,14 @@ use super::{PatchError, PatchErrorKind};
 /// ```
 /// use oneyaml::Pointer;
 ///
-/// let p = Pointer::parse("/a~1b/~0c/0").unwrap();
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let p = Pointer::parse("/a~1b/~0c/0")?;
 /// assert_eq!(p.tokens(), ["a/b", "~c", "0"]);
 /// assert_eq!(p.to_string(), "/a~1b/~0c/0");
-/// assert!(Pointer::parse("").unwrap().is_root());
+/// assert!(Pointer::parse("")?.is_root());
 /// assert!(Pointer::parse("a").is_err()); // must start with `/`
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Pointer {
@@ -68,11 +71,14 @@ impl Pointer {
     /// ```
     /// use oneyaml::{Document, Pointer};
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let pointer = Pointer::from_tokens(["a/b", "items"]).with("1");
     /// assert_eq!(pointer.to_string(), "/a~1b/items/1");
-    /// let doc = Document::parse("a/b:\n  items: [x, y]\n").unwrap();
-    /// let node = doc.get_pointer_tokens(&pointer).unwrap();
+    /// let doc = Document::parse("a/b:\n  items: [x, y]\n")?;
+    /// let node = doc.get_pointer_tokens(&pointer)?;
     /// assert_eq!(node.as_str().as_deref(), Some("y"));
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     pub fn from_tokens<I, S>(tokens: I) -> Self

@@ -23,8 +23,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
-oneyaml-core = { path = "../oneyaml-core", version = "1.1.0" }
-oneyaml-syntax = { path = "../oneyaml-syntax", version = "0.1.2" }
+oneyaml-core = { path = "../oneyaml-core", version = "1.2.0" }
+oneyaml-syntax = { path = "../oneyaml-syntax", version = "0.2.0" }
 # serde without `derive` is the only required third-party runtime dependency.
 serde = { version = "1.0.228", default-features = false, features = ["std"] }
 # Optional `miette` diagnostics rendering; without its

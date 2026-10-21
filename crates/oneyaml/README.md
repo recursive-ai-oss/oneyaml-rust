@@ -21,7 +21,7 @@ better; hatched bars are workloads where oneyaml is slower):
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-light.svg">
-  <img alt="Chart of CPU instruction counts, not wall-clock time: how many times fewer instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove); one bar per workload for 5 workloads (gha-workflow, compose-merge, helm-values, openapi-100k and k8s-multi). serde read vs serde_yaml_ng and serde_norway: 0.96× to 1.3×; slower on 1 of 5, faster on 4 of 5 (slower: openapi-100k 0.96×). serde write vs serde-saphyr: 1.3× to 1.5×; faster on all 5. Document parse vs yaml-edit: 1.0× to 1.3×; faster on all 5. Document edit script (insert + set + remove) vs yaml-edit: 0.55× to 63×; slower on 1 of 5, faster on 4 of 5 (slower: compose-merge 0.55×)." src="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-light.svg">
+  <img alt="Chart of CPU instruction counts, not wall-clock time: how many times fewer instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove); one bar per workload for 5 workloads (gha-workflow, compose-merge, helm-values, openapi-100k and k8s-multi). serde read vs serde_yaml_ng and serde_norway: 1.0× to 1.7×; faster on all 5. serde write vs serde-saphyr: 1.3× to 1.5×; faster on all 5. Document parse vs yaml-edit: 1.1× to 1.5×; faster on all 5. Document edit script (insert + set + remove) vs yaml-edit: 0.60× to 64×; slower on 1 of 5, faster on 4 of 5 (slower: compose-merge 0.60×)." src="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-light.svg">
 </picture>
 
 [Full results, with wall-clock times and the method →](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)
@@ -38,9 +38,12 @@ better; hatched bars are workloads where oneyaml is slower):
   byte for byte, on every valid file of the yaml-test-suite
   ([round trip](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#results-classification-and-round-trip)).
   An edit changes only what you touch: every comment stays with the
-  entry it belongs to, by
+  entry it belongs to, also when you move the entry, by
   [numbered rules](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md),
-  and new content is laid out like its neighbours.
+  and new content is laid out like its neighbours. JSON Patch and merge
+  patches change values the same way, all or nothing (a patch `move`
+  carries the value without its comments)
+  ([patches and pointers](#patches-and-pointers)).
 - **Correct YAML 1.2.2 by default.** The Core schema reads `yes` as a
   string and `0777` as a decimal integer, as the spec says; the Failsafe
   and JSON schemas are built in. Every YAML 1.1 behaviour,
@@ -64,12 +67,13 @@ better; hatched bars are workloads where oneyaml is slower):
   span and a path, and common mistakes come with a suggested fix
   ([diagnostics](#diagnostics)).
 - **Fast, with the losses shown.** oneyaml executes fewer instructions
-  than each competitor on most workloads in the chart above, and an
-  edit's cost doesn't grow with the file. It isn't faster everywhere: a
-  typed read of the OpenAPI workload and edits of the smallest file take
-  more instructions, and in wall-clock time its typed reads are slower
-  on most of these workloads, `Document` parsing is level or slightly
-  slower on some, and yaml-edit edits small files faster
+  than each competitor on every workload in the chart above but one,
+  and the cost of a measured edit depends on what it touches, not on
+  the file's size (a patch also reads the keys of each mapping it looks
+  into, once per patch). It isn't faster everywhere: yaml-edit edits
+  the smallest file in fewer instructions and less time, a typed read
+  of the OpenAPI workload is slower in wall-clock time, and some serde
+  reads outside the chart are slower or level
   ([every loss](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)).
 
 The only runtime dependency by default is `serde`
@@ -163,16 +167,74 @@ and the
 `miette` feature plugs errors into miette's reports. More on
 [diagnostics on `Error`](https://docs.rs/oneyaml/latest/oneyaml/struct.Error.html#diagnostics).
 
+## Patches and pointers
+
+A `Document` applies JSON Patch (RFC 6902) operations on YAML, and merge
+patches (RFC 7396), all or nothing: if any operation fails, the document
+is exactly as it was. A patch changes only the text of the values it
+names, so the comments and layout around them stay:
+
+```rust
+use oneyaml::{Document, MergePatch, Patch, PatchErrorKind};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut doc = Document::parse("# app\nimage: web:1.0  # pinned\nports: [80]\n")?;
+    let patch = Patch::from_json(
+        r#"[{"op": "test", "path": "/image", "value": "web:1.0"},
+            {"op": "replace", "path": "/image", "value": "web:1.1"},
+            {"op": "add", "path": "/ports/-", "value": 443}]"#,
+    )?;
+    doc.apply_patch(&patch)?;
+    assert_eq!(doc.to_string(), "# app\nimage: web:1.1  # pinned\nports: [80, 443]\n");
+
+    // The `test` fails now, so nothing is applied.
+    let err = doc.apply_patch(&patch).err().ok_or("expected an error")?;
+    assert_eq!(err.kind(), PatchErrorKind::Test);
+    assert_eq!(doc.get_pointer("/ports/1")?.as_u64(), Some(443));
+
+    // A merge patch: `null` removes a key.
+    let mut doc = Document::parse("image: web:1.0  # pinned\nenv:\n  DEBUG: \"1\"\n  LOG: info\n")?;
+    doc.apply_merge_patch(&MergePatch::from_json(r#"{"image": "web:1.1", "env": {"DEBUG": null}}"#)?)?;
+    assert_eq!(doc.to_string(), "image: web:1.1  # pinned\nenv:\n  LOG: info\n");
+    Ok(())
+}
+```
+
+[`Document::get_pointer`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.get_pointer)
+reads a node by JSON Pointer, and `DocumentMut` and `Stream` apply
+patches too. To change one value without a patch, the setters
+([`Document::set_path`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.set_path),
+[`NodeMut::set`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#method.set))
+write exactly the value you give and keep the old value's style: a
+block scalar stays a block scalar, quotes stay, and so does a tag that
+still fits.
+
+Patches work on the YAML data model, so they differ from JSON Patch in a
+few places: `test` compares YAML values (`1` is not `1.0`), a pointer
+token matches a key by its text, and writes below an alias or to a key
+merged in by `<<` are refused. `copy` and `move` write the value, not its
+text: the comments and anchors inside a moved value are dropped. To move
+an entry with its comments, use
+[`NodeMut::move_entry`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#method.move_entry)
+or
+[`Removed`](https://docs.rs/oneyaml/latest/oneyaml/struct.Removed.html).
+[`Patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Patch.html) lists every difference and what each operation keeps, and
+says what a successful patch guarantees. `Patch::from_json` also reads
+YAML text, with the default limits; for untrusted text, read a `Value`
+with `from_str_with` and `Limits::untrusted()` and build the patch with
+`Patch::from_value`.
+
 ## When not to use oneyaml
 
-- **You need the fastest typed reads in wall-clock time.** oneyaml's
+- **You need the fastest serde reads in wall-clock time.** oneyaml's
   serde reads use fewer instructions on most workloads, but in
-  wall-clock time they are slower than `serde_yaml_ng` or `serde_norway`
-  on most of the benchmark workloads
+  wall-clock time `serde_yaml_ng` or `serde_norway` is faster on some of
+  them: typed reads of the OpenAPI workload, most reads into structs
+  that use a few fields, and some reads into `Value`
   ([serde read wall-clock](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#wall-clock-informational-only-1)).
 - **You make a few edits to many small files and edit speed matters.**
-  Below a few kilobytes, yaml-edit's edits cost fewer instructions
-  (compose-merge in the chart above; see the
+  Below a few kilobytes, yaml-edit's edits cost fewer instructions and
+  less wall-clock time (compose-merge in the chart above; see the
   [benchmark tables](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)).
 - **You need something oneyaml doesn't do:** `no_std`, async I/O, schema
   validation, templating, building objects from tags, or editing a file
@@ -257,8 +319,8 @@ and the guides in the repository cover the rest:
 
 - **Read and edit a document.**
   [`Document`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html)
-  walks the core path (parse, look up, edit, write) and lists what an
-  edit refuses;
+  walks the core path (parse, look up, edit, write), says how new
+  content and set values are written, and lists what an edit refuses;
   [`NodeRef`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeRef.html#reading)
   covers typed reads, spans and `deserialize`;
   [`NodeMut`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#values-keys-and-refusals)
@@ -268,6 +330,14 @@ and the guides in the repository cover the rest:
   (`"spec.containers[0].image"`) or `path!` values; the syntax, and how
   to quote a key that holds a `.`, are on
   [`IntoPath`](https://docs.rs/oneyaml/latest/oneyaml/trait.IntoPath.html).
+- **Apply patches.**
+  [`Document::apply_patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.apply_patch)
+  and
+  [`apply_merge_patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.apply_merge_patch)
+  cover what each operation writes, how a pointer token matches a key,
+  and the limits a patch is held to;
+  [`PatchError`](https://docs.rs/oneyaml/latest/oneyaml/struct.PatchError.html)
+  names the operation that failed.
 - **Keep and edit comments.** Each comment has an owner, set by the
   [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md);
   edits move comments with their owner, and `explain_comment` tells you
@@ -290,8 +360,10 @@ and the guides in the repository cover the rest:
 - **Serialize and configure.**
   [`to_string`](https://docs.rs/oneyaml/latest/oneyaml/fn.to_string.html)
   and `to_writer` write any `Serialize`, quoting every string that some
-  reader would read as something else. Every entry point has a `*_with`
-  twin that takes an explicit
+  reader would read as something else. Every reading and parsing entry
+  point has a `*_with` twin (`Patch::from_json` and
+  `MergePatch::from_json` excepted: they read with the defaults) that
+  takes an explicit
   [`Settings`](https://docs.rs/oneyaml/latest/oneyaml/struct.Settings.html)
   (there are no globals): the schema, YAML 1.1 behaviours, duplicate-key
   handling, output layout

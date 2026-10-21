@@ -21,7 +21,7 @@ better; hatched bars are workloads where oneyaml is slower):
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-light.svg">
-  <img alt="Chart of CPU instruction counts, not wall-clock time: how many times fewer instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove); one bar per workload for 5 workloads (gha-workflow, compose-merge, helm-values, openapi-100k and k8s-multi). serde read vs serde_yaml_ng and serde_norway: 0.96× to 1.3×; slower on 1 of 5, faster on 4 of 5 (slower: openapi-100k 0.96×). serde write vs serde-saphyr: 1.3× to 1.5×; faster on all 5. Document parse vs yaml-edit: 1.0× to 1.3×; faster on all 5. Document edit script (insert + set + remove) vs yaml-edit: 0.55× to 63×; slower on 1 of 5, faster on 4 of 5 (slower: compose-merge 0.55×)." src="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-light.svg">
+  <img alt="Chart of CPU instruction counts, not wall-clock time: how many times fewer instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove); one bar per workload for 5 workloads (gha-workflow, compose-merge, helm-values, openapi-100k and k8s-multi). serde read vs serde_yaml_ng and serde_norway: 1.0× to 1.7×; faster on all 5. serde write vs serde-saphyr: 1.3× to 1.5×; faster on all 5. Document parse vs yaml-edit: 1.1× to 1.5×; faster on all 5. Document edit script (insert + set + remove) vs yaml-edit: 0.60× to 64×; slower on 1 of 5, faster on 4 of 5 (slower: compose-merge 0.60×)." src="https://raw.githubusercontent.com/recursive-ai-oss/oneyaml-rust/main/docs/img/bench-summary-light.svg">
 </picture>
 
 [Full results, with wall-clock times and the method →](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md#results-at-a-glance)
@@ -34,8 +34,11 @@ better; hatched bars are workloads where oneyaml is slower):
   never disagree about what a file means.
 - **Edits that keep your file.** An untouched document writes back byte
   for byte; an edit changes only what you touch, and every comment stays
-  with the entry it belongs to
-  ([comment rules](docs/comment-attachment.md)).
+  with the entry it belongs to, also when you move the entry
+  ([comment rules](docs/comment-attachment.md)). JSON Patch and merge
+  patches change values the same way, all or nothing (a patch `move`
+  carries the value without its comments)
+  ([patches](crates/oneyaml/README.md#patches-and-pointers)).
 - **Correct YAML 1.2.2 by default.** `yes` is a string and `0777` a
   decimal integer; every YAML 1.1 behaviour, `<<` merge keys included,
   is a named setting, off by default. Checked against the full
@@ -45,11 +48,10 @@ better; hatched bars are workloads where oneyaml is slower):
   fuzzed ([crates/fuzz](crates/fuzz/README.md)) and tested against five
   other YAML libraries.
 - **Fast, with the losses shown.** Fewer instructions than each
-  competitor on most workloads in the chart above. Not everywhere: a
-  typed read of the OpenAPI workload and edits of the smallest file take
-  more instructions, and in wall-clock time typed reads are slower on
-  most of these workloads, `Document` parsing is level or slightly slower
-  on some, and yaml-edit edits small files faster
+  competitor on every workload in the chart above but one: yaml-edit
+  edits the smallest file in fewer instructions and less time. A typed
+  read of the OpenAPI workload is slower in wall-clock time, and some
+  serde reads outside the chart are slower or level
   ([every loss](docs/performance.md#results-at-a-glance)).
 
 More in the [crate README](crates/oneyaml/README.md#why-oneyaml), and
@@ -101,8 +103,9 @@ for docker-compose-style `<<` merge keys, turn on
 
 - **Using oneyaml:** the [crate README](crates/oneyaml/README.md) (also the
   [docs.rs front page](https://docs.rs/oneyaml)): quick start, untrusted
-  input, merge keys, and a guide to the API reference for editing,
-  comments, streams, diagnostics and settings.
+  input, merge keys, [JSON Patch and merge patches](crates/oneyaml/README.md#patches-and-pointers),
+  and a guide to the API reference for editing, comments, streams,
+  diagnostics and settings.
 - **Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`:**
   [the migration guide](docs/migrating-from-serde-yaml.md).
 - **Choosing a YAML crate:** [how oneyaml compares](docs/comparison.md),

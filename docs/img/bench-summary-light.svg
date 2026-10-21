@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="365" viewBox="0 0 760 365" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="361" viewBox="0 0 760 361" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
 <title id="title">oneyaml: × faster than each competitor (CPU instructions)</title>
-<desc id="desc">Bar chart: how many times fewer CPU instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove). serde read: gha-workflow 1.1× vs serde_yaml_ng, compose-merge 1.1× vs serde_yaml_ng, helm-values 1.3× vs serde_norway, openapi-100k 0.96× — slower vs serde_norway, k8s-multi 1.1× vs serde_norway. serde write: gha-workflow 1.5× vs serde-saphyr, compose-merge 1.4× vs serde-saphyr, helm-values 1.3× vs serde-saphyr, openapi-100k 1.4× vs serde-saphyr, k8s-multi 1.5× vs serde-saphyr. Document parse: gha-workflow 1.3× vs yaml-edit, compose-merge 1.1× vs yaml-edit, helm-values 1.2× vs yaml-edit, openapi-100k 1.0× vs yaml-edit, k8s-multi 1.0× vs yaml-edit. Document edit script (insert + set + remove): gha-workflow 2.2× vs yaml-edit, compose-merge 0.55× — slower vs yaml-edit, helm-values 7.3× vs yaml-edit, openapi-100k 63× vs yaml-edit, k8s-multi 3.1× vs yaml-edit.</desc>
+<desc id="desc">Bar chart: how many times fewer CPU instructions oneyaml executes than each competitor (competitor ÷ oneyaml; higher is better; 1.0× is equal), against the fastest feature-complete YAML serde library on each workload for serde read and serde write, and yaml-edit for Document parse and Document edit script (insert + set + remove). serde read: gha-workflow 1.3× vs serde_yaml_ng, compose-merge 1.2× vs serde_yaml_ng, helm-values 1.7× vs serde_norway, openapi-100k 1.0× vs serde_yaml_ng, k8s-multi 1.2× vs serde_norway. serde write: gha-workflow 1.4× vs serde-saphyr, compose-merge 1.4× vs serde-saphyr, helm-values 1.3× vs serde-saphyr, openapi-100k 1.4× vs serde-saphyr, k8s-multi 1.5× vs serde-saphyr. Document parse: gha-workflow 1.5× vs yaml-edit, compose-merge 1.2× vs yaml-edit, helm-values 1.4× vs yaml-edit, openapi-100k 1.1× vs yaml-edit, k8s-multi 1.1× vs yaml-edit. Document edit script (insert + set + remove): gha-workflow 2.3× vs yaml-edit, compose-merge 0.60× — slower vs yaml-edit, helm-values 9.9× vs yaml-edit, openapi-100k 64× vs yaml-edit, k8s-multi 3.2× vs yaml-edit.</desc>
 <defs><pattern id="slower" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#bc4c00" fill-opacity="0.45"/><rect width="2" height="4" fill="#bc4c00"/></pattern></defs>
 <rect width="100%" height="100%" fill="#ffffff"/>
 <text x="16" y="24" fill="#1f2328" font-size="15" font-weight="600">oneyaml: × faster than each competitor (higher is better)</text>
@@ -9,92 +9,91 @@
 <text x="16" y="79" fill="#59636e">one bar per workload, top to bottom: gha-workflow, compose-merge, helm-values, openapi-100k, k8s-multi</text>
 <text x="16" y="108.0" fill="#1f2328" font-weight="600">serde read</text>
 <text x="16" y="124.0" fill="#59636e" font-size="12">vs serde_yaml_ng, serde_norway</text>
-<line x1="224.0" y1="93.0" x2="224.0" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="276.3" y1="93.0" x2="276.3" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="328.6" y1="93.0" x2="328.6" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="380.9" y1="93.0" x2="380.9" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="433.1" y1="93.0" x2="433.1" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="485.4" y1="93.0" x2="485.4" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="537.7" y1="93.0" x2="537.7" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="590.0" y1="93.0" x2="590.0" y2="141.0" stroke="#d1d9e0" stroke-width="1"/>
-<rect x="224.0" y="96.0" width="115.1" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="104.0" width="116.7" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="112.0" width="135.8" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="120.0" width="100.1" height="6.0" fill="url(#slower)"/>
-<rect x="224.0" y="128.0" width="117.9" height="6.0" fill="#0969da"/>
-<line x1="328.6" y1="93.0" x2="328.6" y2="141.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
-<line x1="224.0" y1="93.0" x2="224.0" y2="141.0" stroke="#59636e" stroke-width="1"/>
-<text x="620.0" y="107.0" fill="#1f2328" font-size="13">0.96× to 1.3×</text>
-<text x="620.0" y="121.0" fill="#bc4c00" font-size="12">slower on 1 of 5</text>
-<text x="620.0" y="135.0" fill="#59636e" font-size="12">faster on 4 of 5</text>
-<text x="16" y="168.0" fill="#1f2328" font-weight="600">serde write</text>
-<text x="16" y="184.0" fill="#59636e" font-size="12">vs serde-saphyr</text>
-<line x1="224.0" y1="153.0" x2="224.0" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="276.3" y1="153.0" x2="276.3" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="328.6" y1="153.0" x2="328.6" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="380.9" y1="153.0" x2="380.9" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="433.1" y1="153.0" x2="433.1" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="485.4" y1="153.0" x2="485.4" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="537.7" y1="153.0" x2="537.7" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="590.0" y1="153.0" x2="590.0" y2="197.0" stroke="#d1d9e0" stroke-width="1"/>
-<rect x="224.0" y="156.0" width="152.4" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="164.0" width="147.2" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="172.0" width="138.6" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="180.0" width="146.8" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="188.0" width="152.5" height="6.0" fill="#0969da"/>
-<line x1="328.6" y1="153.0" x2="328.6" y2="197.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
-<line x1="224.0" y1="153.0" x2="224.0" y2="197.0" stroke="#59636e" stroke-width="1"/>
-<text x="620.0" y="167.0" fill="#1f2328" font-size="13">1.3× to 1.5×</text>
-<text x="620.0" y="181.0" fill="#59636e" font-size="12">faster on all 5</text>
-<text x="16" y="224.0" fill="#1f2328" font-weight="600">Document parse</text>
-<text x="16" y="240.0" fill="#59636e" font-size="12">vs yaml-edit</text>
-<line x1="224.0" y1="209.0" x2="224.0" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="276.3" y1="209.0" x2="276.3" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="328.6" y1="209.0" x2="328.6" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="380.9" y1="209.0" x2="380.9" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="433.1" y1="209.0" x2="433.1" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="485.4" y1="209.0" x2="485.4" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="537.7" y1="209.0" x2="537.7" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="590.0" y1="209.0" x2="590.0" y2="253.0" stroke="#d1d9e0" stroke-width="1"/>
-<rect x="224.0" y="212.0" width="135.5" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="220.0" width="112.7" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="228.0" width="121.3" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="236.0" width="108.5" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="244.0" width="108.0" height="6.0" fill="#0969da"/>
-<line x1="328.6" y1="209.0" x2="328.6" y2="253.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
-<line x1="224.0" y1="209.0" x2="224.0" y2="253.0" stroke="#59636e" stroke-width="1"/>
-<text x="620.0" y="223.0" fill="#1f2328" font-size="13">1.0× to 1.3×</text>
-<text x="620.0" y="237.0" fill="#59636e" font-size="12">faster on all 5</text>
-<text x="16" y="280.0" fill="#1f2328" font-weight="600">Document edit script</text>
-<text x="16" y="296.0" fill="#59636e" font-size="12">vs yaml-edit</text>
-<line x1="224.0" y1="265.0" x2="224.0" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="276.3" y1="265.0" x2="276.3" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="328.6" y1="265.0" x2="328.6" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="380.9" y1="265.0" x2="380.9" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="433.1" y1="265.0" x2="433.1" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="485.4" y1="265.0" x2="485.4" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="537.7" y1="265.0" x2="537.7" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<line x1="590.0" y1="265.0" x2="590.0" y2="313.0" stroke="#d1d9e0" stroke-width="1"/>
-<rect x="224.0" y="268.0" width="228.9" height="6.0" fill="#0969da"/>
-<rect x="224.0" y="276.0" width="57.8" height="6.0" fill="url(#slower)"/>
-<rect x="224.0" y="284.0" width="382.0" height="6.0" fill="#0969da"/>
-<line x1="595.0" y1="291.0" x2="599.0" y2="283.0" stroke="#ffffff" stroke-width="2.5"/>
-<rect x="224.0" y="292.0" width="382.0" height="6.0" fill="#0969da"/>
-<line x1="595.0" y1="299.0" x2="599.0" y2="291.0" stroke="#ffffff" stroke-width="2.5"/>
-<rect x="224.0" y="300.0" width="328.6" height="6.0" fill="#0969da"/>
-<line x1="328.6" y1="265.0" x2="328.6" y2="313.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
-<line x1="224.0" y1="265.0" x2="224.0" y2="313.0" stroke="#59636e" stroke-width="1"/>
-<text x="620.0" y="279.0" fill="#1f2328" font-size="13">0.55× to 63×</text>
-<text x="620.0" y="293.0" fill="#bc4c00" font-size="12">slower on 1 of 5</text>
-<text x="620.0" y="307.0" fill="#59636e" font-size="12">faster on 4 of 5</text>
-<text x="224.0" y="335.0" fill="#59636e" text-anchor="middle">0.0×</text>
-<text x="276.3" y="335.0" fill="#59636e" text-anchor="middle">0.5×</text>
-<text x="328.6" y="335.0" fill="#59636e" text-anchor="middle">1.0×</text>
-<text x="380.9" y="335.0" fill="#59636e" text-anchor="middle">1.5×</text>
-<text x="433.1" y="335.0" fill="#59636e" text-anchor="middle">2.0×</text>
-<text x="485.4" y="335.0" fill="#59636e" text-anchor="middle">2.5×</text>
-<text x="537.7" y="335.0" fill="#59636e" text-anchor="middle">3.0×</text>
-<text x="590.0" y="335.0" fill="#59636e" text-anchor="middle">3.5×</text>
-<text x="407.0" y="355.0" fill="#59636e" text-anchor="middle">× faster (competitor ÷ oneyaml instructions; bars start at 0)</text>
-<line x1="224.0" y1="319.0" x2="590.0" y2="319.0" stroke="#59636e" stroke-width="1"/>
+<line x1="224.0" y1="93.0" x2="224.0" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="276.3" y1="93.0" x2="276.3" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="328.6" y1="93.0" x2="328.6" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="380.9" y1="93.0" x2="380.9" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="433.1" y1="93.0" x2="433.1" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="485.4" y1="93.0" x2="485.4" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="537.7" y1="93.0" x2="537.7" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="590.0" y1="93.0" x2="590.0" y2="137.0" stroke="#d1d9e0" stroke-width="1"/>
+<rect x="224.0" y="96.0" width="132.2" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="104.0" width="123.1" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="112.0" width="178.9" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="120.0" width="109.4" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="128.0" width="129.5" height="6.0" fill="#0969da"/>
+<line x1="328.6" y1="93.0" x2="328.6" y2="137.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
+<line x1="224.0" y1="93.0" x2="224.0" y2="137.0" stroke="#59636e" stroke-width="1"/>
+<text x="620.0" y="107.0" fill="#1f2328" font-size="13">1.0× to 1.7×</text>
+<text x="620.0" y="121.0" fill="#59636e" font-size="12">faster on all 5</text>
+<text x="16" y="164.0" fill="#1f2328" font-weight="600">serde write</text>
+<text x="16" y="180.0" fill="#59636e" font-size="12">vs serde-saphyr</text>
+<line x1="224.0" y1="149.0" x2="224.0" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="276.3" y1="149.0" x2="276.3" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="328.6" y1="149.0" x2="328.6" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="380.9" y1="149.0" x2="380.9" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="433.1" y1="149.0" x2="433.1" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="485.4" y1="149.0" x2="485.4" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="537.7" y1="149.0" x2="537.7" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="590.0" y1="149.0" x2="590.0" y2="193.0" stroke="#d1d9e0" stroke-width="1"/>
+<rect x="224.0" y="152.0" width="151.5" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="160.0" width="145.9" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="168.0" width="137.7" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="176.0" width="146.2" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="184.0" width="151.8" height="6.0" fill="#0969da"/>
+<line x1="328.6" y1="149.0" x2="328.6" y2="193.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
+<line x1="224.0" y1="149.0" x2="224.0" y2="193.0" stroke="#59636e" stroke-width="1"/>
+<text x="620.0" y="163.0" fill="#1f2328" font-size="13">1.3× to 1.5×</text>
+<text x="620.0" y="177.0" fill="#59636e" font-size="12">faster on all 5</text>
+<text x="16" y="220.0" fill="#1f2328" font-weight="600">Document parse</text>
+<text x="16" y="236.0" fill="#59636e" font-size="12">vs yaml-edit</text>
+<line x1="224.0" y1="205.0" x2="224.0" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="276.3" y1="205.0" x2="276.3" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="328.6" y1="205.0" x2="328.6" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="380.9" y1="205.0" x2="380.9" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="433.1" y1="205.0" x2="433.1" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="485.4" y1="205.0" x2="485.4" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="537.7" y1="205.0" x2="537.7" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="590.0" y1="205.0" x2="590.0" y2="249.0" stroke="#d1d9e0" stroke-width="1"/>
+<rect x="224.0" y="208.0" width="152.7" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="216.0" width="120.8" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="224.0" width="150.9" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="232.0" width="117.6" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="240.0" width="118.1" height="6.0" fill="#0969da"/>
+<line x1="328.6" y1="205.0" x2="328.6" y2="249.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
+<line x1="224.0" y1="205.0" x2="224.0" y2="249.0" stroke="#59636e" stroke-width="1"/>
+<text x="620.0" y="219.0" fill="#1f2328" font-size="13">1.1× to 1.5×</text>
+<text x="620.0" y="233.0" fill="#59636e" font-size="12">faster on all 5</text>
+<text x="16" y="276.0" fill="#1f2328" font-weight="600">Document edit script</text>
+<text x="16" y="292.0" fill="#59636e" font-size="12">vs yaml-edit</text>
+<line x1="224.0" y1="261.0" x2="224.0" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="276.3" y1="261.0" x2="276.3" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="328.6" y1="261.0" x2="328.6" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="380.9" y1="261.0" x2="380.9" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="433.1" y1="261.0" x2="433.1" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="485.4" y1="261.0" x2="485.4" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="537.7" y1="261.0" x2="537.7" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<line x1="590.0" y1="261.0" x2="590.0" y2="309.0" stroke="#d1d9e0" stroke-width="1"/>
+<rect x="224.0" y="264.0" width="236.6" height="6.0" fill="#0969da"/>
+<rect x="224.0" y="272.0" width="62.8" height="6.0" fill="url(#slower)"/>
+<rect x="224.0" y="280.0" width="382.0" height="6.0" fill="#0969da"/>
+<line x1="595.0" y1="287.0" x2="599.0" y2="279.0" stroke="#ffffff" stroke-width="2.5"/>
+<rect x="224.0" y="288.0" width="382.0" height="6.0" fill="#0969da"/>
+<line x1="595.0" y1="295.0" x2="599.0" y2="287.0" stroke="#ffffff" stroke-width="2.5"/>
+<rect x="224.0" y="296.0" width="333.9" height="6.0" fill="#0969da"/>
+<line x1="328.6" y1="261.0" x2="328.6" y2="309.0" stroke="#1f2328" stroke-width="1.5" stroke-dasharray="4 3"/>
+<line x1="224.0" y1="261.0" x2="224.0" y2="309.0" stroke="#59636e" stroke-width="1"/>
+<text x="620.0" y="275.0" fill="#1f2328" font-size="13">0.60× to 64×</text>
+<text x="620.0" y="289.0" fill="#bc4c00" font-size="12">slower on 1 of 5</text>
+<text x="620.0" y="303.0" fill="#59636e" font-size="12">faster on 4 of 5</text>
+<text x="224.0" y="331.0" fill="#59636e" text-anchor="middle">0.0×</text>
+<text x="276.3" y="331.0" fill="#59636e" text-anchor="middle">0.5×</text>
+<text x="328.6" y="331.0" fill="#59636e" text-anchor="middle">1.0×</text>
+<text x="380.9" y="331.0" fill="#59636e" text-anchor="middle">1.5×</text>
+<text x="433.1" y="331.0" fill="#59636e" text-anchor="middle">2.0×</text>
+<text x="485.4" y="331.0" fill="#59636e" text-anchor="middle">2.5×</text>
+<text x="537.7" y="331.0" fill="#59636e" text-anchor="middle">3.0×</text>
+<text x="590.0" y="331.0" fill="#59636e" text-anchor="middle">3.5×</text>
+<text x="407.0" y="351.0" fill="#59636e" text-anchor="middle">× faster (competitor ÷ oneyaml instructions; bars start at 0)</text>
+<line x1="224.0" y1="315.0" x2="590.0" y2="315.0" stroke="#59636e" stroke-width="1"/>
 </svg>

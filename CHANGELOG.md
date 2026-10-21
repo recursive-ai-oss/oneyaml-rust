@@ -5,19 +5,78 @@ All notable changes to the published crates (`oneyaml`, `oneyaml-core`,
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [semver](https://semver.org/). `oneyaml` and `oneyaml-core` share
 a version; `oneyaml-syntax` has its own, looser track (its syntax tree
-and event stream may change in a minor release). Default output bytes
-never change within a major version except to fix incorrect output,
-which is called out here. Breaking changes are flagged **Breaking**; an
+and event stream may change in a minor release). Within a major version,
+default output bytes change only to fix incorrect output or to follow the
+documented edit and quoting rules, and every such change is listed in the
+release's *Upgrading* notes. Breaking changes are flagged **Breaking**; an
 MSRV change is always announced here (the MSRV policy is in the
 [README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md#minimum-supported-rust-version)).
 
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md).
 
-## Unreleased
+## 1.2.0 — 2026-10-21
 
-Changes to what the parser reports and accepts, how errors are placed, and
-how a few scalars are written. Each follows YAML 1.2.2 more closely.
+`oneyaml` 1.2.0, `oneyaml-core` 1.2.0, `oneyaml-syntax` 0.2.0. MSRV
+unchanged (Rust 1.85). No public item is removed or changed, so nothing
+here is flagged **Breaking**; `Y1005` is deprecated. `oneyaml-syntax`
+moves to 0.2 because its event stream changed for some inputs (see
+*Changed*) and it has a new public method; `oneyaml` 1.2.0 needs it, and a
+project still on `oneyaml` 1.1.0 keeps `oneyaml-syntax` 0.1.2 after
+`cargo update`.
+
+**Upgrading from 1.1.** No public item is removed or changed, so code
+that builds against 1.1 builds against 1.2. Check these if you compare
+output bytes or match diagnostic codes:
+
+- Default output (each follows the documented edit or quoting rules, or
+  fixes output; details under *Changed*):
+  - Edits write `no`, `yes`, `on`, `y` and `n` plain when the document is
+    read with the default Core schema, under which they are strings:
+    `restart: no`, where 1.1 wrote `restart: 'no'`. YAML 1.1 settings and
+    `%YAML 1.1` documents keep the quotes on new entries (see *Plain
+    strings in edits*).
+  - `to_string` quotes strings that other YAML readers read as numbers
+    (`+-1`, `_1`, `0b-1`, `0X-F`), as its rule to quote every string some
+    reader would read as something else says. A `%` in a tag, and an enum
+    variant with non-ASCII characters written as a tag, are written as
+    escapes.
+  - Setting a scalar keeps its style: a block scalar stays a block scalar
+    of its kind, quotes and a fitting tag stay, and so does the white space
+    after `:`. A plain or quoted scalar set to text with a line break is
+    written double-quoted on its line, where 1.1 wrote a `|` block.
+  - A multi-line string appended after footer comment lines is a literal
+    block, where 1.1 wrote it double-quoted.
+  - Comments that 1.1 dropped or moved stay: the comment lines above a
+    replaced root, and the footer comments of a collection whose only
+    entry is removed.
+- Diagnostic codes:
+  - `Y1004` now means only a repeated `%TAG` handle. A second `%YAML`
+    directive is the new `Y0033`.
+  - `Y1005` is deprecated and no longer reported. An undeclared tag handle
+    is the new `Y0035`, reported by the parser, so serde reads report it
+    too.
+  - `Y0034` is new: a character that cannot appear in a comment (a
+    control character, U+007F or a C1 control other than U+0085).
+- Errors: some invalid inputs that 1.1 accepted are now errors (see
+  *Fixed*), and so is a comment holding a control character (`Y0034`);
+  `to_string` refuses (`Y3015`) a `Value::Tagged` whose tag cannot be
+  written so that it reads back (a non-ASCII character, or a stray `%`);
+  many parse errors point at a later character
+  than before; `LineIndex` character and UTF-16 columns no longer count a
+  leading byte order mark.
+- `oneyaml-syntax` 0.2: the event stream of some inputs changed (document
+  boundaries, error positions and codes).
+
+Highlights: `Document`, `DocumentMut` and `Stream` apply JSON Patch
+(RFC 6902) and merge patches (RFC 7396) all or nothing, keeping comments
+and layout, and read nodes by JSON Pointer (RFC 6901). Setting a value
+now writes exactly that value and changes only its text: a block scalar
+stays a block scalar of the same kind, quotes stay, and so do a tag that
+still fits, the white space after `:` and the document's line breaks.
+Many more edits that used to be refused now work. The parser passes long
+scalars, comments and line ends sixteen bytes at a time, and parse errors
+point at the character that cannot belong.
 
 ### Added
 
@@ -55,11 +114,11 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   - Writes refuse to go through an alias, to change a key that exists only in
     a mapping merged in by `<<`, and to remove an anchored node that an alias
     still uses. These are `RefusedAlias` errors.
-  - `test` compares by the YAML data model under the Core schema, which
-    departs from RFC 6902 section 4.6: `1` is not `1.0`, and `0x1F` is `31`.
-    A mapping key in a compared value matches a JSON object key only if it is
-    a string under the Core schema, so the integer key `1` does not match
-    `"1"`.
+  - `test` compares by the YAML data model under the document's schema
+    (Core by default), which departs from RFC 6902 section 4.6: `1` is not
+    `1.0`, and `0x1F` is `31`. A mapping key in a compared value matches a
+    JSON object key only if it is a string under that schema, so the
+    integer key `1` does not match `"1"`.
   - The bytes a patch copies are charged to the alias byte budget
     (`Limits::alias_byte_budget`; by default the larger of ten times the
     document's length and 64 MiB), three times each, because a copied value is
@@ -71,9 +130,21 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
     third of ten times the document when that is larger). A patch over the
     budget fails with a limit error and changes nothing. The document size
     limit applies after every write.
-  - A copied or moved value is written out in full, so an alias inside it
-    becomes its content, and comments inside a moved value are not kept.
+  - `copy` and `move` write the value they read, not its text: an alias
+    inside it becomes its content, and the comments inside a moved value
+    and around its old entry, and its anchors, are not kept. To move an
+    entry with its comments, use `NodeMut::move_entry` or `Removed`.
+  - `Patch::from_json` and `MergePatch::from_json` read JSON or YAML text
+    with the default settings and limits. For untrusted text, read a
+    `Value` with `from_str_with` and your own `Limits`, then use
+    `Patch::from_value` or `MergePatch::new`.
 
+- `oneyaml-syntax`: `SyntaxTree::close_block_scalar` adds the missing
+  final line break to a block scalar that ends the text without one, so
+  that lines can go after it (`SyntaxTree::insert_line_after`).
+- `oneyaml-syntax` has an `__internal-checks` feature, as `oneyaml` does:
+  work counters for this project's own tests. It is not covered by
+  semver and may change or go in any release; never enable it.
 - `Y0033` (`DUPLICATE_YAML_DIRECTIVE`): a second `%YAML` directive in one
   document prefix. It is reported where the second directive starts.
   `Y1004` stays the code for a repeated `%TAG` handle.
@@ -84,8 +155,13 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
 - `Y0035` (`UNDECLARED_TAG_HANDLE`): a tag that uses a handle no `%TAG`
   directive declares (`!e!x` with no `%TAG !e!`). It is a syntax error, found
   by the parser, so the event stream, `Document` and the serde reader all
-  report it the same way. `Y1005` (`UNDEFINED_TAG_HANDLE`) is deprecated:
-  it is no longer reported, and its number stays reserved.
+  report it the same way. It replaces `Y1005` (see *Deprecated*).
+
+### Deprecated
+
+- `Y1005` (`UNDEFINED_TAG_HANDLE`): no longer reported; an undeclared tag
+  handle is `Y0035`. The constant and its registry entry stay, marked
+  deprecated, and the number is never reused.
 
 - `MappingRef::is_indexed`: whether a mapping's lookup index is built now. It
   never builds one.
@@ -121,20 +197,8 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   - A plain, single-quoted or double-quoted scalar set to text with a line
     break becomes a double-quoted scalar with `\n` escapes on the same line.
     Before it became a literal block scalar.
-  - A string set over a node is written plain when the document's schema
-    reads it as a string (`yes`, `no`, `on` are strings under the default
-    Core schema), and quoted when it would read as another type or plain
-    syntax cannot hold it. Before, such words were quoted for the sake of
-    YAML 1.1 readers. Documents read with `Settings::yaml11_booleans` (or
-    `Compat::yaml_1_1()`) still get them quoted. **Behaviour change:** new
-    entries, items and patch results follow the same rule, so inserting
-    `no`, `on` or `y` as a string now writes `restart: no` where it wrote
-    `restart: 'no'`. This applies to a plain Core document only: a document
-    that declares `%YAML 1.1`, or that is read with any YAML 1.1 setting
-    (`yaml11_booleans`, `legacy_octal`, `sexagesimal`, `digit_separators`,
-    `yaml11_int_forms`, or `Compat::yaml_1_1()`), keeps the quotes for new
-    values. Strings that the schema reads as another type (`'123'`,
-    `'true'`) stay quoted.
+  - A string is written plain or quoted as *Plain strings in edits*
+    below says.
   - A tag stays on a scalar while the new value reads back under it as
     exactly that value: a custom tag on a string, `!!str` on a string,
     `!!int` on an integer, `!!float` on a float, `!!bool` and `!!null`.
@@ -150,7 +214,8 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
     `max_document_size` at the scalar's indentation is written another way
     instead of being built first.
 - A merge patch applied to a sequence writes the keys it adds under the
-  same rule, instead of quoting them for every reader.
+  rule of *Plain strings in edits* below, instead of quoting them for every
+  reader.
 - Replacing a root node keeps the comment lines above it (`# head` above
   `a: 1`). Before, they were dropped with the old value.
 - Removing the only entry of a nested collection (which becomes `{}` or
@@ -204,16 +269,31 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
     quotes of the keys beside it. Numbers, booleans and nulls are never
     quoted, and text that needs escapes or a block is written as it must be.
     The strings of a new collection are not copied from its neighbours.
-  - A new mapping key that the document's schema reads as a string is written
-    plain: `y`, `n` and `no` under the Core schema, which used to be quoted
-    because YAML 1.1 readers read booleans. With `yaml11_booleans` (or a
-    `%YAML 1.1` document read with `honor_version_directive`) they are still
-    quoted, and so is every key that would read back as another type. New
-    string *values* are quoted as before.
+  - Whether a new string is plain is decided as *Plain strings in edits*
+    below says.
   - Nested block content copies the indentation of a nested collection even
     when 300 plain entries come before it (the first 1,024 entries are
     read, and only when the text written has a layout to copy; one line of
     text reads none, which makes inserting a scalar cheaper).
+- **Plain strings in edits.** A string an edit writes (a set value, a new
+  entry, key or item, a patch result) is plain when the document's schema
+  reads the plain text back as that string, and quoted when it would read
+  as another type or plain text cannot hold it. Under the default Core
+  schema `yes`, `no`, `on`, `y` and `n` are strings, so inserting `no`
+  writes `restart: no`, where 1.1 wrote `restart: 'no'`; `'123'` and
+  `'true'` stay quoted. 1.1 quoted such words for YAML 1.1 readers, and
+  documents meant for them keep the quotes:
+  - A document read with a YAML 1.1 setting (`yaml11_booleans`,
+    `legacy_octal`, `sexagesimal`, `digit_separators`, `yaml11_int_forms`,
+    or `Compat::yaml_1_1()`): new string values are quoted wherever a
+    YAML 1.1 reader would read another type. New keys and values set over
+    an existing node are quoted when the document's schema reads them as
+    another type (with `yaml11_booleans`, `no` and `y` are booleans).
+  - A document that declares `%YAML 1.1`: new string values and new keys
+    are quoted as in 1.1. A value set over an existing node is quoted when
+    the document's schema reads it as another type: with
+    `honor_version_directive` on, `%YAML 1.1` switches on the YAML 1.1
+    behaviours, so `no` is quoted; without it, `no` is written plain.
 - Removing an entry, or replacing a node with a kept (`|+`) block scalar, no
   longer changes the value of a kept scalar before it: the blank lines that
   follow the entry go with it (`x: |+` then `two`, an empty line and `y: 1`
@@ -230,10 +310,6 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   is written as the two lines `? k` and `: v`. It used to be written as
   `? k : v`, which a block mapping reads as a different key, and so changed
   the document's meaning. A key or value that spans lines is refused.
-- A new mapping key is quoted as before when the document declares
-  `%YAML 1.1` (or the settings read YAML 1.1 booleans): plain `y`, `n` and
-  `no` keys are for documents read as YAML 1.2.
-
 - Parse errors point at the first character that cannot belong, not at the
   start of the construct around it. This moves the position of many
   diagnostics (the code and the message are unchanged unless listed below):
@@ -280,11 +356,12 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   instead of both reading as infinity; they still read as the double they
   round to.
 - Strings that other readers would read as numbers are quoted when
-  written: forms with two signs (`+-1`), with a leading `_`, with an
-  inner sign after a radix prefix (`0b-1`, `0X-F`), and radix prefixes in
-  any case.
+  written: forms with two signs (`+-1`), with a leading `_` (`_1`), and
+  with a sign after a radix prefix in either case (`0b-1`, `0X-F`). Before,
+  `to_string` wrote them plain.
 
 ### Fixed
+
 - Inputs the parser accepted though they are invalid are errors now: a
   flow collection directly after a property, an empty key, an explicit key
   or a plain key (`&a[b]`, `{:{0}}`), a verbatim tag that is not a URI, and
@@ -322,14 +399,18 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   such runs. Every event, span, value and diagnostic is the same as before
   (checked over the whole yaml-test-suite, the fuzz corpora and CRLF, CR,
   byte-order-mark and trailing-space variants of them, under four settings).
-  Event parsing of a 256 KiB input of long plain, quoted, literal and folded
-  scalars takes about one eighth of the instructions it took, and so does
-  reading their values as well. The parse benchmark rows need 4% to 53%
-  fewer instructions (block scalars -53%, long scalars -52%, comment runs
-  -34%, Helm values -35%, GitHub Actions workflow -24%, wide maps -22%,
-  small Kubernetes and OpenAPI documents -17% to -19%, compose files -15%,
-  flow-heavy input -7%, deeply nested flow sequences -4%). No row needs
-  more, and no row allocates more.
+  In the benchmark tables of
+  [`docs/performance.md`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/performance.md)
+  (CPU instructions counted by valgrind, not wall-clock time; 1.2.0 against
+  the 1.1.0 tables), every parse row needs fewer instructions: block scalars
+  54% fewer, long scalars 52%, Helm values 41%, comment runs 39%, deeply
+  nested block mappings 30%, the Kubernetes, OpenAPI, compose, GitHub
+  Actions, wide-map and whitespace rows 17% to 25%, anchors 13%, flow-heavy
+  input 8% and deeply nested flow sequences 5%. Serde reads need 5% to 25%
+  fewer, `Document` parses 7% to 20% fewer and edit scripts 1% to 26% fewer;
+  serde writes need up to 1% more. Allocation counts are unchanged; a parsed
+  `Document` of each of the three inputs below 100 KB retains up to 2% more
+  bytes.
 
 ## 1.1.0 — 2026-10-10
 
@@ -425,7 +506,7 @@ Documentation and packaging only: no API, behaviour or output change.
 - Documentation rewritten for readers of the published crates: the API
   reference, the READMEs, the performance, conformance, comment-attachment
   and migration documents, and the contributor guide no longer refer to
-  internal planning documents or development history.
+  non-published files or development history.
 - The benchmark tables in `docs/performance.md`, the README summary and
   its chart were re-measured on the 1.0.1 release tree. One serde row,
   typed reads of a docker-compose file with merge keys, is now just over

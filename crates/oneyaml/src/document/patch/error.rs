@@ -13,11 +13,14 @@ use crate::EditError;
 /// ```
 /// use oneyaml::{Document, Patch, PatchErrorKind};
 ///
-/// let mut doc = Document::parse("a: 1\n").unwrap();
-/// let patch = Patch::from_json(r#"[{"op": "test", "path": "/a", "value": 2}]"#).unwrap();
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut doc = Document::parse("a: 1\n")?;
+/// let patch = Patch::from_json(r#"[{"op": "test", "path": "/a", "value": 2}]"#)?;
 /// let err = doc.apply_patch(&patch).unwrap_err();
 /// assert_eq!(err.kind(), PatchErrorKind::Test);
 /// assert_eq!(err.kind().name(), "patch-test");
+/// # Ok(())
+/// # }
 /// ```
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -86,18 +89,20 @@ const POINTER_KEPT: usize = 200;
 /// ```
 /// use oneyaml::{Document, Patch, PatchErrorKind};
 ///
-/// let mut doc = Document::parse("a: 1\nb: 2\n").unwrap();
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut doc = Document::parse("a: 1\nb: 2\n")?;
 /// let patch = Patch::from_json(
 ///     r#"[{"op": "replace", "path": "/a", "value": 9},
 ///         {"op": "remove", "path": "/zz"}]"#,
-/// )
-/// .unwrap();
+/// )?;
 /// let err = doc.apply_patch(&patch).unwrap_err();
 /// assert_eq!(err.kind(), PatchErrorKind::Path);
 /// assert_eq!(err.op_index(), Some(1));
 /// assert_eq!(err.operation(), Some("remove"));
 /// assert_eq!(err.pointer(), Some("/zz"));
 /// assert_eq!(doc.to_string(), "a: 1\nb: 2\n"); // the first operation was undone
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PatchError(Box<Inner>);
@@ -196,11 +201,14 @@ impl PatchError {
     /// ```
     /// use oneyaml::{Document, Patch};
     ///
-    /// let mut doc = Document::parse("a: 1\n").unwrap();
-    /// let patch = Patch::from_json(r#"[{"op": "remove", "path": "/nope"}]"#).unwrap();
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut doc = Document::parse("a: 1\n")?;
+    /// let patch = Patch::from_json(r#"[{"op": "remove", "path": "/nope"}]"#)?;
     /// let error = doc.apply_patch(&patch).unwrap_err();
     /// assert!(!error.message().is_empty());
     /// assert!(error.to_string().contains(error.message()));
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     pub fn message(&self) -> &str {

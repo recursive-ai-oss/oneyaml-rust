@@ -8130,7 +8130,7 @@ impl<'d> NodeMut<'d> {
     /// [`EditError::WrongDocument`]; [`EditError::KeyExists`];
     /// [`EditError::AliasBeforeAnchor`]/[`EditError::DuplicateAnchor`];
     /// [`EditError::Unsupported`] across kinds (an entry into a
-    /// sequence) and, as documented 0.2 limitations, for
+    /// sequence) and, as documented limitations, for
     /// multi-line block text or comment lines moved into a flow
     /// collection, and a flow entry whose removal took comments.
     pub fn insert_removed(&mut self, removed: Removed) -> Result<NodeMut<'_>, ReinsertError> {
