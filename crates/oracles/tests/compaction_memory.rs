@@ -83,6 +83,7 @@ fn invalid_bytes() {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn orphan_and_dense_directives() {
     let s = untrusted();
     for scale in [1usize, 10] {

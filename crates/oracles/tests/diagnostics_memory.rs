@@ -68,6 +68,7 @@ const BUFFERED_PER_INPUT_BYTE: u64 = 48;
 const ORPHANS_PER_INPUT_BYTE: u64 = 20;
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn triggers_peak_within_the_cap_plus_the_input() {
     for (name, profile) in [
         ("untrusted", Limits::untrusted()),

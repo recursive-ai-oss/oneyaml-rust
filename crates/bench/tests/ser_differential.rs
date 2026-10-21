@@ -579,6 +579,7 @@ fn models<T: Serialize>(
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn bench_models_write_the_same_bytes() {
     let mut counts = (0, 0);
     let mut cases = Vec::new();

@@ -12,8 +12,9 @@
 
 mod document_common;
 
+mod work;
+
 use std::fmt::Write as _;
-use std::time::{Duration, Instant};
 
 use document_common::agrees_with_its_text;
 use oneyaml::{Document, EditError, NodeId, Stream, path};
@@ -95,17 +96,17 @@ fn rss_kib() -> Option<u64> {
     line.split_whitespace().nth(1)?.parse().ok()
 }
 
-/// The fastest of five rounds of 200 `node()` lookups of `ids`.
-fn lookup_time(doc: &Document, ids: &[NodeId]) -> Duration {
-    let mut best = Duration::MAX;
+/// The fewest steps of five rounds of 200 `node()` lookups of `ids`.
+fn lookup_time(doc: &Document, ids: &[NodeId]) -> u64 {
+    let mut best = u64::MAX;
     for _ in 0..5 {
-        let start = Instant::now();
+        work::reset();
         for _ in 0..200 {
             for id in ids {
                 std::hint::black_box(doc.node(*id).unwrap());
             }
         }
-        best = best.min(start.elapsed());
+        best = best.min(work::taken());
     }
     best
 }
@@ -127,7 +128,7 @@ fn five_hundred_clone_edit_cycles_stay_flat() {
         .collect();
     let target = doc.id_of(&path!["target"]).unwrap();
     let mut a = doc.id_of(&path!["target", "a"]).unwrap();
-    let mut early = (Duration::ZERO, None);
+    let mut early = (0u64, None);
     for cycle in 0..CYCLES {
         let mut next = doc.clone();
         // Replaces one value and inserts then removes an entry (insertions
@@ -149,12 +150,12 @@ fn five_hundred_clone_edit_cycles_stay_flat() {
         }
     }
     let late = (lookup_time(&doc, &ids), rss_kib());
-    let r = late.0.as_secs_f64() / early.0.as_secs_f64().max(1e-9);
+    let r = work::ratio("node()", early.0, late.0);
     eprintln!(
-        "node(): {:?} after 50 cycles vs {:?} after {CYCLES} (ratio {r:.2}); RSS {:?} vs {:?} KiB",
+        "node(): {:?} steps after 50 cycles vs {:?} after {CYCLES} (ratio {r:.2}); RSS {:?} vs {:?} KiB",
         early.0, late.0, early.1, late.1
     );
-    assert!(r < 3.0, "node() latency grows with clone cycles: {r:.2}");
+    assert!(r < 3.0, "node() cost grows with clone cycles: {r:.2}");
     if let (Some(a), Some(b)) = (early.1, late.1) {
         // Two copies are alive at a time at both points; allow half of the
         // early resident set for allocator slack. A per-copy handle map

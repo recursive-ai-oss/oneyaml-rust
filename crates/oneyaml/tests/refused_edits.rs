@@ -8,6 +8,8 @@
     clippy::panic
 )]
 
+mod work;
+
 use oneyaml::{Document, EditError, Removed, Stream, Value, path};
 
 const BREAKS: [&str; 3] = ["\n", "\r\n", "\r"];
@@ -223,10 +225,9 @@ fn a_refused_reinsert_hands_the_removed_back() {
 /// (`to_value`, `Index`, `deserialize`) costs O(that document), never the
 /// emit of the whole edited stream: reading the first document of an
 /// edited stream of 32k documents takes about as long as of 8k (the old
-/// cost grew 4×; the test fails above 2.5×, best of three).
+/// cost grew 4×; the test fails above 2.5×, fewest steps of three).
 #[test]
 fn reading_an_edited_stream_document_is_local() {
-    use std::time::{Duration, Instant};
     fn edited(n: usize) -> Stream {
         // Documents of ~250 bytes, so that emitting the stream dominates.
         let pad = "x".repeat(200);
@@ -240,10 +241,10 @@ fn reading_an_edited_stream_document_is_local() {
             .unwrap();
         s
     }
-    fn read(s: &mut Stream) -> Duration {
+    fn read(s: &mut Stream) -> u64 {
         (0..3)
             .map(|_| {
-                let t = Instant::now();
+                work::reset();
                 for _ in 0..40 {
                     let d = s.document(0).unwrap();
                     assert_eq!(d.to_value().unwrap()["k"].as_str(), Some("edited"));
@@ -253,15 +254,15 @@ fn reading_an_edited_stream_document_is_local() {
                     let g = s.document_mut(0).unwrap();
                     assert_eq!(g.to_value().unwrap()["k"].as_str(), Some("edited"));
                 }
-                t.elapsed()
+                work::taken()
             })
             .min()
             .unwrap()
     }
     let (mut small, mut large) = (edited(8_000), edited(32_000));
     let (a, b) = (read(&mut small), read(&mut large));
-    let ratio = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
-    eprintln!("8k {a:?}, 32k {b:?}, ratio {ratio:.1}");
+    let ratio = work::ratio("edited stream", a, b);
+    eprintln!("8k {a:?} steps, 32k {b:?}, ratio {ratio:.1}");
     assert!(ratio < 2.5, "8k {a:?}, 32k {b:?}");
 }
 

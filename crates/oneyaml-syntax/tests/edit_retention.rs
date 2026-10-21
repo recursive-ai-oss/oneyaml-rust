@@ -21,8 +21,9 @@
     clippy::cast_precision_loss
 )]
 
+mod work;
+
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
 use oneyaml_core::Settings;
 use oneyaml_core::code::LENIENT_INLINE_COLON;
@@ -45,23 +46,23 @@ fn alternate<A, B>(
     small: impl Fn(&mut A),
     setup_large: impl Fn() -> B,
     large: impl Fn(&mut B),
-) -> (Duration, Duration) {
-    let (mut a, mut b) = (Duration::MAX, Duration::MAX);
+) -> (u64, u64) {
+    let (mut a, mut b) = (u64::MAX, u64::MAX);
     for _ in 0..rounds {
         let mut x = setup_small();
-        let start = Instant::now();
+        work::reset();
         small(&mut x);
-        a = a.min(start.elapsed());
+        a = a.min(work::taken());
         let mut y = setup_large();
-        let start = Instant::now();
+        work::reset();
         large(&mut y);
-        b = b.min(start.elapsed());
+        b = b.min(work::taken());
     }
     (a, b)
 }
 
-fn ratio(small: Duration, large: Duration) -> f64 {
-    large.as_secs_f64() / small.as_secs_f64().max(1e-9)
+fn ratio(small: u64, large: u64) -> f64 {
+    work::ratio("scaling", small, large)
 }
 
 /// The three line breaks (§5.4 `b-break`): every test whose cost or
@@ -127,6 +128,7 @@ fn toggled(src: &str, n: usize) -> SyntaxTree {
 /// The retained bytes themselves are counted in `edit.rs`
 /// (`toggles_retain_what_the_tree_holds_not_the_history`).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn a_fork_after_many_toggles_copies_the_tree_not_the_history() {
     let _serial = serial();
     let big: String = (0..300).map(|i| format!("key{i}: v\n")).collect();
@@ -135,13 +137,13 @@ fn a_fork_after_many_toggles_copies_the_tree_not_the_history() {
         let many = toggled(&src, 100_000);
         assert_eq!(few.emit(), many.emit());
         let fork = |t: &SyntaxTree| {
-            let start = Instant::now();
+            work::reset();
             for _ in 0..16 {
                 std::hint::black_box(t.fork());
             }
-            start.elapsed()
+            work::taken()
         };
-        let (mut a, mut b) = (Duration::MAX, Duration::MAX);
+        let (mut a, mut b) = (u64::MAX, u64::MAX);
         for _ in 0..9 {
             a = a.min(fork(&few));
             b = b.min(fork(&many));
@@ -192,6 +194,7 @@ fn after_inserted_comments(k: usize, eol: &str) -> SyntaxTree {
 /// costs (before the fix, the trivia shortcut took only a `\n`-ended line break
 /// as the edit's own, so 10k CR insertions took 62.4 s against 45 ms for LF).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn stream_trivia_inserted_by_many_edits_is_jumped_over() {
     let _serial = serial();
     let mut lf_build = None;
@@ -202,14 +205,14 @@ fn stream_trivia_inserted_by_many_edits_is_jumped_over() {
         // of the tree's own lay between it and the document), so each
         // re-read `a: 1` and every comment line inserted so far: 10k
         // insertions took 54 s.
-        let (mut build_small, mut build_large) = (Duration::MAX, Duration::MAX);
+        let (mut build_small, mut build_large) = (u64::MAX, u64::MAX);
         for _ in 0..3 {
-            let start = Instant::now();
+            work::reset();
             std::hint::black_box(after_inserted_comments(1_000, eol));
-            build_small = build_small.min(start.elapsed());
-            let start = Instant::now();
+            build_small = build_small.min(work::taken());
+            work::reset();
             std::hint::black_box(after_inserted_comments(10_000, eol));
-            build_large = build_large.min(start.elapsed());
+            build_large = build_large.min(work::taken());
         }
         let per = ratio(build_small, build_large) / 10.0;
         eprintln!(
@@ -334,6 +337,7 @@ fn ends_in_block_scalar(bytes: usize, eol: &str) -> String {
 /// KB, ratio 95: the document-tail window took only a `\n`-ended line
 /// break as ending the inserted line).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn appending_after_a_final_block_scalar_stays_local() {
     let _serial = serial();
     for eol in EOLS {
@@ -668,6 +672,7 @@ fn a_dropped_warning_stays_dropped() {
 /// re-read the workflow's `jobs`). Now its window starts at its own key.
 /// Over LF, CRLF and CR documents.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn an_entry_after_a_block_scalar_value_is_edited_locally() {
     let _serial = serial();
     for eol in EOLS {

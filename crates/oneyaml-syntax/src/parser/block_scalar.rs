@@ -18,7 +18,8 @@ use crate::event::{BlockHeader, Chomping, Event, EventKind, Properties, ScalarSt
 
 use super::scalar::{Count, Sink};
 use super::scan::{
-    any_marker_at, blank_or_end, break_len, break_or_end, byte, first_mark, line_end, skip_white,
+    any_marker_at, blank_or_end, break_len, break_or_end, byte, first_mark, line_end, mark_at,
+    skip_white,
 };
 use super::{NodeCtx, Parser};
 
@@ -26,7 +27,7 @@ use super::{NodeCtx, Parser};
 /// document marker, or a byte order mark, which is no `nb-char` (production
 /// 27) and so starts a document prefix (production 211).
 fn prefix_break_at(src: &str, i: usize) -> bool {
-    any_marker_at(src, i) || src.get(i..).is_some_and(|r| r.starts_with('\u{feff}'))
+    any_marker_at(src, i) || mark_at(src, i)
 }
 
 /// Where the indicators of the header whose `|` or `>` is at `start` end: the

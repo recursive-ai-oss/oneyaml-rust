@@ -107,6 +107,7 @@ fn boundaries_at_the_cap_and_one_over() {
 /// profiles: every list ends with the exact summary and holds at most
 /// `max_diagnostics + 2` entries.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn the_triggers_are_capped_with_an_exact_summary() {
     for (profile, limit) in [
         (Limits::untrusted(), 1_000usize),

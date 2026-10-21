@@ -313,6 +313,7 @@ name = "oneyaml-syntax"
 version = "0.1.2"
 dependencies = [
  "oneyaml-core",
+ "oneyaml-syntax",
 ]
 
 [[package]]

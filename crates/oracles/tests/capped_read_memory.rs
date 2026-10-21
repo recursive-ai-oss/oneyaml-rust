@@ -122,6 +122,7 @@ fn capped_reads_of_edited_streams_hold_no_more_than_a_parse() {
 /// every document's empty meaning list was kept for the read), 31.5 MB
 /// kept.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn many_small_documents_read_within_a_parse_and_keep_little() {
     let cap = 4;
     let s = |src: &str| {

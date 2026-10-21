@@ -1542,6 +1542,7 @@ pub(crate) fn run_one(name: &str, mut doc: Document, rng: &mut Rng, steps: usize
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn edit_scripts_over_the_suite_and_generated_documents() {
     if std::env::var("ONEYAML_EDIT_FUZZ_COLLECT").is_ok() {
         std::panic::set_hook(Box::new(|_| {}));

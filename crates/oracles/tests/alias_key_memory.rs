@@ -139,6 +139,7 @@ fn bounded(what: &str, src: &str, max_tenths: u64) {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn many_distinct_anchors_without_alias_keys_cost_what_they_did() {
     // Bounds: the peak before alias-key replays (measured with these inputs:
     // 22.97x, 28.78x, 36.24x, 13.18x) plus 5%, rounded. An earlier tree peaked
@@ -248,11 +249,9 @@ fn distinct_over_budget_alias_keys_cost_one_budget() {
         let base = allocation_counter::measure(|| {
             Document::parse_with(plain.as_str(), &s).unwrap();
         });
-        let t = std::time::Instant::now();
         let with = allocation_counter::measure(|| {
             Document::parse_with(src.as_str(), &s).unwrap();
         });
-        let took = t.elapsed();
         // Where the `Value` read refuses at its alias budget.
         let e = oneyaml::from_str_with::<oneyaml::Value>(&src, &s).unwrap_err();
         assert!(
@@ -265,7 +264,7 @@ fn distinct_over_budget_alias_keys_cost_one_budget() {
         );
         eprintln!(
             "{what}: {} B input, {} allocations ({} without alias keys), \
-             {} KB allocated ({} KB), {} KB peak ({} KB), {took:?}",
+             {} KB allocated ({} KB), {} KB peak ({} KB)",
             src.len(),
             with.count_total,
             base.count_total,

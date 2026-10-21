@@ -953,6 +953,7 @@ fn corpus() -> Vec<String> {
 /// invalid input (one the `Value` read refuses) is never accepted, and
 /// `from_str`, a node read and `from_value` agree.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn ignoring_every_error_never_breaks_a_read() {
     let settings = [
         Settings::new(),

@@ -262,6 +262,7 @@ const DOCUMENTED_REFUSALS: &[(&str, &str)] = &[
 ];
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn no_regression_against_the_baseline() {
     let dir = test_suite::default_data_dir();
     let now = diff::run(&dir);

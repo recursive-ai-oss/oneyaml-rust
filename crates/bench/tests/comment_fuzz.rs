@@ -877,6 +877,7 @@ fn with_comments(rng: &mut Rng, src: &str) -> String {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn comment_scripts_over_the_suite_and_generated_documents() {
     let steps = env("ONEYAML_COMMENT_FUZZ_STEPS", 12);
     let seed = env("ONEYAML_COMMENT_FUZZ_SEED", 0xc0_ffee) as u64;

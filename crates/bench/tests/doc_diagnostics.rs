@@ -361,6 +361,7 @@ fn groups() -> Vec<Group> {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn diagnostics_match_the_recorded_baseline() {
     let dump = std::env::var("ONEYAML_DOC_DUMP").ok();
     let mut dump_text = String::new();

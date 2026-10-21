@@ -138,6 +138,7 @@ mod flow_node;
 mod head;
 mod polish;
 mod read;
+mod run;
 mod scalar;
 mod scan;
 mod stream;
@@ -303,6 +304,11 @@ pub(super) enum Item<'a> {
 #[derive(Debug, Default)]
 pub(super) struct Out<'a> {
     q: VecDeque<Item<'a>>,
+    /// What is left of the trivia run being lexed (empty when `.0 >= .1`);
+    /// it comes before everything in `q`. Held here, not pushed back on the
+    /// queue, so a run of several pieces (a line break and the next line's
+    /// indentation, a comment) costs no queue traffic between them.
+    run: (usize, usize),
 }
 
 impl<'a> Out<'a> {
@@ -334,18 +340,24 @@ impl<'a> Out<'a> {
     fn pop(&mut self, src: &'a str) -> Option<Sourced<'a>> {
         // The `Sourced` is built at each return site, so the item is
         // written once, straight into the caller's slot.
-        match self.q.pop_front()? {
-            Item::Event(event) => Some(Sourced::new(event, src)),
-            Item::Trivia(from, to) => match scan::lex_trivia(src, from, to) {
-                Some((kind, stop)) => {
-                    if stop < to {
-                        self.q.push_front(Item::Trivia(stop, to));
-                    }
-                    let span = Span::new(from, stop);
-                    Some(Sourced::new(Event::new(EventKind::Trivia(kind), span), src))
-                }
-                None => Some(Sourced::new(broken_trivia_run(from, to), src)),
-            },
+        let (from, to) = if self.run.0 < self.run.1 {
+            self.run
+        } else {
+            match self.q.pop_front()? {
+                Item::Event(event) => return Some(Sourced::new(event, src)),
+                Item::Trivia(from, to) => (from, to),
+            }
+        };
+        match scan::lex_trivia(src, from, to) {
+            Some((kind, stop)) => {
+                self.run = (stop, to);
+                let span = Span::new(from, stop);
+                Some(Sourced::new(Event::new(EventKind::Trivia(kind), span), src))
+            }
+            None => {
+                self.run = (to, to);
+                Some(Sourced::new(broken_trivia_run(from, to), src))
+            }
         }
     }
 }
@@ -877,17 +889,22 @@ impl<'a> Parser<'a> {
             let i = self.pos;
             let kind_end = match byte(self.src, i) {
                 Some(b' ' | b'\t') => {
-                    let end = skip_white(self.src, i);
-                    let run = self.src.get(i..end).unwrap_or("");
-                    if run.contains('\t') {
+                    // Leading spaces of the run, then (rarely) tabs.
+                    let spaces = self
+                        .src
+                        .as_bytes()
+                        .get(i..)
+                        .map_or(0, |r| r.iter().take_while(|b| **b == b' ').count());
+                    let mut end = i.saturating_add(spaces);
+                    if byte(self.src, end) == Some(b'\t') {
                         self.tab_seen = true;
+                        end = skip_white(self.src, end);
                     }
                     // Leading spaces of the line: the run starts where the
                     // line's spaces so far end, which is the line start
                     // unless a skipped misplaced mark sits in between (its
                     // bytes were moved out of the line by `misplaced_bom`).
                     if i == self.line_start.saturating_add(self.line_indent) {
-                        let spaces = run.bytes().take_while(|b| *b == b' ').count();
                         self.line_indent = self.line_indent.saturating_add(spaces);
                     }
                     (TriviaKind::Whitespace, end)
@@ -903,14 +920,18 @@ impl<'a> Parser<'a> {
                 Some(b'#') if self.comment_at(i) => {
                     // c-nb-comment-text (production 75) is `nb-char`s,
                     // which exclude the mark (production 27).
-                    let end = scan::comment_end(self.src, i);
+                    let (end, clean) = scan::comment_extent(self.src, i);
                     self.pos = end;
-                    let bad = comment_char_diagnostic(self.src, i, end);
-                    self.marks_in_token(i, end, bad);
+                    // Printable ASCII holds no byte order mark and no
+                    // character to report.
+                    if !clean {
+                        let bad = comment_char_diagnostic(self.src, i, end);
+                        self.marks_in_token(i, end, bad);
+                    }
                     continue;
                 }
                 _ if !bom && self.prefix_mark_at(i) => break,
-                _ if self.src.get(i..).is_some_and(|r| r.starts_with('\u{feff}')) => {
+                _ if scan::mark_at(self.src, i) => {
                     let end = i.saturating_add('\u{feff}'.len_utf8());
                     let prefix_start = bom
                         && self.fresh
@@ -944,7 +965,7 @@ impl<'a> Parser<'a> {
             && i == self.line_start
             && self.line_indent == 0
             && !self.stack.is_empty()
-            && self.src.get(i..).is_some_and(|r| r.starts_with('\u{feff}'))
+            && scan::mark_at(self.src, i)
     }
 
     /// Reports each byte order mark inside the token `start..end` (a
@@ -1282,8 +1303,7 @@ impl<'a> Parser<'a> {
         let resync = i >= self.src.len()
             || !self.halted
                 && i == self.line_start
-                && (scan::any_marker_at(self.src, i)
-                    || self.src.get(i..).is_some_and(|r| r.starts_with('\u{feff}')));
+                && (scan::any_marker_at(self.src, i) || scan::mark_at(self.src, i));
         if !resync {
             let end = line_end(self.src, i);
             self.push(EventKind::Trivia(TriviaKind::Skipped), i, end);
@@ -1301,5 +1321,7 @@ impl<'a> Parser<'a> {
     }
 }
 
+#[cfg(test)]
+mod equivalence_tests;
 #[cfg(test)]
 mod tests;

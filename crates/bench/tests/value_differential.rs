@@ -411,6 +411,7 @@ pub(crate) fn from_value_all(name: &str, src: &str, s: &Settings, v: &Value, t: 
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn from_value_agrees_with_from_str() {
     let inputs = inputs();
     for (label, s) in settings() {
@@ -840,6 +841,7 @@ fn nodes_of<'d>(doc: &'d Document, root: Value) -> Vec<Visit<'d>> {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn node_reads_agree_with_the_whole_document() {
     let inputs = inputs();
     for (label, s) in settings() {

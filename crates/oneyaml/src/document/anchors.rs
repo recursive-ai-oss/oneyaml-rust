@@ -263,10 +263,14 @@ impl Chunks {
     }
 
     fn at(&self, n: u32) -> Option<&Chunk> {
+        #[cfg(test)]
+        touched::count();
         self.nodes.get(usize::try_from(n).ok()?)
     }
 
     fn at_mut(&mut self, n: u32) -> Option<&mut Chunk> {
+        #[cfg(test)]
+        touched::count();
         self.nodes.get_mut(usize::try_from(n).ok()?)
     }
 
@@ -1223,6 +1227,26 @@ impl Index {
     }
 }
 
+/// Counts the chunks of the lists' trees that the index touches, so the
+/// tests can state its cost without measuring time (tests only).
+#[cfg(test)]
+mod touched {
+    use std::cell::Cell;
+
+    thread_local! {
+        static TOUCHED: Cell<u64> = const { Cell::new(0) };
+    }
+
+    pub(super) fn count() {
+        TOUCHED.with(|t| t.set(t.get().saturating_add(1)));
+    }
+
+    /// The chunks touched on this thread since the last call.
+    pub(super) fn take() -> u64 {
+        TOUCHED.with(|t| t.replace(0))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(
@@ -1231,8 +1255,6 @@ mod tests {
         clippy::indexing_slicing,
         clippy::arithmetic_side_effects
     )]
-
-    use std::time::{Duration, Instant};
 
     use super::*;
 
@@ -1293,7 +1315,7 @@ mod tests {
     /// The index operations of one rename with `k` aliases and one
     /// removal + re-insertion of a subtree with `2k` names, back and forth
     /// (the tree is not edited: the index round-trips).
-    fn round_trip(t: &SyntaxTree) -> Duration {
+    fn round_trip(t: &SyntaxTree) -> u64 {
         let mut ix = Index::build(t);
         let anchor = ix.anchors.get("x").unwrap().get(0).unwrap();
         let sub = t
@@ -1305,15 +1327,15 @@ mod tests {
         let list = ix.aliases.get("x").unwrap();
         let aliases: Vec<TreeId> = list.collect(list.len() / 2, list.len());
         let before = lists(&ix);
-        let start = Instant::now();
+        touched::take();
         ix.renamed(t, "x", "y", anchor, &aliases);
         ix.renamed(t, "y", "x", anchor, &aliases);
         let plan = ix.plan_removal(t, &names);
         ix.apply_removal(plan);
         ix.inserted(t, &names);
-        let took = start.elapsed();
+        let touches = touched::take();
         assert_eq!(lists(&ix), before);
-        took
+        touches
     }
 
     /// With one name repeated `k` times, the
@@ -1325,7 +1347,8 @@ mod tests {
         let (small, large) = (tree(2_000), tree(20_000));
         let best = |t: &SyntaxTree| (0..3).map(|_| round_trip(t)).min().unwrap();
         let (a, b) = (best(&small), best(&large));
-        let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+        assert!(a > 0, "the index touched nothing");
+        let r = b as f64 / a as f64;
         assert!(
             r < 30.0,
             "index work is not linear: {a:?} vs {b:?} ({r:.1})"
@@ -1353,23 +1376,24 @@ mod tests {
             let node = t.get(mid).unwrap();
             let names = Names::of(node, node);
             let before = lists(&ix);
-            let mut best = Duration::MAX;
+            let mut best = u64::MAX;
             for _ in 0..3 {
-                let start = Instant::now();
+                touched::take();
                 for _ in 0..200 {
                     let plan = ix.plan_removal(t, &names);
                     ix.apply_removal(plan);
                     ix.inserted(t, &names);
                 }
-                best = best.min(start.elapsed());
+                best = best.min(touched::take());
             }
             assert_eq!(lists(&ix), before);
             best
         };
         let (small, large) = (alias_tree(1_000), alias_tree(500_000));
         let (a, b) = (timed(&small), timed(&large));
-        let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
-        eprintln!("one alias, 1k vs 500k: {a:?} vs {b:?} (ratio {r:.2})");
+        assert!(a > 0, "the index touched nothing");
+        let r = b as f64 / a as f64;
+        eprintln!("one alias, 1k vs 500k: {a:?} vs {b:?} chunks (ratio {r:.2})");
         assert!(r < 8.0, "an edit costs more than log k: {r:.2}");
     }
 

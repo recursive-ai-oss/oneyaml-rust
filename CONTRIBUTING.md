@@ -38,26 +38,48 @@ libraries we compare against, used only in tests), `bench` and `fuzz`.
 
 ## Test
 
+For everyday work, run the fast set:
+
 ```sh
-cargo test --workspace                     # everything, including the yaml-test-suite and doc tests
+cargo t1                       # unit, doc and quick integration tests of every crate
+```
+
+`cargo t1` is an alias for `cargo test --workspace --profile t1
+--no-fail-fast`. The `t1` profile builds the workspace crates at
+`opt-level = 1` and the other libraries at `opt-level = 2`, with debug
+assertions and overflow checks on, and builds incrementally. It only applies
+when you name it, so it doesn't change `cargo build --release` or what
+anyone gets from the published crates. The first build takes a minute or
+two; after that the whole set runs in under a minute on a desktop machine.
+
+A few tests take seconds each: the corpus-wide differential and fuzz-replay
+tests, and the scaling tests that check an edit costs the same on a small
+and a huge document. They are marked `#[ignore = "slow: runs in CI"]` so the
+fast set skips them. Run only those with:
+
+```sh
+cargo t1 -- --ignored          # the slow tests only (a few minutes)
+cargo t1 -- --include-ignored  # everything: the fast and the slow set
+```
+
+The scaling tests don't measure time, so they give the same answer on every
+machine. They count the steps the syntax tree takes (the `__internal-checks`
+feature of `oneyaml-syntax` turns the counters on), and assert that the count
+doesn't grow with the size of the input.
+
+CI runs the full set, slow tests included, both at `opt-level = 1` and
+unoptimized (the deep-nesting tests on small stacks are only conclusive in an
+unoptimized build). Before a pull request, `cargo t1` is enough; plain
+`cargo test --workspace` (unoptimized, slow tests skipped) works too.
+
+Other checks:
+
+```sh
 cargo test -p oneyaml --doc                # the README and rustdoc examples
 cargo test -p oracles --doc                # the migration guide's examples
 cargo run -p test-suite -- --producer parser   # strict yaml-test-suite run
-cargo test -p fuzz                         # replay the fuzz corpora (no fuzzer needed)
+cargo t1 -p fuzz -- --include-ignored       # replay the fuzz corpora (no fuzzer needed)
 ```
-
-The whole workspace takes a while unoptimized. Building the tests at
-`opt-level = 1` (debug assertions and overflow checks stay on) makes a
-faster pre-check:
-
-```sh
-CARGO_PROFILE_DEV_OPT_LEVEL=1 cargo test --workspace
-```
-
-It doesn't replace the unoptimized run for `oneyaml`, `oneyaml-syntax`
-and `oneyaml-core`: their deep-nesting tests on small stacks and their
-scaling tests are tuned for unoptimized builds, and their timing bounds
-can fail at `opt-level = 1`.
 
 Fuzzing itself is described in [crates/fuzz/README.md](crates/fuzz/README.md).
 

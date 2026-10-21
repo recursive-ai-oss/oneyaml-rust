@@ -26,6 +26,24 @@ repository = "https://github.com/recursive-ai-oss/oneyaml-rust"
 inherits = "release"
 codegen-units = 1
 
+# Fast test loop: `cargo t1` (see CONTRIBUTING.md). The workspace crates are
+# built at `opt-level = 1` and the other libraries at `opt-level = 2`, with
+# debug assertions and overflow checks kept on, because the code relies on
+# them. Incremental builds make a rebuild after an edit quick. A custom
+# profile only applies when it is named (`--profile t1`), and profiles of
+# dependencies are ignored, so nothing here touches `cargo build
+# --release` or what a user of the published crates compiles.
+[profile.t1]
+inherits = "dev"
+opt-level = 1
+debug = "line-tables-only"
+debug-assertions = true
+overflow-checks = true
+incremental = true
+
+[profile.t1.package."*"]
+opt-level = 2
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 

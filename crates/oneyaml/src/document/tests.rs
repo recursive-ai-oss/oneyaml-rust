@@ -695,6 +695,7 @@ fn first_stream_edit_reads_no_document() {
 /// meaning switch (merge keys, `LastWins`, lenient colons, both `Compat`
 /// presets).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn parsed_counts_equal_complete_counts() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let mut inputs: Vec<String> = Vec::new();

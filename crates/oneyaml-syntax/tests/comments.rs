@@ -12,6 +12,8 @@
     clippy::panic
 )]
 
+mod work;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -499,25 +501,26 @@ fn whole_document_pass_is_linear() {
             "...\n# c\n".repeat(n)
         }),
     ];
-    fn best(src: &str) -> f64 {
+    fn best(src: &str) -> u64 {
         let tree = SyntaxTree::parse(src);
         (0..3)
             .map(|_| {
-                let t = std::time::Instant::now();
+                work::reset();
                 let n = tree.comment_attachments().len();
                 assert!(n > 0);
-                t.elapsed().as_secs_f64()
+                work::taken()
             })
-            .fold(f64::INFINITY, f64::min)
+            .min()
+            .unwrap()
     }
     for (name, make) in shapes {
         let (small, large) = (make(2_000), make(20_000));
         let (a, b) = (best(&small), best(&large));
-        let ratio = b / a.max(1e-9);
+        let ratio = work::ratio(name, a, b);
         // 10x the input: linear is ~10, quadratic ~100.
         assert!(
             ratio < 35.0,
-            "{name}: 10x input took {ratio:.1}x ({a:.6}s -> {b:.6}s)"
+            "{name}: 10x input took {ratio:.1}x ({a} steps -> {b})"
         );
         // The per-document pass of a stream costs the same.
         let tree = SyntaxTree::parse(large.as_str());
@@ -526,14 +529,14 @@ fn whole_document_pass_is_linear() {
             .children()
             .filter(|n| n.kind() == SyntaxKind::Document)
             .collect();
-        let t = std::time::Instant::now();
+        work::reset();
         for d in docs {
             let _ = tree.document_comment_attachments(d);
         }
-        let per_doc = t.elapsed().as_secs_f64();
+        let per_doc = work::taken();
         assert!(
-            per_doc < b * 35.0 + 0.05,
-            "{name}: per-document passes took {per_doc:.6}s"
+            per_doc < b * 35,
+            "{name}: per-document passes took {per_doc} steps"
         );
     }
 }

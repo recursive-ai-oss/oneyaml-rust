@@ -199,14 +199,12 @@ fn five_hundred_fork_and_edit_cycles() {
     assert!(cur.emit().contains("v500]"));
     // Resolution does not slow down with the chain: 10⁶ lookups of the
     // oldest and newest handles.
-    let start = std::time::Instant::now();
     let mut hits = 0usize;
     for _ in 0..1_000_000 / 2 {
         hits += usize::from(cur.get(issued[0].0).is_ok());
         hits += usize::from(cur.get(issued[499].0).is_ok());
     }
     assert_eq!(hits, 1_000_000);
-    eprintln!("10^6 lookups after 500 forks: {:?}", start.elapsed());
     invariants(&cur);
 }
 

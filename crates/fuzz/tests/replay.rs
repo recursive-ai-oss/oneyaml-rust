@@ -56,6 +56,7 @@ fn every_target_has_a_corpus() {
 /// fuzzer; the `max_typed_depth` docs give the requirement); a
 /// failing input is reported by path, and every one is run.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn committed_corpora_and_regressions_replay_green() {
     let only = std::env::var("ONEYAML_FUZZ_REPLAY").ok();
     let mut jobs: Vec<Job> = Vec::new();
