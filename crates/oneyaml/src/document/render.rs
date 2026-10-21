@@ -25,7 +25,7 @@ use oneyaml_core::{Emit, Limits, QuoteStyle, Settings, code};
 use oneyaml_syntax::event::Chomping;
 
 use super::{EditError, ScalarStyle};
-use crate::emit::scalar::{self, BlockIndent, Rules, Style};
+use crate::emit::scalar::{self, BlockIndent, Quote, Rules, Style};
 use crate::emit::{Start, emit_document, output_rules};
 use crate::value::{Mapping, MappingIter, Value};
 
@@ -98,6 +98,22 @@ impl Render {
     /// document's schema reads the text as another type.
     pub(super) fn schema_floor(mut self) -> Self {
         self.rules = self.rules.for_edit();
+        self
+    }
+
+    /// The renderer for a new string that copies the quote style of its
+    /// siblings (`key` for a mapping key, `value` for any other string).
+    pub(super) fn with_quotes(self, key: Option<Quote>, value: Option<Quote>) -> Self {
+        Self {
+            rules: self.rules.with_quotes(key, value),
+            ..self
+        }
+    }
+
+    /// The renderer for the keys of new entries: plain unless the
+    /// document's schema reads the text as another type.
+    pub(super) fn schema_floor_keys(mut self) -> Self {
+        self.rules = self.rules.for_edit_keys();
         self
     }
 
@@ -206,7 +222,7 @@ impl Render {
     pub(super) fn key(&self, key: &str, flow: bool) -> Result<String, EditError> {
         let mut out = String::new();
         let ok = if flow {
-            self.flow_string(&mut out, key);
+            self.flow_string(&mut out, key, true);
             out.len() <= MAX_IMPLICIT_KEY && !out.contains('\n')
         } else {
             self.rules.write_implicit_key(&mut out, key, None)
@@ -369,7 +385,10 @@ impl Render {
                     let scalar = !matches!(k.untag_ref(), Value::Sequence(_) | Value::Mapping(_));
                     if scalar {
                         let start = out.len();
-                        self.flow_node(&mut out, k, &mut stack)?;
+                        match k {
+                            Value::String(s) => self.flow_string(&mut out, s, true),
+                            _ => self.flow_node(&mut out, k, &mut stack)?,
+                        }
                         if out.len().saturating_sub(start) > MAX_IMPLICIT_KEY {
                             out.insert_str(start, "? ");
                         }
@@ -444,7 +463,7 @@ impl Render {
                 .rules
                 .write_number(out, n)
                 .map_err(|e| EditError::rejected(&e))?,
-            Value::String(s) => self.flow_string(out, s),
+            Value::String(s) => self.flow_string(out, s, false),
             Value::Sequence(s) => {
                 if s.is_empty() {
                     out.push_str("[]");
@@ -469,12 +488,12 @@ impl Render {
     /// A string in flow context: the every-reader-safe choice, with plain
     /// text that holds a flow indicator quoted and literal blocks written
     /// double-quoted (one line).
-    fn flow_string(&self, out: &mut String, s: &str) {
+    fn flow_string(&self, out: &mut String, s: &str, key: bool) {
         let block = BlockIndent {
             content: 0,
             indicator: None,
         };
-        let style = match self.rules.string_style(s, block) {
+        let style = match self.rules.string_style_for(s, block, key) {
             Style::Literal => Style::Double,
             Style::Plain if s.contains([',', '[', ']', '{', '}']) => {
                 if self.double {

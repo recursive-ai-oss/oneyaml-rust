@@ -684,7 +684,7 @@ pub(super) fn local_is_key(_map: TreeNode<'_>, n: TreeNode<'_>) -> Option<bool> 
 
 /// Whether `n` is a key, read from its own neighbours; `None` when an
 /// item precedes it with no indicator between (see [`is_key`]).
-fn local_key(n: TreeNode<'_>) -> Option<bool> {
+pub(super) fn local_key(n: TreeNode<'_>) -> Option<bool> {
     if next_sig(n).is_some_and(|x| x.kind() == SyntaxKind::MappingValue) {
         return Some(true);
     }
@@ -713,7 +713,12 @@ fn counted_key(map: TreeNode<'_>, n: TreeNode<'_>) -> bool {
 /// Style inference: the indentation width and sequence placement the
 /// document already uses around `coll` (its entries' nested collections,
 /// then its own offset from its parent entry), falling back to `emit`
-/// only where there is no context. O(entries of `coll` + one ancestor).
+/// only where there is no context.
+///
+/// Work: at most [`LOOK`] entries of `coll` and of one ancestor mapping
+/// are read (fewer once both a nested mapping and a nested sequence are
+/// found), so O(1) in the size of the document; callers ask only when the
+/// text they write has a layout to copy. Retained memory: none.
 pub(super) fn infer(coll: TreeNode<'_>, emit: &Emit) -> Emit {
     let mut indent = None;
     let mut seqs = None;
@@ -750,8 +755,17 @@ pub(super) fn infer(coll: TreeNode<'_>, emit: &Emit) -> Emit {
     out
 }
 
-/// How many entries style inference reads.
-const LOOK: usize = 16;
+/// How many entries style inference reads, counted from the start of a
+/// mapping. It reads on until it has found both a nested mapping and a
+/// nested sequence (or this many entries), so a mapping of many plain
+/// entries followed by a nested one still shows how the document indents.
+const LOOK: usize = 1024;
+
+// Entries read by `look`, in tests (work units, not time).
+#[cfg(test)]
+thread_local! {
+    pub(super) static LOOK_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 /// The layout the block entries of mapping `m` use for their nested block
 /// collections (first found wins).
@@ -767,6 +781,8 @@ fn look(m: TreeNode<'_>, indent: &mut Option<usize>, seqs: &mut Option<bool>) {
             break;
         }
         seen = seen.saturating_add(1);
+        #[cfg(test)]
+        LOOK_WORK.with(|w| w.set(w.get().saturating_add(1)));
         next = next_entry(m, &e).ok().flatten();
         let v = e.value;
         if !at_line_start(v) {

@@ -49,17 +49,17 @@ fn case_1_appending_after_a_lenient_last_entry_is_refused() {
     let mut d = doc(src);
     let r = d.set_path(&path!["n"], 1).map(|_| ());
     let r = r.map(|()| d.to_string());
-    refused(r, "b: 1\nk: x: z\n'n': 1\n", src);
+    refused(r, "b: 1\nk: x: z\nn: 1\n", src);
     // Nothing changed.
     assert_eq!(d.to_string(), src);
     // Accepted neighbours: the same append when an entry follows the
     // lenient one, and when it comes first.
     let mut d = doc("b: 1\nk: x: z\nc: 2\n");
     d.set_path(&path!["n"], 1).unwrap();
-    assert_eq!(d.to_string(), "b: 1\nk: x: z\nc: 2\n'n': 1\n");
+    assert_eq!(d.to_string(), "b: 1\nk: x: z\nc: 2\nn: 1\n");
     let mut d = doc("k: x: z\nb: 1\n");
     d.set_path(&path!["n"], 1).unwrap();
-    assert_eq!(d.to_string(), "k: x: z\nb: 1\n'n': 1\n");
+    assert_eq!(d.to_string(), "k: x: z\nb: 1\nn: 1\n");
 }
 
 #[test]

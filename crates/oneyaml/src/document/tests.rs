@@ -767,3 +767,117 @@ fn parsed_counts_equal_complete_counts() {
     }
     assert!(compared > 1_000, "{compared}");
 }
+
+// ---------------------------------------------------- counted work
+
+fn ckey_work() -> usize {
+    ckeys::WORK.with(std::cell::Cell::get)
+}
+
+fn reset_ckey_work() {
+    ckeys::WORK.with(|w| w.set(0));
+}
+
+/// The value node of the first collection-key entry of the mapping `at`.
+fn first_collection_entry(doc: &Document, at: &str) -> NodeId {
+    doc.get_path(&crate::path![at])
+        .unwrap()
+        .as_mapping()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.as_scalar().is_none())
+        .map(|(_, v)| v.id())
+        .unwrap()
+}
+
+/// Moves the first collection-key entry of `from` into `to`.
+fn move_first(doc: &mut Document, from: &str, to: &str) {
+    let id = first_collection_entry(doc, from);
+    let removed = doc.remove_node(id).unwrap();
+    let target = doc.get_path(&crate::path![to]).unwrap().id();
+    doc.node_mut(target)
+        .unwrap()
+        .insert_removed(removed)
+        .map_err(|e| e.to_string())
+        .unwrap();
+}
+
+fn collection_keys(k: usize) -> String {
+    let mut s = String::from("m:\n");
+    for i in 0..k {
+        s.push_str(&format!("  ? [{i}]\n  : {i}\n"));
+    }
+    s.push_str("n:\n  z: 0\n");
+    s
+}
+
+/// Work to move entries back and forth `rounds` times between a mapping of
+/// `k` collection keys and a small one (two operations each).
+fn moving_work(k: usize, rounds: usize) -> usize {
+    let mut doc = Document::parse(collection_keys(k)).unwrap();
+    reset_ckey_work();
+    for _ in 0..rounds {
+        move_first(&mut doc, "m", "n");
+        move_first(&mut doc, "n", "m");
+    }
+    ckey_work()
+}
+
+#[test]
+fn putting_collection_keys_back_costs_the_keys_once_and_each_operation_its_own_key() {
+    let (w_200, w_400) = (moving_work(200, 20), moving_work(400, 20));
+    let w_400_more = moving_work(400, 40);
+    // Reading K keys: a few units each, once.
+    assert!(w_200 <= 8 * 200, "{w_200}");
+    assert!(w_400 <= 8 * 400, "{w_400}");
+    // Twice the keys costs about twice the reading; twice the operations
+    // costs only the operations (each reads its own small key).
+    assert!(w_400 - w_200 <= 8 * 200, "{w_200} {w_400}");
+    assert!(w_400_more - w_400 <= 40 * 2 * 8, "{w_400} {w_400_more}");
+}
+
+#[test]
+fn an_anchored_node_named_by_many_keys_is_read_once() {
+    let items: Vec<String> = (0..10_000).map(|i| i.to_string()).collect();
+    let mut src = format!("big: &b [{}]\nm:\n", items.join(", "));
+    for i in 0..100 {
+        src.push_str(&format!("  ? [*b, {i}]\n  : {i}\n"));
+    }
+    src.push_str("n:\n  z: 0\n");
+    let mut doc = Document::parse(src).unwrap();
+    reset_ckey_work();
+    move_first(&mut doc, "m", "n");
+    let first = ckey_work();
+    // The anchor once (10,000 items and the sequence), the keys beside it.
+    assert!(first <= 10_000 + 100 * 8 + 100, "{first}");
+    move_first(&mut doc, "n", "m");
+    move_first(&mut doc, "m", "n");
+    let all = ckey_work();
+    assert!(all - first <= 2 * 16, "{first} {all}");
+}
+
+#[test]
+fn a_one_line_entry_put_back_reads_no_siblings_for_its_layout() {
+    let mut src = String::new();
+    for i in 0..1000 {
+        src.push_str(&format!("k{i}: v\n"));
+    }
+    let mut doc = Document::parse(src).unwrap();
+    let removed = doc.root_mut().unwrap().remove("k500").unwrap();
+    place::LOOK_WORK.with(|w| w.set(0));
+    doc.root_mut()
+        .unwrap()
+        .insert_removed(removed)
+        .map_err(|e| e.to_string())
+        .unwrap();
+    assert_eq!(place::LOOK_WORK.with(std::cell::Cell::get), 0);
+    // Nor does a new one-line value.
+    doc.root_mut().unwrap().insert("new", "x").unwrap();
+    assert_eq!(place::LOOK_WORK.with(std::cell::Cell::get), 0);
+    // New block content reads the entries it copies its layout from.
+    doc.root_mut()
+        .unwrap()
+        .insert("nested", vec![1, 2])
+        .unwrap();
+    assert!(place::LOOK_WORK.with(std::cell::Cell::get) > 0);
+}

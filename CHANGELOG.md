@@ -141,6 +141,42 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   both are present the segment is refused as ambiguous (lookups return
   `None`, edits `EditError::Unsupported`), and `set_path` never adds a second
   empty key.
+- Content an edit adds now follows the document around it:
+  - A new string takes the quotes of the strings at the end of the collection
+    it joins (`a: "x"` then `b: "y"` gains `c: "z"`, not `c: z`); the nearest
+    string decides, and a plain one means plain. A new mapping key takes the
+    quotes of the keys beside it. Numbers, booleans and nulls are never
+    quoted, and text that needs escapes or a block is written as it must be.
+    The strings of a new collection are not copied from its neighbours.
+  - A new mapping key that the document's schema reads as a string is written
+    plain: `y`, `n` and `no` under the Core schema, which used to be quoted
+    because YAML 1.1 readers read booleans. With `yaml11_booleans` (or a
+    `%YAML 1.1` document read with `honor_version_directive`) they are still
+    quoted, and so is every key that would read back as another type. New
+    string *values* are quoted as before.
+  - Nested block content copies the indentation of a nested collection even
+    when 300 plain entries come before it (the first 1,024 entries are
+    read, and only when the text written has a layout to copy; one line of
+    text reads none, which makes inserting a scalar cheaper).
+- Removing an entry, or replacing a node with a kept (`|+`) block scalar, no
+  longer changes the value of a kept scalar before it: the blank lines that
+  follow the entry go with it (`x: |+` then `two`, an empty line and `y: 1`
+  followed by an empty line used to be refused). Setting or replacing a root
+  with a kept scalar before a document marker writes no extra empty line.
+- `Document::remove_node` and `remove_keep_comments` now remove an entry whose
+  key is a collection, block or flow, and `Removed::key` gives the key's
+  source text for it (with its anchor and tag, if any). The `Removed` entry can
+  be put back, into the same mapping or another, and is refused as
+  `KeyExists` when the mapping has an equal collection key (the order of a
+  mapping's entries, the spelling of its numbers and the aliases it names do
+  not matter). A *new* entry with a collection key still cannot be inserted.
+- A flow entry with an explicit key (`{? k : v}`) moved into a block mapping
+  is written as the two lines `? k` and `: v`. It used to be written as
+  `? k : v`, which a block mapping reads as a different key, and so changed
+  the document's meaning. A key or value that spans lines is refused.
+- A new mapping key is quoted as before when the document declares
+  `%YAML 1.1` (or the settings read YAML 1.1 booleans): plain `y`, `n` and
+  `no` keys are for documents read as YAML 1.2.
 
 - Parse errors point at the first character that cannot belong, not at the
   start of the construct around it. This moves the position of many
