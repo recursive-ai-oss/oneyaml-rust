@@ -637,12 +637,19 @@ fn check_meaning(
             return;
         }
     };
-    // A scalar set to a value keeps its tag when the tag still describes the
-    // value (a custom tag on a string, `!!str` on a string, ...): the node
-    // then reads as that value under its tag, which is the value set.
+    // A scalar set to a value keeps its tag when the node carried that tag
+    // before the edit and the tag still describes the value (a custom tag on
+    // a string, `!!str` on a string, ...): the node then reads as that value
+    // under its tag, which is the value set.
     if let Some((path, Want::Value(v))) = &model.at {
+        let had = match before.as_ref().and_then(|b| vget(b, path)) {
+            Some(Value::Tagged(t)) => Some(t.tag.clone()),
+            _ => None,
+        };
         let kept = match vget(&after, path) {
-            Some(Value::Tagged(t)) => t.value == *v && tag_describes(&t.tag, v),
+            Some(Value::Tagged(t)) => {
+                had.as_ref() == Some(&t.tag) && t.value == *v && tag_describes(&t.tag, v)
+            }
             _ => false,
         };
         if kept {
@@ -1722,4 +1729,44 @@ fn edit_scripts_over_the_suite_and_generated_documents() {
         "never a panic: Internal refusals: {:?}",
         t.kinds.get("Internal")
     );
+}
+
+/// The meaning oracle forgives a kept tag only when the node carried that
+/// very tag before the edit.
+fn tag_oracle(before: &str, after: &str) {
+    let before = Value::try_from(&Document::parse(before).unwrap()).unwrap();
+    let doc = Document::parse(after).unwrap();
+    let model = Model {
+        at: Some((
+            vec![Seg::Key(Value::from("a"))],
+            Want::Value(Value::from("x")),
+        )),
+        ..Model::default()
+    };
+    check_meaning(
+        &doc,
+        Some(before),
+        false,
+        model,
+        "tag oracle",
+        &mut Tally::default(),
+    );
+}
+
+#[test]
+fn the_oracle_forgives_a_tag_the_node_carried() {
+    tag_oracle("a: !t old\n", "a: !t x\n");
+    tag_oracle("a: !!str old\n", "a: !!str x\n");
+}
+
+#[test]
+#[should_panic(expected = "value at")]
+fn the_oracle_does_not_forgive_a_tag_that_appeared() {
+    tag_oracle("a: old\n", "a: !t x\n");
+}
+
+#[test]
+#[should_panic(expected = "value at")]
+fn the_oracle_does_not_forgive_another_tag() {
+    tag_oracle("a: !u old\n", "a: !t x\n");
 }

@@ -735,16 +735,8 @@ impl<'d> NodeRef<'d> {
                         return Err(EditError::NotAMapping { at });
                     };
                     at.push_key(k.clone());
-                    // The empty segment also names the entry whose key has no
-                    // content (`: v`, `[: v]`): a key written as nothing is
-                    // the empty text, though it reads as null.
-                    m.get(k)
-                        .or_else(|| {
-                            k.is_empty()
-                                .then(|| m.iter().find(|(key, _)| key.text().is_empty()))
-                                .flatten()
-                                .map(|(_, v)| v)
-                        })
+                    m.segment(k, false)
+                        .map_err(|e| e.located(&at))?
                         .ok_or_else(|| EditError::NotFound { at: at.clone() })?
                 }
                 oneyaml_core::PathSegment::Index(i) => {
@@ -1002,7 +994,49 @@ impl<'d> MappingRef<'d> {
     #[must_use]
     pub fn get<K: AsKey>(self, key: K) -> Option<NodeRef<'d>> {
         let k = key::arg(&key);
+        if matches!(k, KeyArg::Str("")) {
+            return self.segment("", false).ok().flatten();
+        }
         self.get_in(KeyQuery::of(&k), false)
+    }
+
+    /// The value a path segment names: for `key` as [`MappingRef::get`]
+    /// (`own`: only this mapping's own entries, as the last segment of a
+    /// set does).
+    ///
+    /// The empty segment names the entry whose key has no content: a key
+    /// written as nothing (`: v`, `[: v]`) is a scalar of empty text, though
+    /// it reads as null, and so is a quoted empty key (`'': v`), whatever
+    /// properties either has (`&a : v`, `!!null : v`). When both kinds are
+    /// present the segment names two entries and the lookup is refused.
+    pub(super) fn segment(self, key: &str, own: bool) -> Result<Option<NodeRef<'d>>, EditError> {
+        if !key.is_empty() {
+            return Ok(if own {
+                self.own_value(key)
+            } else {
+                self.get_in(KeyQuery::Str(key), false)
+            });
+        }
+        let (mut written, mut quoted) = (None, None);
+        for (k, v) in self.iter() {
+            let Some(s) = k.as_scalar().filter(|s| s.value().is_empty()) else {
+                continue;
+            };
+            // (The last of a repeated key counts.)
+            match s.style() {
+                ScalarStyle::Plain => written = Some(v),
+                _ => quoted = Some(v),
+            }
+        }
+        match (written, quoted) {
+            (Some(_), Some(_)) => Err(EditError::Unsupported {
+                at: Path::new(),
+                reason: "the empty key names two entries, one written as nothing and one quoted",
+            }),
+            (Some(v), None) | (None, Some(v)) => Ok(Some(v)),
+            (None, None) if own => Ok(None),
+            (None, None) => Ok(self.get_in(KeyQuery::Str(""), false)),
+        }
     }
 
     fn get_in(self, key: KeyQuery<'_>, linear: bool) -> Option<NodeRef<'d>> {

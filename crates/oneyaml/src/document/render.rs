@@ -315,7 +315,21 @@ impl Render {
         } else {
             lines.extend(content.split('\n'));
         }
-        let mut out = String::new();
+        // The text is the lines times the indentation each: more than the
+        // document may hold is never built (a long text under a deeply
+        // indented block would multiply), the caller writes it another way.
+        let nl = self.nl.len();
+        let mut size = 3usize.checked_add(breaks.checked_mul(nl)?)?;
+        for l in &lines {
+            size = size.checked_add(nl)?;
+            if !l.is_empty() {
+                size = size.checked_add(old.content)?.checked_add(l.len())?;
+            }
+        }
+        if size > self.limits.get_max_document_size() {
+            return None;
+        }
+        let mut out = String::with_capacity(size);
         out.push(if old.folded { '>' } else { '|' });
         if let Some(d) = digit {
             out.push(char::from(b'0'.saturating_add(d)));

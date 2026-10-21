@@ -151,6 +151,17 @@ fn sp(n: usize) -> String {
     " ".repeat(n)
 }
 
+/// Whether `text` is a block scalar written with the clip indicator (no `-`
+/// or `+`): its header is the last word of the first line, before a comment.
+fn clip_header(text: &str) -> bool {
+    let first = text.split(['\n', '\r']).next().unwrap_or_default();
+    let first = first.split(" #").next().unwrap_or_default();
+    first
+        .split_whitespace()
+        .next_back()
+        .is_some_and(|w| w.starts_with(['|', '>']) && !w.contains(['-', '+']))
+}
+
 /// Whether text ends with a line break.
 fn ends_break(t: &str) -> bool {
     t.ends_with(['\n', '\r'])
@@ -279,43 +290,54 @@ fn break_after(v: TreeNode<'_>) -> Option<TreeNode<'_>> {
     None
 }
 
-/// `text` (a block scalar's text: its header, then its lines) with
-/// `comment` (the white space and comment that followed the value it
-/// replaces) at the end of its first line, the header line.
-/// `text` (a new value written on lines of its own) with
-/// `comment` (and the white space before it) on its first line, the line
-/// of its key, `-`, or properties; a compact collection item (`- - a`)
-/// gets its collection below the comment (`- # c⏎  - a`).
-/// The lines after the last entry (value `last`) of a block collection whose
-/// previous entry ends with a block scalar (`prev_value`) that would read as
-/// content of that scalar once the entry is removed: comment lines indented
-/// as far as its content, and white space wider than that. The first and last
-/// such element (siblings, with the lines between them kept in the range),
-/// the lines as written without their breaks, and the comments among the
-/// lines scanned. `None` when there are none.
+/// The lines right after the last entry (value `last`) of a block collection
+/// whose previous entry ends with a block scalar (`prev_value`) that would
+/// read as content of that scalar once the entry is removed: comment lines
+/// indented as far as its content, and white space wider than that.
+///
+/// The lines are taken from the line right after the entry; the scan stops at
+/// the first line that is not empty and not as wide as the content, because
+/// that line ends the scalar. `covered` is the last element of the lines
+/// the entry already takes with it (the footers inside it), and whether that
+/// range ends the text without a line break: the scan starts after it.
+///
+/// Returns the first and last element taken (siblings, with the lines
+/// between them in the range), the lines as written without their breaks,
+/// and the comments among them. `None` when there are none.
 fn block_tail(
     prev_value: TreeNode<'_>,
     last: TreeNode<'_>,
+    covered: Option<(TreeNode<'_>, bool)>,
 ) -> Option<(TreeId, TreeId, Vec<String>, Vec<TreeId>)> {
     let indent = last_block(prev_value)?.block_header()?.content_indent;
     if ends_line(last) {
         return None;
     }
-    // The line after the entry's last line.
-    let mut at = place::next_token(last);
-    let mut from = loop {
-        match at {
-            Some(x) if matches!(x.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment) => {
-                at = place::next_token(x);
-            }
-            Some(x) if x.kind() == SyntaxKind::LineBreak => break place::next_token(x),
+    let mut from = match covered {
+        Some((l, false)) => place::next_token(l),
+        // The range ends the text of the last line; its break follows.
+        Some((l, true)) => match place::next_token(l) {
+            Some(b) if b.kind() == SyntaxKind::LineBreak => place::next_token(b),
             _ => return None,
+        },
+        None => {
+            // The line after the entry's last line.
+            let mut at = place::next_token(last);
+            loop {
+                match at {
+                    Some(x) if matches!(x.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment) => {
+                        at = place::next_token(x);
+                    }
+                    Some(x) if x.kind() == SyntaxKind::LineBreak => break place::next_token(x),
+                    _ => return None,
+                }
+            }
         }
     };
     let mut lines: Vec<String> = Vec::new();
     let mut comments: Vec<TreeId> = Vec::new();
     let mut first: Option<TreeNode<'_>> = None;
-    let mut end: Option<(TreeNode<'_>, usize)> = None;
+    let mut end: Option<(TreeNode<'_>, usize, usize)> = None;
     while let Some(head) = from {
         let (ws, rest) = if head.kind() == SyntaxKind::Whitespace {
             (Some(head), place::next_token(head))
@@ -330,16 +352,15 @@ fn block_tail(
         let Some(r) = rest else {
             break;
         };
-        if r.kind() == SyntaxKind::Comment {
-            comments.push(r.id());
-        }
-        let (last_tok, text, reads) = match r.kind() {
-            SyntaxKind::LineBreak => (r, ws_text, width > indent),
+        let (last_tok, text, reads, blank) = match r.kind() {
+            SyntaxKind::LineBreak => (r, ws_text, width > indent, true),
             SyntaxKind::Comment => {
                 let text = format!("{ws_text}{}", r.text());
                 match place::next_token(r) {
-                    Some(b) if b.kind() == SyntaxKind::LineBreak => (b, text, width >= indent),
-                    None => (r, text, width >= indent),
+                    Some(b) if b.kind() == SyntaxKind::LineBreak => {
+                        (b, text, width >= indent, false)
+                    }
+                    None => (r, text, width >= indent, false),
                     _ => break,
                 }
             }
@@ -347,18 +368,27 @@ fn block_tail(
         };
         if reads {
             first.get_or_insert(head);
+            if r.kind() == SyntaxKind::Comment {
+                comments.push(r.id());
+            }
             lines.push(text);
-            end = Some((last_tok, lines.len()));
-        } else if first.is_some() {
+            end = Some((last_tok, lines.len(), comments.len()));
+        } else if blank && first.is_some() {
+            // An empty line between lines taken: kept in the range when a
+            // later line is taken too.
             lines.push(text);
+        } else {
+            // Not directly after the entry, or a line that ends the scalar.
+            break;
         }
         from = place::next_token(last_tok);
     }
-    let (first, (end, n)) = (first?, end?);
+    let (first, (end, n, c)) = (first?, end?);
     if first.parent() != end.parent() {
         return None;
     }
     lines.truncate(n);
+    comments.truncate(c);
     Some((first.id(), end.id(), lines, comments))
 }
 
@@ -454,6 +484,10 @@ fn block_style(n: TreeNode<'_>, slot: SlotKind) -> Option<BlockStyle> {
     })
 }
 
+/// `text` (a new value written on lines of its own) with
+/// `comment` (and the white space before it) on its first line, the line
+/// of its key, `-`, or properties; a compact collection item (`- - a`)
+/// gets its collection below the comment (`- # c⏎  - a`).
 fn header_text(kind: SlotKind, text: &str, comment: &str, nl: &str) -> Option<String> {
     match (kind, text.strip_prefix(' ')) {
         (SlotKind::SeqItem { col }, Some(rest))
@@ -465,6 +499,9 @@ fn header_text(kind: SlotKind, text: &str, comment: &str, nl: &str) -> Option<St
     }
 }
 
+/// `text` (a block scalar's text: its header, then its lines) with
+/// `comment` (the white space and comment that followed the value it
+/// replaces) at the end of its first line, the header line.
 fn with_header_comment(text: &str, comment: &str) -> Option<String> {
     let i = text.find(['\n', '\r'])?;
     Some(format!("{}{comment}{}", text.get(..i)?, text.get(i..)?))
@@ -1113,8 +1150,19 @@ impl Document {
         a: TreeNode<'_>,
         b: TreeNode<'_>,
     ) -> Result<Fragment, EditError> {
+        Self::line_fragment_in(t, a, b, false)
+    }
+
+    /// [`Document::line_fragment`]; `open`: the text may end without a line
+    /// break (the document does).
+    fn line_fragment_in(
+        t: &SyntaxTree,
+        a: TreeNode<'_>,
+        b: TreeNode<'_>,
+        open: bool,
+    ) -> Result<Fragment, EditError> {
         let f = Self::extract(t, a, b)?;
-        if ends_break(f.text()) {
+        if ends_break(f.text()) || (open && place::next_token(b).is_none()) {
             return Ok(f);
         }
         let lb = place::next_token(b)
@@ -1684,28 +1732,36 @@ impl Document {
     /// [`Document::slot_fragment`] ending with the line break that ends
     /// its line (for `replace_to_line_end`).
     fn slot_line_fragment(&self, kind: SlotKind, text: &str) -> Result<Fragment, EditError> {
-        self.slot_line_fragment_in(kind, text, None)
+        self.slot_line_fragment_in(kind, text, None, false)
     }
 
     /// [`Document::slot_line_fragment`]; `gap` as for
-    /// [`Document::slot_fragment_in`].
+    /// [`Document::slot_fragment_in`]; `open_end`: the replaced text ends the
+    /// document without a line break, which stays missing.
     fn slot_line_fragment_in(
         &self,
         kind: SlotKind,
         text: &str,
         gap: Option<&str>,
+        open_end: bool,
     ) -> Result<Fragment, EditError> {
         let text = &with_gap(text, gap);
         // Text that already ends its line (a block scalar's, kept as
-        // written: `|+` keeps its trailing lines) gets no other break.
-        let nl = if ends_break(text) { "" } else { self.nl() };
+        // written: `|+` keeps its trailing lines) gets no other break. A
+        // block scalar the document ends in without a line break (`open_end`)
+        // gets none either, unless the text needs one (a clip header).
+        let nl = if ends_break(text) || (open_end && !clip_header(text)) {
+            ""
+        } else {
+            self.nl()
+        };
         match kind {
             SlotKind::MapValue { col } | SlotKind::SeqItem { col } => {
                 let (ind, want, ikind) = slot_parts(kind);
                 let t = self.synth(&format!("{}{ind}{text}{nl}", sp(col)))?;
                 let c = root_node(&t).filter(|m| m.kind() == want).ok_or_else(bad)?;
                 let (a, b) = after_first(c, ikind).ok_or_else(bad)?;
-                Self::line_fragment(&t, a, b)
+                Self::line_fragment_in(&t, a, b, open_end)
             }
             SlotKind::AfterMarker => {
                 let t = self.synth(&format!("---{text}{nl}"))?;
@@ -1716,17 +1772,17 @@ impl Document {
                 let (a, b) = d
                     .and_then(|d| after_first(d, SyntaxKind::DocumentStartMarker))
                     .ok_or_else(bad)?;
-                Self::line_fragment(&t, a, b)
+                Self::line_fragment_in(&t, a, b, open_end)
             }
             SlotKind::Own { col } => {
                 let t = self.synth(&format!("{}{text}{nl}", sp(col)))?;
                 let n = root_node(&t).ok_or_else(bad)?;
-                Self::line_fragment(&t, n, n)
+                Self::line_fragment_in(&t, n, n, open_end)
             }
             SlotKind::ExplicitValue { col } => {
                 let t = self.synth(&explicit_synth(col, text, nl, self.nl()))?;
                 let (a, b) = explicit_range(&t)?;
-                Self::line_fragment(&t, a, b)
+                Self::line_fragment_in(&t, a, b, open_end)
             }
             SlotKind::Flow | SlotKind::FlowValue => Err(bad()),
         }
@@ -2755,11 +2811,15 @@ impl Document {
             // The white space between `:` (or `-`) and the value stays as the
             // document wrote it (a tab, several spaces) when the new text
             // starts on the same line: only the value's own text changes.
+            // A block collection written there (`- a: 1`) has its lines
+            // aligned after exactly one space, and a tab cannot separate it
+            // from the indicator: that gap is one space.
             let gap_text = match slot.kind {
                 SlotKind::MapValue { .. } | SlotKind::SeqItem { .. }
                     if slot.first != n
                         && slot.first.kind() == SyntaxKind::Whitespace
                         && slot.first.next_sibling() == Some(n)
+                        && !block
                         && text.starts_with(' ') =>
                 {
                     Some(slot.first.text().into_owned())
@@ -2767,12 +2827,15 @@ impl Document {
                 _ => None,
             };
             let gap = gap_text.as_deref();
+            // A block scalar ending the document without a line break: its
+            // replacement leaves the break missing too.
+            let open_end = last_block(n).is_some_and(|b| !ends_break(&b.text()));
             let range = (slot.first.id(), slot.last.id());
             if matches!(slot.kind, SlotKind::ExplicitValue { .. }) && place::key_ends_line(n) {
                 // `? |` alone: the empty value sits at the start of the
                 // next line; the new `: value` line ends with its own line
                 // break, spliced in there (never through that line's end).
-                let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
+                let frag = self.slot_line_fragment_in(slot.kind, &text, gap, open_end)?;
                 (range, frag, false, None)
             } else if let Some((w, c)) = outer {
                 // The comment written back (see `outer`), once it has left
@@ -2780,7 +2843,7 @@ impl Document {
                 // through the line's end, as there.
                 let (frag, new_block) = self.slot_fragment_in(slot.kind, &text, gap)?;
                 if new_block {
-                    let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
+                    let frag = self.slot_line_fragment_in(slot.kind, &text, gap, open_end)?;
                     (range, frag, true, Some((w.id(), c.id())))
                 } else {
                     (range, frag, false, Some((w.id(), c.id())))
@@ -2806,12 +2869,16 @@ impl Document {
                         Some((w, c)) => {
                             let text = with_header_comment(&text, &place::range_text(w, c))
                                 .ok_or_else(bad)?;
-                            let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
-                            (range, frag, true, Some((w.id(), c.id())))
+                            let frag =
+                                self.slot_line_fragment_in(slot.kind, &text, gap, open_end)?;
+                            let line = !open_end || ends_break(frag.text());
+                            (range, frag, line, Some((w.id(), c.id())))
                         }
                         None => {
-                            let frag = self.slot_line_fragment_in(slot.kind, &text, gap)?;
-                            (range, frag, true, None)
+                            let frag =
+                                self.slot_line_fragment_in(slot.kind, &text, gap, open_end)?;
+                            let line = !open_end || ends_break(frag.text());
+                            (range, frag, line, None)
                         }
                     }
                 } else if text.contains(['\n', '\r'])
@@ -4210,19 +4277,6 @@ impl Document {
                     outside = Some((w.id(), w.id()));
                 }
             }
-            // The last entry after a block scalar: lines under it that are
-            // indented as the scalar's content (a comment, or white space
-            // wider than its indentation) would become part of the scalar's
-            // text, so they go with the entry.
-            let tail_lines = match (&prev, &next) {
-                (Some(p), None) if !flow => block_tail(p.value, e.value),
-                _ => None,
-            };
-            let block_tail = tail_lines.as_ref().map(|t| (t.0, t.1));
-            let tail_comments: HashSet<TreeId> = tail_lines
-                .as_ref()
-                .map(|t| t.3.iter().copied().collect())
-                .unwrap_or_default();
             // A block sequence item's separator after its `-`.
             let head = (kind == Coll::BlockSeq && e.first != e.value)
                 .then(|| e.first.next_sibling())
@@ -4294,11 +4348,41 @@ impl Document {
             };
             let around = (only && !flow).then_some(coll);
             let mut carry = self.entry_carry(coll, &e, prev.is_some(), rehome, around)?;
-            // The comments removed with the lines after the entry are no
-            // longer expected to stay where their owner had them.
-            carry
-                .rest
-                .retain(|x| !x.old.is_some_and(|c| tail_comments.contains(&c)));
+            // The last entry after a block scalar: lines under it that are
+            // indented as the scalar's content (a comment, or white space
+            // wider than its indentation) would become part of the scalar's
+            // text, so they go with the entry (after the footers it takes
+            // anyway).
+            let covered = match &carry.tail {
+                Some((_, l, _, shifted)) => Some((
+                    self.tree().get(*l).map_err(|_| EditError::StaleNode)?,
+                    *shifted,
+                )),
+                None => None,
+            };
+            let tail_lines = match (&prev, &next) {
+                (Some(p), None) if !flow => block_tail(p.value, e.value, covered),
+                _ => None,
+            };
+            let block_tail = tail_lines.as_ref().map(|t| (t.0, t.1));
+            // The comments removed with those lines are the entry's now:
+            // `Removed` keeps them, with the owner the rules gave them, and
+            // they are no longer expected to stay where their owner had them.
+            let mut taken: Vec<Expect> = Vec::new();
+            if let Some(t) = &tail_lines {
+                for c in &t.3 {
+                    let at = carry
+                        .rest
+                        .iter()
+                        .position(|x| x.old == Some(*c))
+                        .ok_or(EditError::NotWellFormed { at: Path::new() })?;
+                    let x = carry.rest.remove(at);
+                    if !matches!(x.want, Want::Rel(_)) {
+                        return Err(EditError::NotWellFormed { at: Path::new() });
+                    }
+                    taken.push(x);
+                }
+            }
             if keep_lead && (only || flow) && carry.kept_lead > 0 {
                 return Err(unsupported(
                     "the leading comments of a flow entry or of a collection's only entry \
@@ -4434,10 +4518,33 @@ impl Document {
                 next_blank,
                 next_lead: None,
                 flow_lines: None,
-                comments: carry.owned.iter().map(|x| x.1.clone()).collect(),
-                ids: carry.owned.iter().map(|x| CommentId::of(x.0)).collect(),
-                owners: carry.owned.iter().map(|x| x.2).collect(),
-                explicit: carry.owned.iter().map(|x| x.3).collect(),
+                comments: carry
+                    .owned
+                    .iter()
+                    .map(|x| x.1.clone())
+                    .chain(taken.iter().map(|x| x.text.clone()))
+                    .collect(),
+                ids: carry
+                    .owned
+                    .iter()
+                    .map(|x| CommentId::of(x.0))
+                    .chain(taken.iter().filter_map(|x| x.old.map(CommentId::of)))
+                    .collect(),
+                owners: carry
+                    .owned
+                    .iter()
+                    .map(|x| x.2)
+                    .chain(taken.iter().filter_map(|x| match x.want {
+                        Want::Rel(r) => Some(r),
+                        _ => None,
+                    }))
+                    .collect(),
+                explicit: carry
+                    .owned
+                    .iter()
+                    .map(|x| x.3)
+                    .chain(taken.iter().map(|x| x.explicit))
+                    .collect(),
                 outside: carry.outside_explicit.clone(),
                 anchors,
                 external,
@@ -6356,13 +6463,13 @@ impl Document {
                         };
                         at.push_key(k.clone());
                         if last {
-                            act = Some(match m.own_value(k) {
+                            act = Some(match m.segment(k, true).map_err(|e| e.located(&at))? {
                                 Some(v) => Act::Replace(v.tree_node().id(), v.id()),
                                 None => Act::Insert(m.node().tree_node().id(), Some(k.clone()), i),
                             });
                             break;
                         }
-                        match m.get(k) {
+                        match m.segment(k, false).map_err(|e| e.located(&at))? {
                             Some(n) => node = n,
                             None => {
                                 act = Some(Act::Insert(

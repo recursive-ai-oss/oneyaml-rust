@@ -374,3 +374,170 @@ fn an_indentation_indicator_counts_from_the_dash_or_the_key() {
         }
     }
 }
+
+#[test]
+fn a_tab_after_the_indicator_stays_for_a_scalar_and_gives_way_to_a_collection() {
+    use std::collections::BTreeMap;
+    let mut map = BTreeMap::new();
+    map.insert("k", "v");
+    for (src, target) in [
+        ("-\tx\n- y\n", path![0]),
+        ("- \tx\n- y\n", path![0]),
+        ("k:\n  -\tx\n", path!["k", 0]),
+        ("k:\tx\n", path!["k"]),
+    ] {
+        // A scalar keeps the gap.
+        let mut d = Document::parse(src).unwrap();
+        d.set_path(&target, "s").unwrap();
+        assert!(d.to_string().contains('\t'), "{src:?}: {:?}", d.to_string());
+        // A block collection starts after one space.
+        let mut d = Document::parse(src).unwrap();
+        d.set_path(&target, vec![1, 2]).unwrap();
+        let out = d.to_string();
+        assert!(!out.contains('\t'), "{src:?}: {out:?}");
+        let read: Value = oneyaml::from_str(&out).unwrap();
+        assert!(format!("{read:?}").contains("Number"), "{out:?}");
+        let mut d = Document::parse(src).unwrap();
+        d.set_path(&target, &map).unwrap();
+        let out = d.to_string();
+        assert!(!out.contains('\t'), "{src:?}: {out:?}");
+        let _: Value = oneyaml::from_str(&out).unwrap();
+    }
+}
+
+#[test]
+fn a_block_scalar_under_a_wide_indent_never_multiplies_past_the_document_limit() {
+    use oneyaml::Limits;
+    let settings = Settings::new().limits(Limits::default().max_document_size(1 << 20));
+    let src = format!("a: |\n{}x\nb: 1\n", " ".repeat(2000));
+    let mut d = Document::parse_with(src.as_str(), &settings).unwrap();
+    // 1000 lines at 2000 columns would be two megabytes of block text; the
+    // value is written another way instead of being built first.
+    let text = "y\n".repeat(1000);
+    d.set_path(&path!["a"], text.as_str()).unwrap();
+    let out = d.to_string();
+    assert!(out.len() < 20_000, "{}", out.len());
+    let read: Value = oneyaml::from_str(&out).unwrap();
+    assert_eq!(read.get("a").and_then(Value::as_str), Some(text.as_str()));
+    // Within the limit the block style stays.
+    let src = format!("a: |\n{}x\nb: 1\n", " ".repeat(20));
+    let mut d = Document::parse_with(src.as_str(), &settings).unwrap();
+    d.set_path(&path!["a"], "y\nz\n").unwrap();
+    assert!(d.to_string().starts_with("a: |\n"), "{:?}", d.to_string());
+}
+
+#[test]
+fn the_empty_path_key_names_the_key_with_no_content() {
+    use oneyaml::EditError;
+    for src in [
+        "a: 1\n: 2\n",
+        "a: 1\n&x : 2\n",
+        "a: 1\n!!null : 2\n",
+        "a: 1\n'': 2\n",
+        "a: 1\n\"\": 2\n",
+        "{a: 1, : 2}\n",
+    ] {
+        let d = Document::parse(src).unwrap();
+        let two = |d: &Document| d.get_path(&path![""]).map(|n| n.text().into_owned());
+        assert_eq!(two(&d).as_deref(), Some("2"), "{src:?}");
+        assert_eq!(
+            d.get("").map(|n| n.text().into_owned()).as_deref(),
+            Some("2")
+        );
+        // Setting replaces that value and creates no second key.
+        let mut s = d.clone();
+        s.set_path(&path![""], 9).unwrap();
+        let out = s.to_string();
+        assert_eq!(out.matches("9").count(), 1, "{src:?}: {out:?}");
+        assert_eq!(
+            Document::parse(out.as_str())
+                .unwrap()
+                .get("")
+                .map(|n| n.text().into_owned())
+                .as_deref(),
+            Some("9")
+        );
+        assert_eq!(
+            Document::parse(out.as_str())
+                .unwrap()
+                .get("a")
+                .map(|n| n.text().into_owned())
+                .as_deref(),
+            Some("1")
+        );
+        // Removing takes that entry.
+        let mut r = d.clone();
+        let _ = r.remove_path(&path![""]).unwrap();
+        assert!(
+            r.get_path(&path![""]).is_none(),
+            "{src:?}: {:?}",
+            r.to_string()
+        );
+        assert!(r.get_path(&path!["a"]).is_some());
+        let mut m = d.clone();
+        m.get_path_mut(&path![""]).unwrap();
+    }
+    // Both kinds present: refused as ambiguous, nothing changes.
+    for src in ["'': 1\n: 2\n", "\"\": 1\n&x : 2\n"] {
+        let d = Document::parse(src).unwrap();
+        assert!(d.get_path(&path![""]).is_none(), "{src:?}");
+        assert!(d.get("").is_none());
+        let mut e = d.clone();
+        assert!(matches!(
+            e.set_path(&path![""], 9),
+            Err(EditError::Unsupported { .. })
+        ));
+        assert!(matches!(
+            e.remove_path(&path![""]),
+            Err(EditError::Unsupported { .. })
+        ));
+        assert!(matches!(
+            e.get_path_mut(&path![""]),
+            Err(EditError::Unsupported { .. })
+        ));
+        assert_eq!(e.to_string(), src);
+    }
+    // No empty key yet: setting creates one, and setting again replaces it.
+    let mut d = Document::parse("a: 1\n").unwrap();
+    d.set_path(&path![""], 1).unwrap();
+    d.set_path(&path![""], 2).unwrap();
+    assert_eq!(
+        d.to_string()
+            .lines()
+            .filter(|l| l.starts_with("''") || l.starts_with(':'))
+            .count(),
+        1,
+        "{:?}",
+        d.to_string()
+    );
+}
+
+#[test]
+fn a_block_scalar_that_ends_the_file_without_a_line_break_keeps_it_missing() {
+    for (src, v, want) in [
+        ("a: |\n  old", "n", "a: |-\n  n"),
+        ("a: >\n  old", "n", "a: >-\n  n"),
+        ("- |\n  old", "n", "- |-\n  n"),
+        ("a: |\n  old", "n\n", "a: |\n  n\n"),
+        ("a: |-\r\n  old", "n", "a: |-\r\n  n"),
+    ] {
+        let mut d = Document::parse(src).unwrap();
+        let target = if src.starts_with('-') {
+            path![0]
+        } else {
+            path!["a"]
+        };
+        d.set_path(&target, v).unwrap();
+        assert_eq!(d.to_string(), want, "{src:?}");
+        let read: Value = oneyaml::from_str(want).unwrap();
+        let got = match &read {
+            Value::Sequence(s) => s.get(0).cloned(),
+            r => r.get("a").cloned(),
+        };
+        assert_eq!(got, Some(Value::from(v)), "{src:?}");
+    }
+    // A value that is not a block scalar leaves the line unfinished too.
+    let mut d = Document::parse("a: |\n  old").unwrap();
+    d.set_path(&path!["a"], 5).unwrap();
+    assert_eq!(d.to_string(), "a: 5");
+}

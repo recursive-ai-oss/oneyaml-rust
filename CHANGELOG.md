@@ -50,15 +50,29 @@ No public item is added, removed or changed.
     Any other tag (`!!binary` on a string, `!!int` on a string) is dropped
     as before. The anchor and tag keep the order the source had.
   - The white space between `:` (or `-`) and the value stays as the
-    document wrote it (a tab, several spaces).
+    document wrote it (a tab, several spaces), unless the new value is a
+    block collection, which starts after one space.
+  - A block scalar that ends the file without a line break, set to text
+    that needs none, leaves the line break missing (`a: |` with `old` set
+    to `n` gives `a: |-` with `n`).
+  - A text too long to write as a block scalar within
+    `max_document_size` at the scalar's indentation is written another way
+    instead of being built first.
 - Removing the last entry of a block collection after an entry that ends
-  with a block scalar also removes the lines under it that would otherwise
-  become part of that scalar's text: a comment indented as far as the
-  scalar's content, or white space wider than it. Before, the removal was
-  refused as not reading back. Removing the only entry of a mapping whose
-  key is a block scalar, when a `:` at the margin follows, now leaves `{}`
-  and keeps that entry. A path key of `""` also names the entry whose key
-  has no content (`[: v]`, `: v`).
+  with a block scalar also removes the lines right under it that would
+  otherwise become part of that scalar's text: a comment indented as far as
+  the scalar's content, or white space wider than it. A line that is not
+  empty and narrower than the content ends the scalar, so it and the lines
+  after it stay. The comments taken are in `Removed::comments`, and
+  `insert_removed_at` writes them back. Before, the removal was refused as
+  not reading back. Removing the only entry of a mapping whose key is a
+  block scalar, when a `:` at the margin follows, now leaves `{}` and keeps
+  that entry.
+- A path segment of `""` names the entry whose key has no content (`: v`,
+  `[: v]`, `&a : v`), and the entry with a quoted empty key (`'': v`). When
+  both are present the segment is refused as ambiguous (lookups return
+  `None`, edits `EditError::Unsupported`), and `set_path` never adds a second
+  empty key.
 
 ## 1.1.0 — 2026-10-10
 
