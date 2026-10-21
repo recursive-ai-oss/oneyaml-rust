@@ -16,11 +16,12 @@ fn parser_standard_scores() {
     assert_eq!(r.panics(), 0);
     // Every valid input's event stream reproduces its bytes (C1).
     assert_eq!(r.round_trips(), 308);
-    // Pre-error events: exact against the corrected expectations except
-    // 4H7K (its recorded `-DOC` before the error, see tests/parser.rs);
-    // against the vendored ones, every corrected case is a mismatch, and
-    // the result changes exactly for the corrected cases other than 4H7K.
-    assert_eq!(r.prefix(true), 93);
+    // Pre-error events: exact against the corrected expectations for every
+    // error case; against the vendored ones, every corrected case is a
+    // mismatch (4H7K's recorded `-DOC` before the error closes a document
+    // that is still open, see tests/parser.rs), so the result changes
+    // exactly for the corrected cases.
+    assert_eq!(r.prefix(true), 94);
     assert_eq!(r.prefix(false), 94 - known.len());
     let wrong: Vec<&str> = r
         .cases
@@ -28,13 +29,13 @@ fn parser_standard_scores() {
         .filter(|c| c.prefix_corrected == Some(false))
         .map(|c| c.id.as_str())
         .collect();
-    assert_eq!(wrong, ["4H7K"]);
+    assert!(wrong.is_empty(), "prefix mismatches: {wrong:?}");
     let differ: Vec<&str> = r
         .cases
         .iter()
         .filter(|c| c.prefix_vendored != c.prefix_corrected)
         .map(|c| c.id.as_str())
         .collect();
-    let expected: Vec<&str> = known.ids().into_iter().filter(|id| *id != "4H7K").collect();
+    let expected: Vec<&str> = known.ids();
     assert_eq!(differ, expected);
 }

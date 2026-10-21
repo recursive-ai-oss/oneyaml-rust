@@ -48,7 +48,7 @@ better; hatched bars are workloads where oneyaml is slower):
   setting, off by default
   ([known deviations](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#known-deviations)).
   <!-- oracles:conformance:begin -->
-  yaml-test-suite `data-2022-01-17`, 402 cases: **402/402** under the standard criterion (valid 308/308, error 94/94), **401/402** strict (exact events, error prefixes and codes), and 308/308 valid inputs round-trip byte for byte ([evidence, other Rust parsers' scores and how to reproduce](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md)).
+  yaml-test-suite `data-2022-01-17`, 402 cases: **402/402** under the standard criterion (valid 308/308, error 94/94), **402/402** strict (exact events, error prefixes and codes), and 308/308 valid inputs round-trip byte for byte ([evidence, other Rust parsers' scores and how to reproduce](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md)).
   <!-- oracles:conformance:end -->
 - **Safe on any input.** Every published crate is
   `#![forbid(unsafe_code)]`. Every input gives a value or an error, every

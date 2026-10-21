@@ -84,6 +84,10 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
 
 ### Changed
 
+- yaml-test-suite case 4H7K (`[ a, b, c ] ]`): its corrected expectation no
+  longer has `-DOC` before the error, the same rule as BS4K and EB22 (a
+  document ends only at a marker or at the end of the stream). The parser
+  is unchanged; the strict score is now 402/402.
 - Setting a value over an existing node (`set`, `set_scalar`, `set_path`,
   `replace_at`, `insert` on an existing key) now writes exactly that value
   and changes only that value's text:

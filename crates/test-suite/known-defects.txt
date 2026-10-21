@@ -14,12 +14,16 @@
 # bare `+SEQ` / `+MAP`, without the flow markers the format requires: output
 # of an older version of the suite's error-tree generator (`yamlpp-events`,
 # bin/yaml-to-test). Both corrections restore the marker and change nothing
-# else. 4H7K's recorded `-DOC` before the error is kept: it is what the
-# spec reference parser (YAML::Parser 0.0.5 via YAML::PP::Ref 0.02) emits,
-# and yaml-rust2 0.13.0 reproduces the recorded prefix. Current YAML::PP
-# v0.41.0 omits it, but it also disagrees with 28 of the 94 recorded error
-# trees, so its output is not evidence that a recorded tree is defective.
-4H7K events +STR; +DOC ---; +SEQ []; =VAL :a; =VAL :b; =VAL :c; -SEQ; -DOC -- test.event omits the [] flow marker on +SEQ
+# else, except that 4H7K also loses the `-DOC` its recorded tree puts before
+# the error: under the rule used for BS4K and EB22 below, a document ends only
+# at a marker or at the end of the stream, so the extra `]` is an error inside
+# the open document. The spec reference parser (YAML::Parser 0.0.5 via
+# YAML::PP::Ref 0.02) and yaml-rust2 0.13.0 emit the recorded `-DOC`: they
+# close the document as soon as the root sequence ends, before they read the
+# `]` that follows it. The recorded trees of 9JBA and KS4U, where flow roots
+# are followed by more content, record no `-DOC`, so the corrected 4H7K
+# agrees with them.
+4H7K events +STR; +DOC ---; +SEQ []; =VAL :a; =VAL :b; =VAL :c; -SEQ -- test.event omits the [] flow marker on +SEQ and closes the open document before the error
 T833 events +STR; +DOC ---; +MAP {}; =VAL :foo -- test.event omits the {} flow marker on +MAP
 
 # src/BS4K.yaml and src/EB22.yaml on main record `-DOC` before the error.

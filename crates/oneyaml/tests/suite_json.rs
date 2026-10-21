@@ -249,11 +249,8 @@ fn valid_cases_deserialize_and_error_cases_fail() {
     //   2JQS: `: a` and `: b` are two empty (null) keys.
     //   X38W: `*a` repeats the key `&a [a, b]`.
     const DUPLICATE_KEY_CASES: [&str; 2] = ["2JQS", "X38W"];
-    // 4H7K: the parser's one known strict-suite defect (`known-defects.txt`),
-    // if the parser accepts it.
     let unexpected: Vec<&String> = wrong
         .iter()
-        .filter(|w| !w.starts_with("4H7K "))
         .filter(|w| {
             !DUPLICATE_KEY_CASES
                 .iter()

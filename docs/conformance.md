@@ -50,10 +50,10 @@ The criterion other projects publish (and the one matrix.yaml.info uses):
 
 | Parser | Version | Valid | Error | Total | Error + prefix (vendored / corrected) | Notes |
 |---|---|---|---|---|---|---|
-| oneyaml-syntax | 0.1.2 | 308/308 | 94/94 | 402/402 | 83 / 93 of 94 |  |
+| oneyaml-syntax | 0.1.2 | 308/308 | 94/94 | 402/402 | 83 / 94 of 94 |  |
 | saphyr-parser | 0.1.0 | 308/308 | 94/94 | 402/402 | 55 / 55 of 94 | API lacks `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
-| yaml-rust2 | 0.13.0 | 308/308 | 94/94 | 402/402 | 57 / 57 of 94 | API lacks `---` marker, `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
-| libyaml (unsafe-libyaml) | 0.2.11 | 252/308 | 78/94 | 330/402 | 50 / 56 of 94 |  |
+| yaml-rust2 | 0.13.0 | 308/308 | 94/94 | 402/402 | 57 / 56 of 94 | API lacks `---` marker, `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
+| libyaml (unsafe-libyaml) | 0.2.11 | 252/308 | 78/94 | 330/402 | 50 / 55 of 94 |  |
 | yaml-edit | 0.3.2 | n/a | 25/94 | n/a | n/a | no event API: valid column is n/a (see classification table) |
 | yaml-edit + Validator | 0.3.2 | n/a | 94/94 | n/a | n/a | no event API: valid column is n/a (see classification table) |
 
@@ -73,7 +73,7 @@ Every parser, including yaml-edit, can be held to these.
 ## Our strict score (not comparable; shown separately)
 
 oneyaml-syntax strict (contract + exact error prefixes + pinned codes):
-**401/402** (valid 308/308, error 93/94; 11 judged against corrected expectations).
+**402/402** (valid 308/308, error 94/94; 11 judged against corrected expectations).
 
 The parser keeps a document open until its end marker, the next document
 start or the end of the stream (YAML 1.2.2 section 9.1), whatever the style of
@@ -84,10 +84,12 @@ with that:
 * BS4K and EB22 (a plain scalar root followed by content on a later line)
   record `-DOC` before the error. Their corrected expectations, listed in
   `known-defects.txt`, drop it, and the parser matches the corrected ones.
-* 4H7K (`[ a, b, c ] ]`) records `-DOC` before the error on the extra `]`,
-  and its corrected expectation keeps it (it only restores the missing `[]`
-  marker). The parser reports the `]` with the document still open, so
-  4H7K is the one strict failure.
+* 4H7K (`[ a, b, c ] ]`) records `-DOC` before the error on the extra `]`.
+  The same rule applies: the document is still open when the `]` is read,
+  so its corrected expectation drops the `-DOC` (and restores the missing
+  `[]` marker), and the parser matches it. The spec reference parser and
+  yaml-rust2 close the document as soon as the root sequence ends, which is
+  where the recorded `-DOC` comes from.
 * 9JBA (`[ a, b, c, ]#invalid`) and KS4U (a flow root followed by
   `invalid item` on the next line) record no `-DOC`, although other parsers
   emit one there; the parser matches the recorded trees.
@@ -103,9 +105,8 @@ can be scored this way.
 This section is the one home for what oneyaml reads differently from
 YAML 1.2.2; the README and the migration guide link here.
 
-**With default settings: none known.** The one strict-score failure
-above (4H7K) is about *when* an event is reported on invalid input, not
-about what any input means. Cases whose recorded expectations are
+**With default settings: none known.** The strict score has no failures.
+Cases whose recorded expectations are
 themselves defective are corrected, with reasons, in
 [`crates/test-suite/known-defects.txt`](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/test-suite/known-defects.txt)
 (see *Methodology*).
@@ -165,9 +166,8 @@ and it is described in
   corrections cannot hide anything. **The corrections cannot affect the
   standard columns:** all 11 corrected cases are error cases, and the standard
   error verdict ignores events. For us the vendored and corrected results
-  differ on exactly 10 of the 11 corrected cases (83 vs 93, asserted in
-  `crates/test-suite/tests/standard.rs`). The eleventh, 4H7K, misses both, see
-  above. For streaming parsers the prefix
+  differ on all 11 corrected cases (83 vs 94, asserted in
+  `crates/test-suite/tests/standard.rs`). For streaming parsers the prefix
   mostly measures lookahead (how far they read before reporting), so read it as
   information, not correctness.
 * **yaml-edit.** It has no event API, and no event mapping was invented for
@@ -233,7 +233,7 @@ reference parser and libfyaml score 402/402 there.
 under the standard criterion. The known-defect corrections change only
 error-case prefixes, which the standard criterion does not check. Our 402/402
 is the same number a matrix run would report. The only place the
-corrections show is the informational prefix column (83 vendored vs 93
+corrections show is the informational prefix column (83 vendored vs 94
 corrected for us).
 
 ## Observations
@@ -244,11 +244,13 @@ corrected for us).
 * yaml-rust2 and libyaml reproduce the recorded 4H7K prefix: they emit
   `-DOC` before failing on `[ a, b, c ] ]`. The spec reference parser
   (YAML::Parser 0.0.5 via YAML::PP::Ref 0.02) emits it too. The correction
-  keeps that `-DOC` and restores only the missing `[]` marker. yaml-rust2
-  cannot express the marker, so both its counts include 4H7K (57 / 57).
-  libyaml can, so only its corrected count includes 4H7K (50 / 56). We
-  do not emit the `-DOC` (see "Our strict score"), and saphyr reports the
-  error before the sequence.
+  drops that `-DOC`, because the document is still open when the extra `]`
+  is read, and restores the missing `[]` marker (see "Our strict score").
+  yaml-rust2 cannot express the marker, so 4H7K counts in its vendored
+  figure (57) and not in its corrected one (56). libyaml can express the
+  marker, but its `-DOC` still differs from the correction, so neither of
+  its figures counts 4H7K (50 / 55). We match the correction, and saphyr
+  reports the error before the sequence.
 * libyaml 0.2.5-era behaviour is unchanged: 330/402, the same as the C
   library on the matrix. This is the parser behind `serde_yaml` and
   `serde_yaml_ng`.

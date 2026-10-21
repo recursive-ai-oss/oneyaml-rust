@@ -139,8 +139,8 @@ fn lenient_off_scores_like_the_default_parser() {
     let base = run_suite_with(&mut ParserProducer, &cases, None, &codes, &known);
     let mut off = SettingsProducer::new("off", Settings::new().lenient_inline_colons(false));
     let off = run_suite_with(&mut off, &cases, None, &codes, &known);
-    // 401: 4H7K fails under every setting (see tests/parser.rs).
-    assert_eq!(off.passed(), 401);
+    // 402: every case passes with the setting off, as by default.
+    assert_eq!(off.passed(), 402);
     assert_eq!(off.passing_ids(), base.passing_ids());
 }
 
@@ -170,7 +170,6 @@ fn lenient_on_changes_only_zcz6() {
 
     // Scored with the setting on, ZCZ6 is the one case that no longer
     // passes: it is an error case in the suite and now yields no error.
-    // (4H7K fails with or without the setting, see tests/parser.rs.)
     let cases = load_suite(&default_data_dir()).unwrap();
     let codes = ExpectedCodes::load(&default_codes_path()).unwrap();
     let known = KnownDefects::load(&default_known_defects_path()).unwrap();
@@ -186,11 +185,8 @@ fn lenient_on_changes_only_zcz6() {
         .iter()
         .filter_map(|r| r.outcome.as_ref().err().map(|f| (r.id.as_str(), f.label())))
         .collect();
-    assert_eq!(
-        failed,
-        [("4H7K", "error-prefix-mismatch"), ("ZCZ6", "missing-error")]
-    );
-    assert_eq!(report.passed(), 400);
+    assert_eq!(failed, [("ZCZ6", "missing-error")]);
+    assert_eq!(report.passed(), 401);
 }
 
 #[test]

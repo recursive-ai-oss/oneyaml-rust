@@ -42,7 +42,8 @@ fn shipped_list_is_valid_exact_and_pinned() {
         assert!(codes.get(id).is_some(), "{id} has no expected codes");
     }
     // The corrections are the recorded prefix with the `{}`/`[]` marker
-    // restored, and nothing else changed (4H7K keeps its recorded `-DOC`).
+    // restored, and nothing else changed, except that 4H7K also loses the
+    // recorded `-DOC` before the error (the document is still open there).
     let t833 = cases.iter().find(|c| c.id == "T833").unwrap();
     assert_eq!(
         known.corrected(t833).unwrap(),
@@ -52,12 +53,12 @@ fn shipped_list_is_valid_exact_and_pinned() {
     let corrected = known.corrected(h4h7k).unwrap();
     assert_eq!(
         corrected,
-        "+STR\n+DOC ---\n+SEQ []\n=VAL :a\n=VAL :b\n=VAL :c\n-SEQ\n-DOC\n"
+        "+STR\n+DOC ---\n+SEQ []\n=VAL :a\n=VAL :b\n=VAL :c\n-SEQ\n"
     );
     assert_eq!(
-        corrected.replace("+SEQ []", "+SEQ"),
+        format!("{}-DOC\n", corrected.replace("+SEQ []", "+SEQ")),
         h4h7k.expected_events,
-        "4H7K's correction only restores the marker"
+        "4H7K's correction restores the marker and drops the `-DOC`"
     );
 }
 
@@ -70,23 +71,12 @@ fn corrected_cases_are_judged_exactly() {
     assert_eq!(report.passed() + report.failed(), report.total());
     for id in SHIPPED {
         let r = report.results.iter().find(|r| r.id == *id).unwrap();
-        if id == "4H7K" {
-            // A real failure against its corrected expectation: we do not
-            // emit the recorded `-DOC` before the error (tests/parser.rs).
-            assert_eq!(
-                r.outcome.as_ref().unwrap_err().label(),
-                "error-prefix-mismatch",
-                "{id}"
-            );
-        } else {
-            assert_eq!(r.outcome, Ok(()), "{id}");
-        }
+        assert_eq!(r.outcome, Ok(()), "{id}");
     }
-    // Without corrections the defective data fails every listed case (4H7K
-    // fails either way, so it is counted once).
+    // Without corrections the defective data fails every listed case.
     let plain = run_suite(&mut ParserProducer, &cases, None, &codes);
     assert_eq!(plain.corrected(), 0);
-    assert_eq!(plain.failed(), report.failed() + SHIPPED.len() - 1);
+    assert_eq!(plain.failed(), report.failed() + SHIPPED.len());
     for id in SHIPPED {
         let r = plain.results.iter().find(|r| r.id == *id).unwrap();
         assert!(r.outcome.is_err(), "{id}");
@@ -191,9 +181,8 @@ fn cli_marks_corrected_cases_and_rejects_bad_lists() {
     let (code, stdout, _) = cli(&["--producer", "parser", "--failures"]);
     assert_eq!(code, 0);
     assert!(stdout.contains("known-defect entries: 11"));
-    assert!(stdout.contains("FAIL 4H7K "));
-    assert_eq!(stdout.matches("FAIL ").count(), 1);
-    assert!(stdout.contains("judged against corrected expectations: 11 (10 passed"));
+    assert_eq!(stdout.matches("FAIL ").count(), 0);
+    assert!(stdout.contains("judged against corrected expectations: 11 (11 passed"));
 
     let path = std::env::temp_dir().join(format!("oneyaml-known-{}.txt", std::process::id()));
     let d88j = "+STR; +DOC; +MAP; =VAL :a; +SEQ []; =VAL :b; =VAL :c; -SEQ; -MAP; -DOC; -STR";
