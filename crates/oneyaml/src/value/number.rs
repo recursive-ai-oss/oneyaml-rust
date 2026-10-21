@@ -875,7 +875,9 @@ impl fmt::Display for Number {
             // The exact value as `d.ddde+X`: a `.` and a signed exponent,
             // which every reader reads as a float.
             N::OutOfRange(w) => {
-                let (first, rest) = w.digits.split_at(w.digits.len().min(1));
+                let cut = w.digits.len().min(1);
+                let first = w.digits.get(..cut).unwrap_or("");
+                let rest = w.digits.get(cut..).unwrap_or("");
                 let rest = if rest.is_empty() { "0" } else { rest };
                 let sign = if w.neg { "-" } else { "" };
                 let exp = if w.exp.starts_with('-') {

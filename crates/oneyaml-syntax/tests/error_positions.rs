@@ -152,7 +152,14 @@ fn a_document_stays_open_when_content_follows_a_plain_root() {
 /// A line of only a tab after a block scalar, at the end, is trailing space.
 #[test]
 fn a_tab_only_line_after_a_block_scalar_is_not_an_error() {
-    for src in ["k: |\n a\n\t\n", "k: |\n a\n\t\n# c\n", "k: |\n a\n \t\n"] {
+    for src in [
+        "k: |\n a\n\t\n",
+        "k: |\n a\n\t\n# c\n",
+        "k: |\n a\n \t\n",
+        // Before a document marker too.
+        "k: |\n a\n\t\n---\nb\n",
+        "k: |\n a\n\t\n...\n",
+    ] {
         assert!(
             common::first_error(src, &Settings::new()).is_none(),
             "{src:?}"
@@ -162,14 +169,20 @@ fn a_tab_only_line_after_a_block_scalar_is_not_an_error() {
     assert!(common::first_error("k: |\n a\n\t\nz\n", &Settings::new()).is_some());
 }
 
-/// `%`-escapes in a tag: ASCII ones are decoded; those of non-ASCII bytes
-/// stay as written, because tag characters are compared as presented.
+/// `%`-escapes in a tag: ASCII ones are decoded, except `%25`; those of
+/// non-ASCII bytes and `%25` stay as written, because tag characters are
+/// compared as presented and a decoded `%25` would equal them.
 #[test]
 fn tag_escapes_of_non_ascii_bytes_are_kept() {
     let t = common::tree("%TAG !e! tag:x,1:\n--- !e!%C3%A9 a\n", &Settings::new());
     assert!(t.contains("<tag:x,1:%C3%A9>"), "{t}");
     let t = common::tree("!a%21b c\n", &Settings::new());
     assert!(t.contains("<!a!b>"), "{t}");
+    // `%25` is kept too, so it never reads as the kept escapes it spells.
+    let spelled = common::tree("!a%25C3%25A9 c\n", &Settings::new());
+    let kept = common::tree("!a%C3%A9 c\n", &Settings::new());
+    assert!(spelled.contains("<!a%25C3%25A9>"), "{spelled}");
+    assert!(kept.contains("<!a%C3%A9>"), "{kept}");
 }
 
 /// Comment text is printable characters: a tab, U+0085 and the rest of the

@@ -335,6 +335,15 @@ pub(super) fn separated(src: &str, i: usize) -> bool {
     blank_or_end(src, i) || char_at(src, i).is_some_and(is_flow_indicator)
 }
 
+/// The error for a flow collection written right against a `:`.
+#[cold]
+fn glued_collection() -> Stop {
+    (
+        MISSING_FLOW_SEPARATOR,
+        "a flow collection after `:` needs white space before it unless the key is quoted",
+    )
+}
+
 impl<'s, 'a> Flow<'s, 'a> {
     /// The flow sub-machine of `p` for one step.
     pub(super) fn new(p: &'s mut Parser<'a>) -> Self {
@@ -461,13 +470,12 @@ impl<'s, 'a> Flow<'s, 'a> {
     /// is not JSON-like the `:` must be followed by white space before a value,
     /// so a flow collection written right against it (`{a:{}}`) cannot be the
     /// value: the collection is the first character that cannot belong.
+    #[inline]
     fn value_indicator(&mut self, json: bool) -> Result<(), Stop> {
         self.indicator(Indicator::MappingValue);
-        if !json && matches!(byte(self.src, self.pos), Some(b'[' | b'{')) {
-            return Err((
-                MISSING_FLOW_SEPARATOR,
-                "a flow collection after `:` needs white space before it unless the key is quoted",
-            ));
+        // `[` and `{` are the two bytes that are `0x5B` without bit 5.
+        if !json && byte(self.src, self.pos).is_some_and(|b| b & 0xDF == 0x5B) {
+            return Err(glued_collection());
         }
         Ok(())
     }

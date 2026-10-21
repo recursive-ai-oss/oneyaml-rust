@@ -50,13 +50,26 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   the end of the stream. Content on a later line after a plain scalar root
   is an error inside that document; it no longer starts a second one. The
   events of such inputs no longer contain an early document end.
-- A line holding only a tab after a block scalar, at the end of the text, is
-  no longer an error.
-- A percent escape in a tag (`!a%41`, `!<tag:x,2000:%41>`) is decoded when
-  it is ASCII, and kept as written when it is not (the UTF-8 bytes of a
-  non-ASCII character stay as `%XX`). Because such a tag cannot be written
-  back as a valid tag, the emitter refuses a `Value::Tagged` whose tag has a
-  non-ASCII character (`Y3015`).
+- A line holding only a tab after a block scalar, at the end of the text or
+  before a document marker (`---` or `...`), is no longer an error.
+- A second `%YAML` directive in one document prefix is reported as `Y0033`
+  (it was `Y1004`), at the second directive. `Y1004` now covers only a
+  repeated `%TAG` handle.
+- A percent escape in a tag (`!a%41`, `!<tag:x,1:%41>`) is decoded when it
+  is the escape of an ASCII character other than `%`. The escape of a
+  non-ASCII byte (`%C3`) and `%25` are kept as written, so that tags that
+  differ only in such an escape stay different tags (`!a%25C3%25A9` and
+  `!a%C3%A9` are two tags, and as mapping keys not duplicates). A tag read
+  from a document is written back as it was read. The writer refuses
+  (`Y3015`) a `Value::Tagged` whose tag has a non-ASCII character, or a `%`
+  that no reader produces (a bare `%`, or the escape of an ASCII character
+  other than `%`), because no spelling reads back as that tag.
+- An enum variant named with non-ASCII characters (`#[serde(rename =
+  "café")]`) is written, in the layouts that write a variant as a tag, as the
+  escaped name (`!caf%C3%A9 1`), and a `%` in a variant name as `%25`; a
+  tag is matched to a variant by its name with every `%XX` escape decoded,
+  so output of earlier releases still reads. A tag that names no variant is
+  handed to the target decoded as well.
 - An escaped surrogate pair in a double-quoted scalar (`"\uD83D\uDE00"`)
   reads as one character.
 - A float that is outside the range of a double (`1e400`, `1e-400`) keeps
@@ -74,8 +87,6 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   flow collection directly after a property, an empty key, an explicit key
   or a plain key (`&a[b]`, `{:{0}}`), a verbatim tag that is not a URI, and
   a second anchor on one node.
-- A second `%YAML` directive was reported as `Y1004`; it is `Y0033` now
-  (see above).
 
 ## 1.1.0 — 2026-10-10
 

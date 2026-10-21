@@ -421,9 +421,12 @@ pub(super) fn scan_tag(src: &str, start: usize) -> Option<TagScan> {
 /// The tag URI `prefix` + `suffix` with its `%XX` escapes of ASCII
 /// characters decoded, built in one allocation.
 ///
-/// Escapes of non-ASCII bytes stay as written: tag characters are preserved
-/// and compared as presented (§5.6), and only the escaped characters of
-/// the restricted ASCII range are expanded (§6.9.1). The result is always
+/// Escapes of non-ASCII bytes and `%25` (the escaped `%`) stay as written,
+/// so that two spellings that differ only in such an escape stay two tags:
+/// decoding `%25` would make `%25C3%25A9` read as the same text as the
+/// kept escapes `%C3%A9`. Tag characters are preserved and compared as
+/// presented (§5.6), and only the other escaped characters of the
+/// restricted ASCII range are expanded (§6.9.1). The result is always
 /// valid UTF-8, so a prefix and suffix that split a multi-byte escape
 /// (`%C3` + `%A9`) are simply kept as that text.
 pub(super) fn percent_decode_concat(prefix: &str, suffix: &str) -> String {
@@ -435,8 +438,8 @@ pub(super) fn percent_decode_concat(prefix: &str, suffix: &str) -> String {
 }
 
 /// The bytes of `s` with its `%XX` escapes of ASCII characters decoded, one at
-/// a time (no allocation). An escape of a byte above 0x7F is passed through
-/// as written (see [`percent_decode_concat`]).
+/// a time (no allocation). An escape of a byte above 0x7F, and `%25`, are
+/// passed through as written (see [`percent_decode_concat`]).
 pub(super) fn decoded(s: &str) -> impl Iterator<Item = u8> + '_ {
     let bytes = s.as_bytes();
     let mut i = 0usize;
@@ -447,7 +450,7 @@ pub(super) fn decoded(s: &str) -> impl Iterator<Item = u8> + '_ {
             .and_then(|h| core::str::from_utf8(h).ok())
             .and_then(|h| u8::from_str_radix(h, 16).ok());
         match (b, hex) {
-            (b'%', Some(v)) if v.is_ascii() => {
+            (b'%', Some(v)) if v.is_ascii() && v != b'%' => {
                 i = i.saturating_add(3);
                 Some(v)
             }
@@ -635,6 +638,12 @@ mod tests {
         // The prefix is decoded too.
         assert_eq!(percent_decode_concat("p:%21", "a"), "p:!a");
         assert_eq!(percent_decode_concat("p:%C3", "%A9"), "p:%C3%A9");
+        // `%25` stays too: it is not the same text as the escapes it spells.
+        assert_eq!(percent_decode_concat("", "a%25C3%25A9"), "a%25C3%25A9");
+        assert_ne!(
+            percent_decode_concat("", "a%25C3%25A9"),
+            percent_decode_concat("", "a%C3%A9")
+        );
         assert_eq!(tag_prefix_at("%TAG !e! a:%21 ", 9), Some("a:%21"));
         assert_eq!(tag_prefix_at("x ", 1), None);
         // A prefix read once, continued by each suffix.

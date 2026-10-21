@@ -187,7 +187,7 @@ impl<'a> TagStr<'a> {
         self.a.bytes().chain(self.b.bytes())
     }
 
-    pub(crate) fn chars(self) -> impl Iterator<Item = char> + 'a {
+    pub(crate) fn chars(self) -> core::iter::Chain<core::str::Chars<'a>, core::str::Chars<'a>> {
         self.a.chars().chain(self.b.chars())
     }
 
@@ -412,6 +412,27 @@ impl fmt::Debug for Tag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Tag({self})")
     }
+}
+
+/// The tag `!name` of an enum variant `name`, in the form a document gives
+/// it: a `%` is written `%25` and a non-ASCII character as the escapes of its
+/// UTF-8 bytes, which a tag keeps as written (the variant is matched by
+/// the name they spell). Every other character is left for the writer.
+pub(crate) fn variant_tag_text(name: &str) -> String {
+    use core::fmt::Write as _;
+    let mut out = String::with_capacity(name.len().saturating_add(1));
+    out.push('!');
+    for c in name.chars() {
+        if c == '%' || !c.is_ascii() {
+            let mut buf = [0u8; 4];
+            for b in c.encode_utf8(&mut buf).bytes() {
+                let _ = write!(out, "%{b:02X}");
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 #[cfg(test)]

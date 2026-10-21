@@ -28,7 +28,7 @@ pub(crate) use serde_impl::{
     VALUE_MAGIC, arm, disarm, hand_off, is_tls_gone, take_handed_over, tls_gone_ser,
 };
 pub use tag::Tag;
-pub(crate) use tag::{TagPrefix, TagStr};
+pub(crate) use tag::{TagPrefix, TagStr, variant_tag_text};
 
 #[cfg(test)]
 mod tests;

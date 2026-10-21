@@ -56,9 +56,10 @@ fn escaped_prefixes_decode() {
     resolves("%TAG !e! tag:x,1:%21\n--- !e!a v\n", "tag:x,1:!a");
     resolves("--- !<tag:x,1:%21a> v\n", "tag:x,1:!a");
     resolves("%TAG !e! tag:x,1:\n--- !e!%21a v\n", "tag:x,1:!a");
-    // Escapes on both sides; `%25` decodes to `%` once, never twice.
-    resolves("%TAG !e! a:%2F%25\n--- !e!b%20c v\n", "a:/%b c");
-    resolves("%TAG !e! a:%2541\n--- !e!x v\n", "a:%41x");
+    // Escapes on both sides; `%25` is kept as written, so it is never
+    // taken for the escape it spells.
+    resolves("%TAG !e! a:%2F%25\n--- !e!b%20c v\n", "a:/%25b c");
+    resolves("%TAG !e! a:%2541\n--- !e!x v\n", "a:%2541x");
     // Lower-case hex, and a collection node, and flow context.
     resolves("%TAG !e! a:%2f\n--- !e!s [x]\n", "a:/s");
     resolves("%TAG !e! a:%21\n--- [!e!x y]\n", "a:!x");

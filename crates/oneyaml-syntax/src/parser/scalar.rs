@@ -243,12 +243,41 @@ pub(super) fn plain_value<S: Sink>(text: &str) -> S {
 }
 
 /// The value of the `n` hexadecimal digits at `from`, if they are all there.
+#[inline]
 fn hex_value(src: &str, from: usize, n: usize) -> Option<u32> {
     let digits = src.get(from..from.saturating_add(n))?;
     if digits.len() != n || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
     u32::from_str_radix(digits, 16).ok()
+}
+
+/// The character a `\uD83D\uDE00`-style pair of escapes encodes: `high` is
+/// the first escape's value (its four digits at `from`), and the second must
+/// follow directly. `None` for a lone surrogate or any other bad value.
+#[cold]
+#[inline(never)]
+fn surrogate_pair(src: &str, from: usize, high: u32) -> Option<(char, usize)> {
+    if !(0xD800..0xDC00).contains(&high) {
+        return None;
+    }
+    // A high surrogate escape directly followed by a low surrogate escape is
+    // the one character they encode, as JSON writes a character outside the
+    // Basic Multilingual Plane (RFC 8259 §7).
+    let next = from.saturating_add(4);
+    if src.get(next..next.saturating_add(2)) != Some("\\u") {
+        return None;
+    }
+    let low = hex_value(src, next.saturating_add(2), 4)?;
+    if !(0xDC00..0xE000).contains(&low) {
+        return None;
+    }
+    let c = high
+        .saturating_sub(0xD800)
+        .checked_shl(10)?
+        .saturating_add(low.saturating_sub(0xDC00))
+        .saturating_add(0x10000);
+    Some((char::from_u32(c)?, 11))
 }
 
 /// Decodes the escape whose character follows the `\` at `e - 1`
@@ -258,24 +287,14 @@ fn escape(src: &str, e: usize) -> Option<(char, usize)> {
     let hex = |n: usize| -> Option<(char, usize)> {
         let from = e.saturating_add(1);
         let v = hex_value(src, from, n)?;
-        if n == 4 && (0xD800..0xDC00).contains(&v) {
-            // A high surrogate escape directly followed by a low surrogate
-            // escape is the one character they encode, as JSON writes a
-            // character outside the Basic Multilingual Plane (RFC 8259 §7).
-            let next = from.saturating_add(4);
-            if src.get(next..next.saturating_add(2)) == Some("\\u") {
-                let low = hex_value(src, next.saturating_add(2), 4)?;
-                if (0xDC00..0xE000).contains(&low) {
-                    let high = v.saturating_sub(0xD800).checked_shl(10)?;
-                    let c = high
-                        .saturating_add(low.saturating_sub(0xDC00))
-                        .saturating_add(0x10000);
-                    return Some((char::from_u32(c)?, 11));
-                }
-            }
-            return None;
+        // Nearly every escape is a scalar value; only a surrogate is not.
+        if let Some(c) = char::from_u32(v) {
+            return Some((c, n.saturating_add(1)));
         }
-        Some((char::from_u32(v)?, n.saturating_add(1)))
+        if n == 4 {
+            return surrogate_pair(src, from, v);
+        }
+        None
     };
     let simple = match char_at(src, e)? {
         '0' => '\0',

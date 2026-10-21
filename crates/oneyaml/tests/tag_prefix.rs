@@ -63,7 +63,7 @@ fn emitted_tags_read_back_to_the_same_uri() {
         ("%TAG !e! tag:x,1:%21\n--- !e!a v\n", "!<tag:x,1:!a> v\n"),
         (
             "%TAG !e! tag:x,1:%C3\n--- !e!%A9 a\n",
-            "!<tag:x,1:%25C3%25A9> a\n",
+            "!<tag:x,1:%C3%A9> a\n",
         ),
         (
             "%TAG !e! tag:x,1:%25\n--- !e!41 a\n",

@@ -410,7 +410,12 @@ fn parse_float(neg: bool, body: &str) -> Result<f64, ResolveError> {
 /// implementation).
 fn float_number(neg: bool, body: &str) -> Result<Number, ResolveError> {
     let v = parse_float(neg, body)?;
-    if v.is_infinite() || v == 0.0 {
+    // A zero (`0.0`, `0e5`) is just zero: only a mantissa with a digit 1-9
+    // can be a nonzero value a double cannot hold. Checked in place, so the
+    // common zero allocates nothing more.
+    let mantissa = body.split(['e', 'E']).next().unwrap_or(body);
+    let nonzero = mantissa.bytes().any(|b| matches!(b, b'1'..=b'9'));
+    if nonzero && (v.is_infinite() || v == 0.0) {
         let clean: String = body.chars().filter(|c| *c != '_').collect();
         if let Some(n) = Number::out_of_range(neg, &clean, v) {
             return Ok(n);

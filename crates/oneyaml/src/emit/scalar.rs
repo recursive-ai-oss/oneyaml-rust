@@ -555,7 +555,9 @@ const YAML_PREFIX: &str = "tag:yaml.org,2002:";
 /// `Err(())` for a tag no output reads back as the same custom tag: the
 /// empty tag, the core tags the resolver interprets, a tag with a
 /// non-ASCII character (a reader keeps the escapes of non-ASCII bytes as
-/// written, so no spelling reads back as that character, §5.6), and every
+/// written, so no spelling reads back as that character, §5.6), a `%` that
+/// is not an escape a reader keeps as written (a bare `%`, or the escape of
+/// an ASCII character other than `%`, which a reader decodes), and every
 /// tag with no spec-valid form (YAML 1.2.2 §6.8.2.1, Example 6.25): `!`
 /// alone (the non-specific tag, `!<!>` is invalid) and a global tag that is
 /// not a URI with a scheme (`!<$:?>` is invalid).
@@ -564,7 +566,16 @@ const YAML_PREFIX: &str = "tag:yaml.org,2002:";
 /// `tag` may be in two pieces (a shared `%TAG` prefix and its
 /// suffix); it is written without joining them.
 pub(crate) fn write_tag<'t>(out: &mut String, tag: impl Into<TagStr<'t>>) -> Result<(), ()> {
-    let tag = tag.into();
+    let mark = out.len();
+    let done = write_tag_checked(out, tag.into());
+    if done.is_err() {
+        // A refusal in the middle of the text writes nothing.
+        out.truncate(mark);
+    }
+    done
+}
+
+fn write_tag_checked(out: &mut String, tag: TagStr<'_>) -> Result<(), ()> {
     if tag.len() == 0 || tag.is("!") || !tag.bytes().all(|b| b.is_ascii()) {
         return Err(());
     }
@@ -574,17 +585,17 @@ pub(crate) fn write_tag<'t>(out: &mut String, tag: impl Into<TagStr<'t>>) -> Res
         }
         if name.len() > 0 {
             out.push_str("!!");
-            percent_encode(out, name.chars(), tag_char);
+            percent_encode(out, name.chars(), tag_char, true)?;
             return Ok(());
         }
     }
     match tag.strip_prefix("!") {
-        Some(local) if local.len() > 0 => write_local_tag(out, local)?,
+        Some(local) if local.len() > 0 => write_tag_name(out, local, true)?,
         Some(_) => return Err(()),
         None if !has_uri_scheme(tag) => return Err(()),
         None => {
             out.push_str("!<");
-            percent_encode(out, tag.chars(), uri_char);
+            percent_encode(out, tag.chars(), uri_char, true)?;
             out.push('>');
         }
     }
@@ -602,13 +613,25 @@ pub(crate) fn write_tag<'t>(out: &mut String, tag: impl Into<TagStr<'t>>) -> Res
 /// nothing.
 #[allow(clippy::result_unit_err, reason = "the caller builds the diagnostic")]
 pub(crate) fn write_local_tag<'t>(out: &mut String, name: impl Into<TagStr<'t>>) -> Result<(), ()> {
-    let name = name.into();
-    if name.len() == 0 || !name.bytes().all(|b| b.is_ascii()) {
+    write_tag_name(out, name.into(), false)
+}
+
+/// `!name` for [`write_local_tag`] (`escapes` false: `name` is a variant
+/// name, every `%` in it is a character of the name, and a non-ASCII
+/// character is written as its UTF-8 escapes, which a reader matches
+/// against the variant after decoding them) and for a tag of a document
+/// (`escapes` true, see `percent_encode`).
+fn write_tag_name(out: &mut String, name: TagStr<'_>, escapes: bool) -> Result<(), ()> {
+    if name.len() == 0 {
         return Err(());
     }
+    let mark = out.len();
     out.push('!');
-    percent_encode(out, name.chars(), tag_char);
-    Ok(())
+    let done = percent_encode(out, name.chars(), tag_char, escapes);
+    if done.is_err() {
+        out.truncate(mark);
+    }
+    done
 }
 
 /// RFC 3986 `scheme ":"`: `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )`
@@ -638,10 +661,39 @@ pub(crate) fn tag_char(c: char) -> bool {
     uri_char(c) && !"!,[]{}".contains(c)
 }
 
-fn percent_encode(out: &mut String, text: impl Iterator<Item = char>, keep: fn(char) -> bool) {
+/// Writes `text` with the characters `keep` rejects `%`-escaped (UTF-8).
+///
+/// With `escapes` (a tag read from a document), a `%XX` the reader keeps as
+/// written (an escape of a non-ASCII byte, or `%25`) is written as it is, so
+/// that the tag reads back as itself. `Err(())`: a `%` that is none of
+/// those, which no reader produces and no spelling reads back.
+fn percent_encode<I>(
+    out: &mut String,
+    mut text: I,
+    keep: fn(char) -> bool,
+    escapes: bool,
+) -> Result<(), ()>
+where
+    I: Iterator<Item = char> + Clone,
+{
     let mut buf = [0u8; 4];
-    for c in text {
-        if keep(c) {
+    while let Some(c) = text.next() {
+        if c == '%' && escapes {
+            let mut ahead = text.clone();
+            let (h, l) = (ahead.next(), ahead.next());
+            let digit = |c: Option<char>| c.and_then(|c| c.to_digit(16));
+            let (Some(hi), Some(lo), Some(h), Some(l)) = (digit(h), digit(l), h, l) else {
+                return Err(());
+            };
+            let v = hi.saturating_mul(16).saturating_add(lo);
+            if v < 0x80 && v != 0x25 {
+                return Err(());
+            }
+            out.push('%');
+            out.push(h);
+            out.push(l);
+            text = ahead;
+        } else if keep(c) {
             out.push(c);
         } else {
             for b in c.encode_utf8(&mut buf).bytes() {
@@ -649,6 +701,7 @@ fn percent_encode(out: &mut String, text: impl Iterator<Item = char>, keep: fn(c
             }
         }
     }
+    Ok(())
 }
 
 /// Writes `n` spaces, a slice at a time (not a `char` at a time).

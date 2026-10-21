@@ -4,12 +4,13 @@
 //!
 //! The rule: a shorthand tag is the URI prefix + suffix, with the `%XX`
 //! escapes of ASCII characters decoded as **one** string; the escapes of
-//! bytes above 0x7F stay as written, because tag characters are compared as
-//! presented (§5.6), so a tag is never an error for the bytes it escapes.
+//! bytes above 0x7F and `%25` stay as written, because tag characters are
+//! compared as presented (§5.6), so a tag is never an error for the bytes it
+//! escapes, and decoding `%25` would make two different spellings one tag.
 //! saphyr-parser agrees wherever the tag has no such escape; it decodes
-//! the prefix and the suffix each on its own and reads a multi-byte escape
-//! as one character, so tags with a high escape are checked against the
-//! model only.
+//! the prefix and the suffix each on its own, reads a multi-byte escape
+//! as one character and `%25` as `%`, so tags with such an escape are
+//! checked against the model only.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -23,7 +24,7 @@ use test_suite::standard::{Oracle, ParserOracle};
 
 /// Prefix starts (a prefix is never empty; `!` makes it local).
 const PREFIX_HEADS: &[&str] = &["tag:x,1:", "!", "a:"];
-/// Pieces of a prefix: plain text, ASCII escapes (`%25` is a literal `%`),
+/// Pieces of a prefix: plain text, ASCII escapes (`%25` is kept),
 /// lead and continuation bytes of multi-byte characters, invalid bytes.
 const PREFIX_PIECES: &[&str] = &[
     "",
@@ -34,6 +35,10 @@ const PREFIX_PIECES: &[&str] = &[
     "%2F",
     "%20",
     "%7E",
+    "%3A",
+    "%2B",
+    "%24",
+    "%40",
     "%C3",
     "%E2%82",
     "%F0",
@@ -56,6 +61,9 @@ const SUFFIX_PIECES: &[&str] = &[
     "%C3",
     "%FF",
     "%2C",
+    "%3D",
+    "%7C",
+    "%26",
 ];
 const SUFFIX_TAILS: &[&str] = &["", "x", "%A9", "%80"];
 const HANDLES: &[&str] = &["!e!", "!", "!!"];
@@ -73,8 +81,8 @@ fn tag_line(o: &mut dyn Oracle, src: &str) -> Result<String, String> {
         .ok_or_else(|| "no scalar".to_owned())
 }
 
-/// The model: `text` with the `%XX` escapes of ASCII characters decoded and
-/// the others kept as written. (Every piece above holds only complete
+/// The model: `text` with the `%XX` escapes of ASCII characters other than
+/// `%` decoded and the others kept as written. (Every piece above holds only complete
 /// escapes.)
 fn decode(text: &str) -> String {
     let b = text.as_bytes();
@@ -84,7 +92,7 @@ fn decode(text: &str) -> String {
         if b[i] == b'%' {
             let h = std::str::from_utf8(&b[i + 1..i + 3]).unwrap();
             let v = u8::from_str_radix(h, 16).unwrap();
-            if v.is_ascii() {
+            if v.is_ascii() && v != b'%' {
                 out.push(char::from(v));
             } else {
                 out.push_str(&text[i..i + 3]);
@@ -98,14 +106,15 @@ fn decode(text: &str) -> String {
     out
 }
 
-/// Whether `text` has an escape of a byte above 0x7F.
-fn has_high_escape(text: &str) -> bool {
+/// Whether `text` has an escape that is kept as written: of a byte above
+/// 0x7F, or `%25`.
+fn has_kept_escape(text: &str) -> bool {
     text.as_bytes().windows(3).any(|w| {
         w[0] == b'%'
             && std::str::from_utf8(&w[1..])
                 .ok()
                 .and_then(|h| u8::from_str_radix(h, 16).ok())
-                .is_some_and(|v| v >= 0x80)
+                .is_some_and(|v| v >= 0x80 || v == 0x25)
     })
 }
 
@@ -131,7 +140,7 @@ fn tag_prefix_escapes_agree_with_the_rule_and_saphyr_parser() {
                                 continue;
                             }
                             accepted += 1;
-                            if has_high_escape(&prefix) || has_high_escape(&suffix) {
+                            if has_kept_escape(&prefix) || has_kept_escape(&suffix) {
                                 // saphyr-parser decodes these differently.
                                 kept += 1;
                                 continue;

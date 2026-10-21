@@ -489,10 +489,46 @@ pub(crate) fn variant_name(
     }
     let parts = tag.parts();
     let name = parts.strip_prefix("!").unwrap_or(parts);
+    // A tag keeps the escapes of non-ASCII bytes and `%25` as written; a
+    // variant is named by the characters they spell (the form a serializer
+    // writes for a name with such characters).
+    if name.bytes().any(|b| b == b'%') {
+        let joined = joined_variant_name(name, meter, span)?;
+        let decoded = percent_decoded(&joined).unwrap_or(joined);
+        if let Some(n) = variants.and_then(|v| v.names.iter().find(|n| **n == decoded)) {
+            return Ok(Cow::Borrowed(n));
+        }
+        return Ok(Cow::Owned(decoded));
+    }
     Ok(match name.as_single() {
         Some(s) => Cow::Owned(s.to_owned()),
         None => Cow::Owned(joined_variant_name(name, meter, span)?),
     })
+}
+
+/// `s` with every `%XX` escape decoded, when the result is UTF-8 (`None`
+/// otherwise: the name stays as written).
+fn percent_decoded(s: &str) -> Option<String> {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0usize;
+    while let Some(&c) = b.get(i) {
+        let hex = b
+            .get(i.saturating_add(1)..i.saturating_add(3))
+            .and_then(|h| core::str::from_utf8(h).ok())
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        match (c, hex) {
+            (b'%', Some(v)) => {
+                out.push(v);
+                i = i.saturating_add(3);
+            }
+            _ => {
+                out.push(c);
+                i = i.saturating_add(1);
+            }
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 /// The one place a `%TAG` tag's shared prefix is copied on a read: the

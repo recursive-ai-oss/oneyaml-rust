@@ -1036,12 +1036,13 @@ pub fn gen_block_shape(r: &mut Rng) -> String {
 
 /// A random tag with a spec-valid written form: a local `!…` tag or a
 /// `tag:` URI over awkward ASCII tag characters (escaped when written; a
-/// non-ASCII character has no written form that reads back), or one of the
+/// non-ASCII character has no written form that reads back, and a `%` is
+/// one of the escapes a reader keeps as written, `%25` or `%C3`), or one of the
 /// usual shapes.
 pub fn gen_tag(r: &mut Rng) -> String {
     const CHARS: &[&str] = &[
-        "a", "Z", "0", "!", "%", " ", "_", ",", "[", "]", "{", "}", "/", ":", "#", "~", "<", ">",
-        "\"", "'", "^", "\\", "|", "-", ".", "%41", "\t", "*", "&",
+        "a", "Z", "0", "!", "%25", " ", "_", ",", "[", "]", "{", "}", "/", ":", "#", "~", "<", ">",
+        "\"", "'", "^", "\\", "|", "-", ".", "%C3%A9", "\t", "*", "&",
     ];
     let body: String = (0..1 + r.below(5))
         .map(|_| CHARS[r.below(CHARS.len())])

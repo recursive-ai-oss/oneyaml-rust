@@ -75,21 +75,22 @@ Every parser, including yaml-edit, can be held to these.
 oneyaml-syntax strict (contract + exact error prefixes + pinned codes):
 **401/402** (valid 308/308, error 93/94; 11 judged against corrected expectations).
 
-The one failure is 4H7K (`[ a, b, c ] ]`): its recorded tree ends the
-document (`-DOC`) before the error on the extra `]`, and we report the `]`
-with the document still open. No timing rule was adopted for it, because
-the recorded trees do not agree with each other. 9JBA
-(`[ a, b, c, ]#invalid`) records no `-DOC`, although the reference parser
-emits one there too. KS4U (a flow root followed by `invalid item` on the
-next line) records no `-DOC`, although libyaml, yaml-rust2 and saphyr all
-emit one. A rule that yields `-DOC` for 4H7K alone would be fitted to that
-input. The case is an honest failure.
+The parser keeps a document open until its end marker, the next document
+start or the end of the stream (YAML 1.2.2 section 9.1), whatever the style of
+its root, so content after a complete root is an error inside the document
+and no `-DOC` comes before it. The recorded error trees do not all agree
+with that:
 
-BS4K and EB22 record `-DOC` before an error as well, but there the document
-is still open: a document ends only at its end marker, at the next document
-start or at the end of the stream (YAML 1.2.2 section 9.1), so content after a
-plain root is an error inside it. Both are listed in `known-defects.txt` with
-the corrected prefix.
+* BS4K and EB22 (a plain scalar root followed by content on a later line)
+  record `-DOC` before the error. Their corrected expectations, listed in
+  `known-defects.txt`, drop it, and the parser matches the corrected ones.
+* 4H7K (`[ a, b, c ] ]`) records `-DOC` before the error on the extra `]`,
+  and its corrected expectation keeps it (it only restores the missing `[]`
+  marker). The parser reports the `]` with the document still open, so
+  4H7K is the one strict failure.
+* 9JBA (`[ a, b, c, ]#invalid`) and KS4U (a flow root followed by
+  `invalid item` on the next line) record no `-DOC`, although other parsers
+  emit one there; the parser matches the recorded trees.
 
 This is `cargo run -p test-suite -- --producer parser`: every stream must also
 pass the lossless event contract (`check_contract`), error cases must emit

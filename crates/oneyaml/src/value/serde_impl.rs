@@ -40,7 +40,7 @@ use oneyaml_core::{Limits, code};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::{self, SerializeMap, SerializeSeq};
 
-use super::{Mapping, Number, Sequence, Tag, TaggedValue, Value};
+use super::{Mapping, Number, Sequence, Tag, TaggedValue, Value, variant_tag_text};
 
 /// The newtype name `Value` asks for (private protocol).
 pub(crate) const VALUE_MAGIC: &str = "$__oneyaml_private_Value";
@@ -211,7 +211,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let (name, variant) = a.variant::<String>()?;
         let value = variant.newtype_variant::<Value>()?;
         Ok(Value::Tagged(Box::new(TaggedValue {
-            tag: Tag::new(format!("!{name}")),
+            tag: Tag::new(variant_tag_text(&name)),
             value,
         })))
     }
