@@ -261,7 +261,7 @@ pub(super) fn trim_white(line: &str) -> &str {
     let Some(first) = bytes.iter().position(|b| !white(b)) else {
         return "";
     };
-    let last = bytes.iter().rposition(|b| !white(b)).map_or(first, |k| k);
+    let last = bytes.iter().rposition(|b| !white(b)).unwrap_or(first);
     line.get(first..last.saturating_add(1)).unwrap_or("")
 }
 

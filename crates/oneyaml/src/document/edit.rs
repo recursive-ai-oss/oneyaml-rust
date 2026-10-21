@@ -686,7 +686,7 @@ pub struct Removed {
     /// written: the footers of the collections inside it (block context).
     tail: Vec<String>,
     /// A flow entry's comments outside its text (its leading and trailing
-    /// comments): re-inserting them is a later phase.
+    /// comments): re-inserting them is not supported.
     loose: bool,
     /// A block sequence item: what separates its `-` from its value, as
     /// written (`" "`, a tab, a line break and indentation).
@@ -3431,8 +3431,10 @@ impl Document {
                 // text, counts too; it was refused as `NotWellFormed`.)
                 let block_comments = !r.flow && !r.comments.is_empty();
                 if flow && (!r.flow && multi || block_comments) {
-                    // 0.2 limitation: re-rendering moved
-                    // content in the target style is a later phase.
+                    // Moved content keeps the text it was written with; it is
+                    // not re-rendered in the style of the target, so block
+                    // content (or block comments) cannot go into a flow
+                    // collection.
                     return Err(unsupported(
                         "block content or comments cannot move into a flow collection",
                     ));

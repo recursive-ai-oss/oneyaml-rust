@@ -913,30 +913,44 @@ fn yaml_1_0_warning_reflects_honor_version_directive() {
     assert!(honored.contains("1.1 preset"), "{honored}");
 }
 
-/// Production 202: a document prefix holds at most one byte order mark, so a
-/// mark right behind another, at the start of the stream or of a later
-/// prefix, is misplaced.
+/// Productions 211 and 202: any number of document prefixes may precede a
+/// document, and each may start with a byte order mark, so marks in a row
+/// (directly behind each other, on lines of their own, or before a later
+/// document) are valid and read as the single-mark form.
 #[test]
-fn a_second_mark_in_a_prefix_is_misplaced() {
-    for src in [
-        "\u{feff}\u{feff}a: 1\n",
-        "\u{feff}\u{feff}",
-        "a\n\u{feff}\u{feff}\n\n",
-        "a\n...\n\u{feff}\u{feff}---\nb\n",
+fn several_marks_before_a_document_are_valid() {
+    for (src, marks) in [
+        ("\u{feff}\u{feff}a: 1\n", 2),
+        ("\u{feff}\u{feff}\u{feff}a: 1\n", 3),
+        ("\u{feff}\n\u{feff}\na: 1\n", 2),
+        ("\u{feff}\u{feff}", 2),
+        ("a: 1\n...\n\u{feff}\u{feff}b: 2\n", 2),
+        ("a\n...\n\u{feff}\u{feff}--- b\n", 2),
+        ("a\n\u{feff}\u{feff}\n\n", 2),
     ] {
-        let first = events(src)
-            .iter()
-            .find_map(|e| e.diagnostic().map(|d| d.code));
-        assert_eq!(first, Some(c::MISPLACED_BYTE_ORDER_MARK), "{src:?}");
+        assert_eq!(first_error(src), None, "{src:?}");
+        assert_eq!(bom_trivia(src), marks, "{src:?}");
+        // The same events as with the marks removed.
+        let plain = src.replace('\u{feff}', "");
+        assert_eq!(tree(src), tree(&plain), "{src:?}");
     }
-    // The position of the first of two leading marks is not counted, so the
-    // second is at the start of the text (1:1).
-    let d = events("\u{feff}\u{feff}a: 1\n")
-        .iter()
-        .find_map(|e| e.diagnostic().cloned())
-        .unwrap();
-    assert_eq!((d.primary.span.start, d.primary.span.end), (3, 6));
-    assert_eq!(first_error("\u{feff}a: 1\n"), None);
+    // The marks hold no column: the text after them starts at column 0.
+    assert_eq!(
+        tree("\u{feff}\u{feff}k:\n  v\n"),
+        "+DOC | +MAP | =VAL :k | =VAL :v | -MAP | -DOC"
+    );
+    // A mark anywhere else is still misplaced.
+    for src in [
+        "a: 1 \u{feff}\n",
+        "\u{feff}  \u{feff}a: 1\n",
+        "a: 1\n \u{feff}b: 2\n",
+    ] {
+        assert_eq!(
+            first_error(src),
+            Some(c::MISPLACED_BYTE_ORDER_MARK),
+            "{src:?}"
+        );
+    }
 }
 
 /// The `ByteOrderMark` trivia events of `src`.

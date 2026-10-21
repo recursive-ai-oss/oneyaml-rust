@@ -37,3 +37,25 @@ fn recovery_keeps_the_content_after_the_mark() {
         d.diagnostics()
     );
 }
+
+#[test]
+fn the_location_counts_no_mark_in_a_row_of_marks() {
+    // Marks after a document are a prefix whatever their number: the error is
+    // the content that cannot follow, at the start of its line.
+    for src in [
+        "a: 1\n\u{feff}\u{feff}b: 2\n",
+        "a: 1\n\u{feff}\u{feff}\u{feff}b: 2\n",
+        "\u{feff}\u{feff}a: 1\n\u{feff}\u{feff}b: 2\n",
+    ] {
+        let e = Stream::parse(src).unwrap_err();
+        assert_eq!(e.code(), code::CONTENT_AFTER_DOCUMENT, "{src:?}");
+        let at = e.location().unwrap();
+        assert_eq!((at.line(), at.column()), (2, 1), "{src:?}");
+        assert!(e.to_string().ends_with("(2:1)"), "{e}");
+    }
+    // A mark after spaces is misplaced, and counted at its own column.
+    let e = Stream::parse("a: 1\n \u{feff}b: 2\n").unwrap_err();
+    assert_eq!(e.code(), code::MISPLACED_BYTE_ORDER_MARK);
+    let at = e.location().unwrap();
+    assert_eq!((at.line(), at.column()), (2, 2));
+}

@@ -171,8 +171,12 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   input keeps ending without a line break, except when the new value is a
   multi-line string, which is written as a block scalar that ends with its
   own line break. Before, these edits were refused.
-- A byte order mark directly behind another one is an error, in the parser and
-  in edit validation. Before, two marks in a row were read as one.
+- Any number of byte order marks may precede a document (`\ufeff\ufeffa: 1`,
+  marks on lines of their own, marks after `...`): every document prefix may
+  start with one (YAML 1.2.2 productions 202 and 211), and the events and
+  values are those of the single-mark form. A mark anywhere else, such as in
+  the middle of a line or inside content, is still `Y0032`. Edits accept the
+  same text.
 - Removing the last entry of a block collection after an entry that ends
   with a block scalar also removes the lines right under it that would
   otherwise become part of that scalar's text: a comment indented as far as
