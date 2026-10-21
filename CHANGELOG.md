@@ -84,6 +84,12 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
 
 ### Changed
 
+- Appending a multi-line string to a block collection whose last entry is
+  followed by its footer comment lines (comment lines indented under it, with
+  no `---` after them) writes a literal block (`n: |-`) below those lines.
+  It was written as a double-quoted string. Moving a literal block scalar
+  to the end of such a collection keeps it a literal block too. The comment
+  lines stay where they were, above the new entry.
 - yaml-test-suite case 4H7K (`[ a, b, c ] ]`): its corrected expectation no
   longer has `-DOC` before the error, the same rule as BS4K and EB22 (a
   document ends only at a marker or at the end of the stream). The parser

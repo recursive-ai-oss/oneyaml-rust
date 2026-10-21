@@ -4222,6 +4222,36 @@ impl Document {
                             remove_first: false,
                         }
                     }
+                    // Whole footer lines after the line break that ends the
+                    // last entry, then a new block scalar. The footer lines
+                    // leave first (a block scalar before them would read
+                    // them as its text), then they come back as whole lines
+                    // above the new entry, after the break that ends the last
+                    // entry's line.
+                    Some((a, b))
+                        if new_block
+                            && a.kind() == SyntaxKind::LineBreak
+                            && !cm::line_start(a)
+                            && b.next_sibling()
+                                .is_some_and(|x| x.kind() == SyntaxKind::LineBreak) =>
+                    {
+                        let moved = place::range_text(a, b);
+                        let own = a.text().len();
+                        let footer = moved.get(own..).ok_or(EditError::Internal)?;
+                        let text = format!(
+                            "{footer}{nl}{}{pad}{body}{body_end}{}",
+                            lines(&lead),
+                            lines(&tail)
+                        );
+                        let (frag, tail) = self.block_line_fragment(map, col, &text)?;
+                        Steps::Append {
+                            put: Put::LineAfter(last_child.id()),
+                            frag,
+                            tail,
+                            relocate: Some((a.id(), b.id())),
+                            remove_first: true,
+                        }
+                    }
                     Some((a, b)) => {
                         let moved = place::range_text(a, b);
                         let same_line = !cm::line_start(a);
