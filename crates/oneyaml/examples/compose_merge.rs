@@ -77,7 +77,7 @@ services:
     image: nginx:1.27
     ports:
       - \"8080:80\"
-    restart: 'no'
+    restart: no
   api:
     <<: *common
     image: example/api:2.3
@@ -163,7 +163,8 @@ fn edit(settings: &Settings) -> Result<Document> {
         .set_trailing(Some("back to info before merging"))?;
 
     // 2. An override for `web` alone: a new own entry shadows the merge.
-    //    `no` is a boolean to YAML 1.1 readers, so it is written `'no'`.
+    //    `no` is a string under YAML 1.2, so it is written plain; a document
+    //    that declares `%YAML 1.1` gets `'no'`.
     doc.set_path(&path!["services", "web", "restart"], "no")?;
 
     // 3. A new service that merges `x-common`, like `web` and `api`: the

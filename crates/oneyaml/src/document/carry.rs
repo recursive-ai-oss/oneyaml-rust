@@ -13,9 +13,9 @@
 //!   part on their line afterwards; one inside the old value's first line
 //!   is written back on the new value's line, or refused with
 //!   [`HEADER_COMMENT_LIMIT`]) and the old value's inner comments go with
-//!   it (`Document::replace_carry`); a nested collection an only entry
-//!   leaves keeps its footer inside the new flow collection, or is refused
-//!   with [`NESTED_COLLAPSE`]; **anchor edits** keep every owner
+//!   it (`Document::replace_carry`); the footer of a collection an only
+//!   entry leaves stays on its own lines below the new `{}` or `[]`;
+//!   **anchor edits** keep every owner
 //!   (`Document::property_carry`).
 //! * **Owners are checked, not assumed.** Every node edit records,
 //!   before it, the comments of its **window** — the comments between the
@@ -91,6 +91,15 @@ pub(super) enum Want {
     /// node inside it (a replaced value's own comments: the new value's
     /// part on their line owns them).
     Within(usize),
+    /// As [`Want::Within`], or the document header: the comment on the
+    /// `---` line of a root that is an empty node with properties stays
+    /// there when the new root starts on the next line, where the rules give
+    /// it to the document.
+    WithinOrHeader(usize),
+    /// The owner is this node of the new entry or any node inside it (a
+    /// root's leading comments stay above a replaced root; the new first
+    /// entry owns them).
+    Under(usize),
     /// Its owner node was rewritten by the edit (the collection an only
     /// entry leaves becomes `{}`/`[]`): whatever the rules decide, except
     /// the document header or footer (they change only through explicit
@@ -1079,7 +1088,7 @@ impl Document {
                         .ok_or_else(|| internal("a carried owner outside the entry"))?;
                     got == (owner_of_kind(k, NodeId(*n)), doc)
                 }
-                Want::Within(i) => {
+                Want::Within(i) | Want::WithinOrHeader(i) => {
                     let n = inner
                         .get(i)
                         .ok_or_else(|| internal("a carried owner outside the entry"))?;
@@ -1092,8 +1101,25 @@ impl Document {
                             .and_then(|_| place::prev_item(x).ok().flatten())
                             .filter(|k| place::is_key(p, *k))
                     });
-                    owner_node(got.0)
-                        .is_some_and(|(_, o)| o.0 == *n || key.is_some_and(|k| k.id() == o.0))
+                    (matches!(x.want, Want::WithinOrHeader(_))
+                        && got.0 == CommentOwner::DocumentHeader)
+                        || owner_node(got.0)
+                            .is_some_and(|(_, o)| o.0 == *n || key.is_some_and(|k| k.id() == o.0))
+                }
+                Want::Under(i) => {
+                    let n = inner
+                        .get(i)
+                        .ok_or_else(|| internal("a carried owner outside the entry"))?;
+                    owner_node(got.0).is_some_and(|(_, o)| {
+                        let mut at = tree.get(o.0).ok();
+                        while let Some(x) = at {
+                            if x.id() == *n {
+                                return true;
+                            }
+                            at = x.parent();
+                        }
+                        false
+                    })
                 }
                 Want::Rewritten => !matches!(
                     got.0,
@@ -1222,13 +1248,30 @@ pub(super) struct ReplaceCarry {
     /// its properties or a block scalar's header): its text (with the
     /// white space before it), written back on the new value's line.
     pub(super) header: Option<String>,
-    /// A nested collection an only entry
-    /// leaves: its footer lines (whole lines, as written), which the new
-    /// flow collection holds (`{⏎  # f⏎  }`).
-    pub(super) footer_lines: Option<String>,
     /// The old value's comments that go with it (handles), for their
     /// explicit owners.
     pub(super) gone: Vec<TreeId>,
+}
+
+/// Whether scalar node `n` has text of its own (not only properties).
+fn has_scalar_content(n: TreeNode<'_>) -> bool {
+    let mut c = n.first_child();
+    while let Some(x) = c {
+        if !x.text().is_empty()
+            && matches!(
+                x.kind(),
+                SyntaxKind::PlainScalar
+                    | SyntaxKind::SingleQuotedScalar
+                    | SyntaxKind::DoubleQuotedScalar
+                    | SyntaxKind::LiteralScalar
+                    | SyntaxKind::FoldedScalar
+            )
+        {
+            return true;
+        }
+        c = x.next_sibling();
+    }
+    false
 }
 
 impl Document {
@@ -1267,6 +1310,18 @@ impl Document {
         // A root collection rewritten as `{}`/`[]` (`keep`: an only entry
         // left): its footers fall to the document footer (`Want::Collapsed`).
         let root = n.parent().is_some_and(|p| p.kind() == SyntaxKind::Document);
+        // The slot starts right after a `---` marker.
+        // Only an empty root node (properties and no content) qualifies, so
+        // that the comment on the marker line is not part of any text the
+        // edit writes: `--- !!null # c`, merged into or replaced by a
+        // collection written on the lines below. Every other root keeps its
+        // comment as its own, and the edit is refused as before.
+        let after_marker = root
+            && first
+                .prev_sibling()
+                .is_some_and(|p| p.kind() == SyntaxKind::DocumentStartMarker)
+            && n.kind() == SyntaxKind::Scalar
+            && !has_scalar_content(n);
         let mut expect = Vec::new();
         let mut gone = Vec::new();
         let (mut same_line, mut last_line): (Option<TreeNode<'_>>, Option<TreeNode<'_>>) =
@@ -1274,8 +1329,6 @@ impl Document {
         let mut other_after = false;
         let mut lead: Option<(TreeNode<'_>, TreeNode<'_>)> = None;
         let mut header: Option<String> = None;
-        let mut folded = false;
-        let mut kept_inside = false;
         let n_first = cm::first_token(n);
         for c in &comments {
             let key = *owners
@@ -1304,43 +1357,32 @@ impl Document {
             if keep && within_n {
                 // (One of another owner, on the properties' line: the
                 // caller writes it back after the new collection.)
-                kept_inside |= !mine && !own;
                 gone.push(c.id());
                 continue;
             }
             let footer = owner.is_some_and(|(k, o)| o.0 == n.id() && k == 2);
             if footer && keep && !within_n {
-                // An only entry left (`keep`): the collection's footers.
-                if root {
-                    expect.push(Expect {
-                        text: c.text().into_owned(),
-                        want: Want::Collapsed,
-                        old: Some(c.id()),
-                        explicit: None,
-                    });
-                    continue;
-                }
-                // A nested collection's footers stay its
-                // own, inside the new flow collection (`k: {⏎  # f⏎  }`),
-                // never handed to a sibling: whole lines after it, moved.
-                if other_after || !cm::line_start(line_head(*c)) {
-                    return Err(EditError::Unsupported {
-                        at: oneyaml_core::Path::new(),
-                        reason: NESTED_COLLAPSE,
-                    });
-                }
-                gone.push(c.id());
-                last_line = Some(*c);
+                // An only entry left (`keep`): the collection's footers stay
+                // where they are, on their own lines below the new `{}` or
+                // `[]`. A root collection's fall to the document footer; a
+                // nested one's go to whatever the rules decide.
                 expect.push(Expect {
                     text: c.text().into_owned(),
-                    want: Want::Within(0),
-                    old: None,
+                    want: if root {
+                        Want::Collapsed
+                    } else {
+                        Want::Rewritten
+                    },
+                    old: Some(c.id()),
                     explicit: None,
                 });
-                folded = true;
                 continue;
             }
-            if mine {
+            // The comment lines above a root's first entry (`# head⏎a: 1`) are
+            // that entry's, but they stand outside the value: replacing the
+            // root is an edit of the value, so they stay above the new root.
+            let above_root = root && mine && at < s_at && cm::line_start(line_head(*c));
+            if mine && !above_root {
                 gone.push(c.id());
                 if within_n || (s_at <= at && at <= e_at) {
                     // Replaced with the slot.
@@ -1405,7 +1447,11 @@ impl Document {
                 });
                 continue;
             }
-            let want = if own {
+            let want = if above_root {
+                Want::Under(0)
+            } else if own && after_marker {
+                Want::WithinOrHeader(0)
+            } else if own {
                 Want::Within(0)
             } else {
                 if at > e_at {
@@ -1463,15 +1509,6 @@ impl Document {
             }
             None => None,
         };
-        // A comment on the properties' line written back after the new flow
-        // collection would follow the footer lines moved into it.
-        if folded && kept_inside {
-            return Err(EditError::Unsupported {
-                at: oneyaml_core::Path::new(),
-                reason: NESTED_COLLAPSE,
-            });
-        }
-        let mut footer_lines = None;
         let lines = match last_line {
             Some(l) => {
                 let e = line_end(end).ok_or_else(not_wf)?;
@@ -1481,9 +1518,6 @@ impl Document {
                     .filter(|x| x.kind() == SyntaxKind::LineBreak)
                     .ok_or_else(not_wf)?;
                 siblings(from, to).ok_or_else(not_wf)?;
-                if folded {
-                    footer_lines = Some(place::range_text(from, to));
-                }
                 Some((from.id(), to.id()))
             }
             None => None,
@@ -1498,7 +1532,6 @@ impl Document {
             lines,
             lead,
             header,
-            footer_lines,
             gone,
         })
     }
@@ -1512,13 +1545,6 @@ impl Document {
 /// own). Documented on `Document`.
 pub(super) const HEADER_COMMENT_LIMIT: &str =
     "the entry's comment inside the replaced value cannot be written back there";
-
-/// The refusal of removing the only entry of
-/// a nested collection whose footer comments are not whole lines after it,
-/// or that has a comment on its properties' line too (documented on
-/// `Document`).
-pub(super) const NESTED_COLLAPSE: &str =
-    "the footer comments of a nested collection whose only entry is removed have no owner";
 
 /// Comments of the entry and of other owners interleave in the window of
 /// an edit. An internal invariant, not a refusal. Rule 13 (run

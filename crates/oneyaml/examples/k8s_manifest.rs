@@ -120,7 +120,7 @@ spec:
               value: info
             # Enables the new search page (WEB-231).
             - name: FEATURE_SEARCH
-              value: 'on'
+              value: on
           imagePullPolicy: IfNotPresent
 # Service: the stable address in front of the Deployment.
 ---
@@ -158,9 +158,9 @@ const OWNERS_AFTER: &[&str] = &[
     "# Enables the new search page (WEB-231). -> leading of `name: FEATURE_SEARCH` (rule 4)",
 ];
 
-/// A new environment variable; serialized by the edit API with the
-/// serializer's every-reader-safe quoting (`on` is a boolean to YAML 1.1
-/// readers, so it is written `'on'`).
+/// A new environment variable; serialized by the edit API, which writes
+/// `on` plain because it is a string under YAML 1.2 (a document that
+/// declares `%YAML 1.1` gets `'on'`).
 #[derive(Serialize)]
 struct EnvVar {
     name: &'static str,

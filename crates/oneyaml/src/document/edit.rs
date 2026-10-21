@@ -26,6 +26,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, OnceLock};
 
 use oneyaml_core::{Diagnostic, Label, Path, PathSegment, Severity, Span, code};
+use oneyaml_syntax::event::Chomping;
 use oneyaml_syntax::tree::{
     Fragment, GroupMark, Inserted, Node as TreeNode, SyntaxKind, SyntaxTree, TreeEditError,
 };
@@ -1259,7 +1260,7 @@ impl Document {
             // documented tag limitation, not malformed text.
             let handle = t
                 .diagnostics()
-                .any(|d| d.code == code::UNDEFINED_TAG_HANDLE);
+                .any(|d| d.code == code::UNDECLARED_TAG_HANDLE);
             if handle {
                 return Err(map_tree(TreeEditError::TagContext, Span::empty(0)));
             }
@@ -1332,6 +1333,24 @@ impl Document {
             _ => settings.get_emit().clone(),
         };
         let r = Render::new(settings, &emit, self.nl())?;
+        // New text follows the document's own schema: a string is quoted
+        // when the document would read it as another type, not whenever
+        // some other YAML reader might (`yes` is a string in YAML 1.2). A
+        // document that declares YAML 1.1, or is read with any YAML 1.1
+        // setting, is read by 1.1 readers: its new values keep the stricter
+        // rule (keys follow the document's schema unless it declares 1.1).
+        let r = if self.declares_yaml_1_1() {
+            r
+        } else if settings.get_yaml11_booleans()
+            || settings.get_legacy_octal()
+            || settings.get_sexagesimal()
+            || settings.get_digit_separators()
+            || settings.get_yaml11_int_forms()
+        {
+            r.schema_floor_keys()
+        } else {
+            r.schema_floor().schema_floor_keys()
+        };
         Ok(if flat { r.one_line() } else { r })
     }
 
@@ -1493,6 +1512,15 @@ impl Document {
         if touched && self.tree().in_group() {
             self.ix_log.push(op);
         }
+    }
+
+    /// Gives the block scalar ending at `x` the line break `nl` ends its
+    /// last line with (see `SyntaxTree::close_block_scalar`).
+    fn t_close_block_scalar(&mut self, x: TreeId, nl: &str) -> Result<(), EditError> {
+        let span = self.tree().get(x).map_or(Span::empty(0), TreeNode::span);
+        self.tree_mut()?
+            .close_block_scalar(x, nl)
+            .map_err(|e| map_tree(e, span))
     }
 
     /// Inserts `frag` as `put` says, keeping the index.
@@ -2932,27 +2960,6 @@ impl Document {
                     }
                 },
             };
-            // A nested collection an only
-            // entry leaves keeps its footer lines inside the new flow
-            // collection (`{⏎  # f⏎  }`).
-            let text = match carried.as_ref().and_then(|rc| rc.footer_lines.as_deref()) {
-                Some(f) => {
-                    let close = if text.ends_with("{}") { '}' } else { ']' };
-                    let open = text
-                        .strip_suffix("{}")
-                        .or_else(|| text.strip_suffix("[]"))
-                        .ok_or(EditError::Internal)?;
-                    let f = if ends_break(f) {
-                        f.to_owned()
-                    } else {
-                        format!("{f}{nl}")
-                    };
-                    let at = place::col_of(n).max(1);
-                    let open_char = if close == '}' { '{' } else { '[' };
-                    format!("{open}{open_char}{nl}{f}{}{close}", sp(at))
-                }
-                None => text,
-            };
             // The entry's (or the node's own)
             // comment inside the old value's first line is written back on
             // the new value's: on its header line when the new value is
@@ -3310,13 +3317,6 @@ impl Document {
             (None, None)
         };
         let render = self.render(Some(coll), flat, layout_wanted(payload))?;
-        // A document that declares YAML 1.1 is read by 1.1 readers, which
-        // read `y` and `no` as booleans: its keys keep the stricter rule.
-        let render = if self.declares_yaml_1_1() {
-            render
-        } else {
-            render.schema_floor_keys()
-        };
         let render = render.with_quotes(key_quote, value_quote);
         let flow = kind.is_flow();
         let key_text = |k: &str| render.key(k, flow);
@@ -3616,6 +3616,13 @@ impl Document {
                 tail: Option<Tail>,
                 relocate: Option<(TreeId, TreeId)>,
                 remove_first: bool,
+                /// The collection ends in a block scalar with no final line
+                /// break: the scalar gets it first, so that the new lines
+                /// follow a line that ends.
+                open: bool,
+                /// The new lines end the document, which ends without a
+                /// line break: the one the fragment ends with goes again.
+                drop_break: bool,
             },
         }
         let (steps, window, expect, map) = {
@@ -4195,7 +4202,53 @@ impl Document {
                 // lines start with one (a block scalar's text then ends
                 // the text with its own).
                 let eof = !ends_line(last_child) && place::next_token(coll).is_none();
+                // The collection ends in a block scalar that has no final
+                // line break and the text ends there: the scalar gets its
+                // break, and the document keeps ending without one.
+                let after = place::next_token(coll);
+                let space_only = after.is_none_or(|w| {
+                    w.kind() == SyntaxKind::Whitespace && place::next_token(w).is_none()
+                });
+                let open = space_only
+                    && tail.is_empty()
+                    && relocate.is_none_or(|(a, b)| a == b && Some(a) == after)
+                    && last_block(last_child).is_some_and(|b| {
+                        // Its last line has no break, or it is a keep scalar
+                        // with no lines whose last line is spaces (the
+                        // scalar's own text) and ends the input. Any other
+                        // scalar with no lines leaves the white space after
+                        // it as plain trailing white space, which the usual
+                        // path moves.
+                        !ends_break(&b.text())
+                            || (after.is_some_and(|w| !w.text().contains('\t'))
+                                && b.block_header()
+                                    .is_some_and(|h| h.chomping == Chomping::Keep)
+                                && cm::last_token(b).is_some_and(|t| {
+                                    t.text().is_empty()
+                                        && matches!(
+                                            t.kind(),
+                                            SyntaxKind::LiteralScalar | SyntaxKind::FoldedScalar
+                                        )
+                                }))
+                    });
                 match relocate {
+                    _ if open => {
+                        let text = format!("{}{pad}{body}{body_end}", lines(&lead));
+                        let (frag, tail) = self.block_line_fragment(map, col, &text)?;
+                        Steps::Append {
+                            put: Put::LineAfter(last_child.id()),
+                            frag,
+                            tail,
+                            relocate: None,
+                            remove_first: false,
+                            open: true,
+                            // A new block scalar keeps the line break that ends
+                            // its text (it lies inside the scalar), so the
+                            // input then ends with one; other text ends the
+                            // input as it ended before.
+                            drop_break: !new_block,
+                        }
+                    }
                     None if !ends_line(last_child) && (!new_block || eof) => {
                         let text = format!("{}{pad}{body}", lines(&lead));
                         let (frag, tail_frag) =
@@ -4206,6 +4259,8 @@ impl Document {
                             tail: tail_frag.map(Tail::Before),
                             relocate: None,
                             remove_first: false,
+                            open: false,
+                            drop_break: false,
                         }
                     }
                     None => {
@@ -4220,6 +4275,8 @@ impl Document {
                             tail,
                             relocate: None,
                             remove_first: false,
+                            open: false,
+                            drop_break: false,
                         }
                     }
                     // Whole footer lines after the line break that ends the
@@ -4250,6 +4307,8 @@ impl Document {
                             tail,
                             relocate: Some((a.id(), b.id())),
                             remove_first: true,
+                            open: false,
+                            drop_break: false,
                         }
                     }
                     Some((a, b)) => {
@@ -4283,6 +4342,8 @@ impl Document {
                             // (it re-read the whole last entry: O(document)
                             // for a root mapping's).
                             remove_first: new_block != same_line,
+                            open: false,
+                            drop_break: false,
                         }
                     }
                 }
@@ -4297,6 +4358,7 @@ impl Document {
             _ => false,
         };
         let (new, moved, inner) = self.atomic(|d| {
+            let mut window = window;
             let ins = match steps {
                 Steps::Flow(put, frag) => d.t_insert(put, frag)?,
                 Steps::FlowMany(steps) => {
@@ -4343,11 +4405,47 @@ impl Document {
                     tail,
                     relocate,
                     remove_first,
+                    open,
+                    drop_break,
                 } => {
+                    if let (true, Put::LineAfter(x)) = (open, put) {
+                        // The window starts at the scalar's last token,
+                        // which the closed one replaces.
+                        let last_token = |d: &Self| {
+                            d.tree()
+                                .get(x)
+                                .ok()
+                                .and_then(cm::last_token)
+                                .map(|t| t.id())
+                        };
+                        let old = last_token(d);
+                        // The scalar's last line was its tail reader (white
+                        // space at the end of the text); now it is a line
+                        // of the scalar's own text, with the same value.
+                        let scalar = d.tree().get(x).ok().and_then(last_block).map(|n| n.id());
+                        d.t_close_block_scalar(x, d.nl())?;
+                        if d.tail.before.is_some() && d.tail.before == scalar {
+                            d.tail.before = None;
+                        }
+                        if window.a == old {
+                            window.a = last_token(d);
+                        }
+                    }
                     if let (Some((a, b)), true) = (relocate, remove_first) {
                         d.t_remove(a, b)?;
                     }
                     let ins = d.t_insert(put, frag)?;
+                    if drop_break {
+                        let brk = {
+                            let n = d.tree().get(ins.last).map_err(|_| EditError::Internal)?;
+                            let last = cm::last_token(n).ok_or(EditError::Internal)?;
+                            place::next_token(last)
+                                .filter(|b| b.kind() == SyntaxKind::LineBreak)
+                                .map(|b| b.id())
+                                .ok_or(EditError::Internal)?
+                        };
+                        d.t_remove(brk, brk)?;
+                    }
                     if let (Some((a, b)), false) = (relocate, remove_first) {
                         d.t_remove(a, b)?;
                     }

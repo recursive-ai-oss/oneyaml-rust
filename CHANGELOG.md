@@ -81,6 +81,11 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   a comment (a control character, U+007F, or one of U+0080 to U+009F other
   than U+0085). The error is at the first such character; the comment is
   kept as written and the parse goes on.
+- `Y0035` (`UNDECLARED_TAG_HANDLE`): a tag that uses a handle no `%TAG`
+  directive declares (`!e!x` with no `%TAG !e!`). It is a syntax error, found
+  by the parser, so the event stream, `Document` and the serde reader all
+  report it the same way. `Y1005` (`UNDEFINED_TAG_HANDLE`) is deprecated:
+  it is no longer reported, and its number stays reserved.
 
 ### Changed
 
@@ -116,8 +121,15 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
     Core schema), and quoted when it would read as another type or plain
     syntax cannot hold it. Before, such words were quoted for the sake of
     YAML 1.1 readers. Documents read with `Settings::yaml11_booleans` (or
-    `Compat::yaml_1_1()`) still get them quoted. New entries and items
-    keep the stricter quoting for every reader.
+    `Compat::yaml_1_1()`) still get them quoted. **Behaviour change:** new
+    entries, items and patch results follow the same rule, so inserting
+    `no`, `on` or `y` as a string now writes `restart: no` where it wrote
+    `restart: 'no'`. This applies to a plain Core document only: a document
+    that declares `%YAML 1.1`, or that is read with any YAML 1.1 setting
+    (`yaml11_booleans`, `legacy_octal`, `sexagesimal`, `digit_separators`,
+    `yaml11_int_forms`, or `Compat::yaml_1_1()`), keeps the quotes for new
+    values. Strings that the schema reads as another type (`'123'`,
+    `'true'`) stay quoted.
   - A tag stays on a scalar while the new value reads back under it as
     exactly that value: a custom tag on a string, `!!str` on a string,
     `!!int` on an integer, `!!float` on a float, `!!bool` and `!!null`.
@@ -132,6 +144,35 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   - A text too long to write as a block scalar within
     `max_document_size` at the scalar's indentation is written another way
     instead of being built first.
+- A merge patch applied to a sequence writes the keys it adds under the
+  same rule, instead of quoting them for every reader.
+- Replacing a root node keeps the comment lines above it (`# head` above
+  `a: 1`). Before, they were dropped with the old value.
+- Removing the only entry of a nested collection (which becomes `{}` or
+  `[]`) leaves the collection's footer comment lines where they are, below
+  the new `{}` or `[]`. Before, they were moved inside the new brackets, and
+  the edit was refused when the collection also had a comment on its properties
+  line. An empty `{}` or `[]`
+  owns no footer, so the comment changes owner: it leads the next entry, or,
+  when no entry follows, it is the enclosing collection's footer. A later
+  removal of that entry takes the comment along. A root collection's footer
+  comments still become the document footer.
+- A merge patch (or a root replacement by a collection) on an empty document
+  whose start marker line holds only properties and a comment
+  (`--- !!null # c`) keeps the comment on the marker line:
+  `--- # c` followed by the new mapping. Every other root that starts on the
+  marker line (`--- foo # c`, `--- [a] # c`) still refuses to be replaced,
+  because the comment would change owner.
+- Setting the value of a flow entry written with an empty value (`{b:,
+  c: 1}`) works. Before it was refused.
+- Adding an entry or item after a block scalar whose text has no final line
+  break (`|-`, or a keep scalar `|+` of one line of spaces) works: the
+  scalar is closed with a line break first, and the new line follows. The
+  input keeps ending without a line break, except when the new value is a
+  multi-line string, which is written as a block scalar that ends with its
+  own line break. Before, these edits were refused.
+- A byte order mark directly behind another one is an error, in the parser and
+  in edit validation. Before, two marks in a row were read as one.
 - Removing the last entry of a block collection after an entry that ends
   with a block scalar also removes the lines right under it that would
   otherwise become part of that scalar's text: a comment indented as far as

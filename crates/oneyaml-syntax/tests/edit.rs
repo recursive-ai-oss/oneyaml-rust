@@ -908,3 +908,40 @@ fn slots_name_elements_as_handles_do() {
     assert_eq!(fork.node_at_slot(two.slot()).unwrap().text(), "2");
     done(&tree);
 }
+
+/// A document prefix holds one byte order mark, so an edit that puts a
+/// second one right behind the first (a copy of it, or the removal of the
+/// line break between two marks) would leave text that does not read back
+/// as the tree: it is refused, and the tree is unchanged.
+#[test]
+fn an_edit_never_puts_a_byte_order_mark_behind_another() {
+    for src in [
+        "\u{feff}\n#h\n",
+        "\u{feff}a: 1\n",
+        "a\n...\n\u{feff}\n---\nb\n",
+    ] {
+        let mut t = SyntaxTree::parse(src);
+        let mark = find(&t, K::ByteOrderMark).id();
+        let copy = t.extract(mark, mark).unwrap();
+        assert_eq!(
+            t.insert_after(mark, copy).map(|_| ()),
+            Err(TreeEditError::NotWellFormed),
+            "{src:?}"
+        );
+        assert_eq!(t.root().text(), src);
+        done(&t);
+    }
+    // Marks on lines of their own are fine, and removing the break between
+    // them is refused.
+    let src = "a\n\u{feff}\n\u{feff}\n---\nb\n";
+    let mut t = SyntaxTree::parse(src);
+    assert!(!t.has_errors());
+    let breaks: Vec<_> = t
+        .root()
+        .descendants()
+        .filter(|n| n.kind() == K::LineBreak)
+        .map(|n| n.id())
+        .collect();
+    assert!(t.remove(breaks[1]).is_err());
+    assert_eq!(t.root().text(), src);
+}

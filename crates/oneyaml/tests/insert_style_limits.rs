@@ -98,10 +98,43 @@ fn with_yaml_1_1_booleans_on_those_keys_are_quoted() {
 }
 
 #[test]
-fn a_new_string_value_is_still_quoted_when_a_yaml_1_1_reader_reads_a_boolean() {
+fn a_new_string_value_that_core_reads_as_a_string_stays_plain() {
+    // `no`, `yes` and `1_000` are strings under the default Core schema, and
+    // the plain text reads back as the same string.
     let mut doc = Document::parse("a: 1\n").unwrap();
+    let mut root = doc.root_mut().unwrap();
+    root.insert("b", "no").unwrap();
+    root.insert("c", "yes").unwrap();
+    root.insert("d", "1_000").unwrap();
+    assert_eq!(doc.to_string(), "a: 1\nb: no\nc: yes\nd: 1_000\n");
+    let v: Value = oneyaml::from_str(&doc.to_string()).unwrap();
+    assert_eq!(v["b"], Value::from("no"));
+}
+
+#[test]
+fn a_new_string_value_is_quoted_when_the_document_reads_it_as_a_boolean() {
+    // Opting in to YAML 1.1 booleans (here by setting; a `%YAML 1.1`
+    // document below) makes `no` a boolean, so the string is quoted.
+    let settings = Settings::new().yaml11_booleans(true);
+    let mut doc = Document::parse_with("a: 1\n", &settings).unwrap();
     doc.root_mut().unwrap().insert("b", "no").unwrap();
     assert_eq!(doc.to_string(), "a: 1\nb: 'no'\n");
+
+    let mut doc = Document::parse("%YAML 1.1\n---\na: 1\n").unwrap();
+    doc.root_mut().unwrap().insert("b", "no").unwrap();
+    assert_eq!(doc.to_string(), "%YAML 1.1\n---\na: 1\nb: 'no'\n");
+}
+
+#[test]
+fn a_collection_written_by_an_edit_follows_the_documents_schema_too() {
+    // A merge patch on a sequence replaces it by a mapping; its key `n` is
+    // a string under Core (a boolean only to 1.1 readers), so it is plain.
+    let mut doc = Document::parse("- a\n- b\n").unwrap();
+    doc.set_root(oneyaml::Value::Mapping(
+        [("n".into(), 1.into())].into_iter().collect(),
+    ))
+    .unwrap();
+    assert_eq!(doc.to_string(), "n: 1\n");
 }
 
 // ----------------------------------------------------------- the layout

@@ -2308,6 +2308,12 @@ impl SyntaxTree {
         if self.column_at(self.bytes(t)?.0) != Some(0) {
             return Ok(false);
         }
+        // A byte order mark reads by what precedes it: a document prefix
+        // holds one mark, so a second one right behind the first is
+        // misplaced.
+        if self.kind_of(t) == Some(K::ByteOrderMark) {
+            return Ok(false);
+        }
         let before = match self.after_document(x)? {
             Before::Other => return Ok(false),
             Before::Start => None,

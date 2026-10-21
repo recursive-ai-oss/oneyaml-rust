@@ -2169,8 +2169,11 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// [`EditError::NotWellFormed`]. Each refusal changes nothing.
 ///
 /// * **Replacing a value** keeps the entry's comments, and the old value's
-///   inner comments go with it (the leading comments of its first item,
-///   comment lines between the key and the value). A comment the entry (or
+///   inner comments go with it (comment lines between the key and the
+///   value). The comment lines above a replaced root (`# head⏎a: 1⏎`,
+///   rule 3: the first entry's) stand outside the value's text, so they
+///   stay above the new root: `# head⏎q: 1⏎` after replacing the root of
+///   `# head⏎a: 1⏎b: 2⏎` by `{q: 1}`. A comment the entry (or
 ///   the node) owns that stands inside the old value's first line is
 ///   written back on the new value's line: `top: &n # c⏎  k: v⏎` set to 7
 ///   becomes `top: &n 7 # c⏎`; a new value on lines of its own leaves it on
@@ -2195,12 +2198,13 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///   parent's line. Its properties stay, and so does its tag, except the
 ///   Core defaults `!!map`/`!!seq`, which the flow form states anyway:
 ///   `k: !!set⏎  ? a⏎` becomes `k: !!set {}⏎`, `k: !!map⏎  a: 1⏎` becomes
-///   `k: {}⏎`. A **nested** collection's footer comments move inside the
-///   new flow collection, still its footer: removing `a` from
-///   `k:⏎  a: 1⏎  # footer k⏎z: 1⏎` gives `k: {⏎  # footer k⏎  }⏎z: 1⏎`
-///   (they never go to a sibling). When they cannot (they are not whole
-///   lines after the entry, or the properties' line has a comment too) the
-///   removal is refused (see **P7** below).
+///   `k: {}⏎`. The collection's footer comments stay on their own lines
+///   below it: removing `a` from `k:⏎  a: 1⏎  # footer k⏎z: 1⏎` gives
+///   `k: {}⏎  # footer k⏎z: 1⏎`. An empty `{}` or `[]` owns no footer,
+///   so the comment's owner changes: it leads the next entry (here `z`), or,
+///   when no entry follows, it is the enclosing collection's footer. It is
+///   then that owner's comment, and a later removal of the next entry takes
+///   it along (in its [`Removed`]).
 ///
 /// **Fallbacks** (each tried only when the first layout would re-own a
 /// comment, and each still checked): an insertion is retried without
@@ -2286,10 +2290,6 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// * **P6 — removing an anchor** whose own line holds a comment that would
 ///   change owner (the S4 family): `CommentReattaches`. E.g. removing `&n`
 ///   from `k:⏎  &n # t⏎  a: 1⏎`.
-/// * **P7 — a nested collapse with a comment on the properties' line**:
-///   `Unsupported` ("the footer comments of a nested collection whose only
-///   entry is removed have no owner"). E.g. removing `x: y` from
-///   `e:⏎ &n # p⏎ - x: y⏎  # f⏎z: 1⏎`.
 /// * **P8 — anchoring a root mapping whose first entry has an empty key**
 ///   below comment lines: the anchor's line would give them to that
 ///   entry's value: `CommentReattaches`. E.g. anchoring the root of

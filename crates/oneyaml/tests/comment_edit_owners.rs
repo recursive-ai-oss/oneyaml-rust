@@ -161,18 +161,32 @@ fn set_anchor_keeps_the_first_entrys_leading_comments() {
     assert_eq!(owners(&d), ["# h=header", "# c=L(a)"]);
 }
 
-/// A nested collection an only entry leaves keeps its
-/// footer comments inside the new flow collection, never handing them to
-/// a sibling.
+/// A nested collection an only entry leaves keeps its footer comments on
+/// their own lines below the new `{}` or `[]`. An empty flow collection
+/// owns no footer, so the rules give such a comment to the next entry
+/// (as its leading comment), or to the enclosing collection's footer when
+/// no entry follows. The comment is then that owner's: a later removal of
+/// the owner takes it along.
 #[test]
-fn nested_collapse_keeps_the_footer() {
+fn nested_collapse_keeps_the_footer_below() {
     let mut d = Document::parse("k:\n  a: 1\n  # footer k\nz: 1\n").unwrap();
     let _ = d.remove_path(&path!["k", "a"]).unwrap();
-    assert_eq!(d.to_string(), "k: {\n  # footer k\n  }\nz: 1\n");
-    assert_eq!(owners(&d), ["# footer k=F({\n  # footer k\n  })"]);
+    assert_eq!(d.to_string(), "k: {}\n  # footer k\nz: 1\n");
+    assert_eq!(owners(&d), ["# footer k=L(z)"]);
+    // Removing `z` carries the comment with it.
+    let gone = d.remove_path(&path!["z"]).unwrap();
+    assert_eq!(gone.comments(), ["# footer k"]);
+    assert_eq!(d.to_string(), "k: {}\n");
     let mut d = Document::parse("- a: 1\n  # f\n- 2\n").unwrap();
     let _ = d.remove_path(&path![0, "a"]).unwrap();
-    assert_eq!(d.to_string(), "- {\n  # f\n  }\n- 2\n");
+    assert_eq!(d.to_string(), "- {}\n  # f\n- 2\n");
+    assert_eq!(owners(&d), ["# f=L(2)"]);
+    // A sequence inside a sequence, the footer deeper than the root's
+    // items, no entry after it: the enclosing sequence's footer.
+    let mut d = Document::parse("-\n  - []\n  # note\n").unwrap();
+    let _ = d.remove_path(&path![0, 0]).unwrap();
+    assert_eq!(d.to_string(), "- []\n  # note\n");
+    assert_eq!(owners(&d), ["# note=F(- [])"]);
 }
 
 /// The old value's inner comments go with it, wherever
@@ -186,10 +200,11 @@ fn replace_takes_the_old_values_inner_comments() {
     d.set_path(&path!["rbi"], 7).unwrap();
     assert!(!d.to_string().contains('#'), "{:?}", d.to_string());
     assert!(owners(&d).is_empty());
-    // A comment block above a root collection (rule 3: its first entry's).
+    // A comment block above a root collection (rule 3: its first entry's)
+    // stands outside the root's text, so it stays above the new root.
     let mut d = Document::parse("---\n# Products\n- a: 1\n").unwrap();
     d.set_root(1).unwrap();
-    assert_eq!(d.to_string(), "---\n1\n");
+    assert_eq!(d.to_string(), "---\n# Products\n1\n");
     // With a blank line it is the document header (rule 2), and stays.
     let mut d = Document::parse("# Products\n\n- a: 1\n").unwrap();
     d.set_root(1).unwrap();
@@ -210,7 +225,7 @@ fn owner_refusals_are_named() {
     assert_eq!(d.to_string(), src);
 }
 
-/// The documented limitations: the residual classes P1-P7 of the
+/// The documented limitations: the residual classes P1-P6 of the
 /// broadened differential are refused with a specific, documented error
 /// and change nothing; these are the examples on `Document`'s docs.
 #[test]
@@ -272,17 +287,11 @@ fn documented_p_classes_are_refused_by_name() {
         "P6: {e:?}"
     );
     assert_eq!(d.to_string(), src);
-    // P7: a nested collapse with `# p` on the properties' line and a
-    // footer `# f`.
-    let src = "e:\n &n # p\n - x: y\n  # f\nz: 1\n";
-    let mut d = Document::parse(src).unwrap();
-    let e = d.remove_path(&path!["e", 0]).unwrap_err();
-    assert_eq!(
-        reason(&e),
-        "the footer comments of a nested collection whose only entry is removed have no owner",
-        "P7: {e:?}"
-    );
-    assert_eq!(d.to_string(), src);
+    // A nested collapse with `# p` on the properties' line and a footer `# f`
+    // keeps both: the footer stays below.
+    let mut d = Document::parse("e:\n &n # p\n - x: y\n  # f\nz: 1\n").unwrap();
+    let _ = d.remove_path(&path!["e", 0]).unwrap();
+    assert_eq!(d.to_string(), "e: &n [] # p\n  # f\nz: 1\n");
     // Without the footer, the collapse keeps the properties' comment.
     let mut d = Document::parse("e:\n &n # p\n - x: y\nz: 1\n").unwrap();
     let _ = d.remove_path(&path!["e", 0]).unwrap();

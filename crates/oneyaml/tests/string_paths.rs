@@ -161,9 +161,9 @@ spec:
     doc.get_path_or_create("spec.extra.list[0]").unwrap();
     assert!(doc.get_path("spec.extra.list[0]").unwrap().is_null());
     doc.set_root(vec![1, 2]).unwrap();
-    // The top comment (no blank line after it) is the first entry's (rule 3):
-    // it goes with the old root.
-    assert_eq!(doc.to_string(), "- 1\n- 2\n");
+    // The top comment (no blank line after it) is the first entry's (rule 3),
+    // but it stands outside the root's text: it stays above the new root.
+    assert_eq!(doc.to_string(), "# app config\n- 1\n- 2\n");
 }
 
 #[test]

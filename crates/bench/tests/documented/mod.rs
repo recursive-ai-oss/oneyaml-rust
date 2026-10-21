@@ -6,7 +6,7 @@
 
 /// The `EditError::Unsupported` reasons documented on `Document`
 /// ("Limitations in 0.2", the refusals listed after them, and the 0.3
-/// limitation classes S1-S6 and P1-P7 of "Comments through node edits").
+/// limitation classes S1-S6 and P1-P6, P8 of "Comments through node edits").
 pub const DOCUMENTED_UNSUPPORTED: &[&str] = &[
     // Replacing a mapping key in place.
     "replacing a mapping key",
@@ -45,10 +45,7 @@ pub const DOCUMENTED_UNSUPPORTED: &[&str] = &[
     // that gives a root collection's last entry the document footer):
     "the leading comments of a flow entry or of a collection's only entry have no entry or \
      block footer to go to",
-    // A nested collection's footers
-    // when its only entry is removed (limitation P7); the entry's comment
-    // inside a replaced value's first line where the new value cannot
-    // carry it (`HEADER_COMMENT_LIMIT`, limitation P4).
-    "the footer comments of a nested collection whose only entry is removed have no owner",
+    // The entry's comment inside a replaced value's first line where the
+    // new value cannot carry it (`HEADER_COMMENT_LIMIT`, limitation P4).
     "the entry's comment inside the replaced value cannot be written back there",
 ];

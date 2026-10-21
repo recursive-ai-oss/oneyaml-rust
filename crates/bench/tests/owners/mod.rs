@@ -20,12 +20,16 @@
 //! * **collapse** (`Op::Remove` of an only entry, the collection rewritten
 //!   as `{}`/`[]`): the collection's leading and trailing comments are the
 //!   new node's; a root collection's footers become the document footer
-//!   (rule 7); a nested collection's footers stay its own (the new flow
-//!   collection's footer, `k: {⏎  # f⏎  }`), never another node's;
+//!   (rule 7); a nested collection's footers stay on their lines below the
+//!   new `{}`/`[]`; an empty flow collection owns no footer, so the next
+//!   node after it leads them, or, when none follows at that level, the
+//!   enclosing collection owns them as its footer (and so on outwards),
+//!   never the document's header or footer;
 //! * **replace** (`Op::Replace`): the old value's inner comments (owned
 //!   inside it, or its footer) go; its own leading and trailing comments
 //!   are owned by the new value or by its entry's key (a comment written
-//!   back on the key's line);
+//!   back on the key's line); the comment lines above a replaced root
+//!   stay above the new root and are owned by it or a node inside it;
 //! * **rewrite** (`Op::Rewrite`, `set_anchor`): every comment owned by the
 //!   node or inside it is owned by the corresponding node (same place) of
 //!   the rewritten node;
@@ -478,6 +482,25 @@ pub fn check(before: &Snap, bs: &Shape, doc: &Document, op: &Op, ctx: &str) -> R
                             None
                         }
                     }
+                    // A nested collapsed collection's footers stay where they
+                    // are, and an empty flow collection owns no footer: the
+                    // next node after the collection leads them, or, when
+                    // none follows at that level, the enclosing collection
+                    // owns them as its footer (and so on outwards).
+                    Some(n) if n == *coll && collapsed && k == 4 && bs.root != Some(*coll) => {
+                        let mut alts = Vec::new();
+                        let mut at = *coll;
+                        while let Some((p, i)) = bs.index_in_parent(at) {
+                            if let Some(next) = bs.child(p, i + 1) {
+                                alts.push(owner(2, next));
+                                break;
+                            }
+                            alts.push(owner(4, p));
+                            at = p;
+                        }
+                        fate.push((*id, x.clone(), Some(alts)));
+                        continue;
+                    }
                     Some(n) if n == *coll && collapsed => match (k, new_coll) {
                         (4, _) if bs.root == Some(*coll) => Some(CommentOwner::DocumentFooter),
                         (_, Some(c)) => Some(owner(k, c)),
@@ -506,6 +529,25 @@ pub fn check(before: &Snap, bs: &Shape, doc: &Document, op: &Op, ctx: &str) -> R
             for (id, o, x) in before {
                 let (k, n) = kind_of(*o);
                 let f = match n {
+                    // Comment lines above a replaced root stay above the new
+                    // root; it or a node inside it owns them.
+                    Some(n)
+                        if bs.root == Some(*old)
+                            && k == 2
+                            && inner.contains(&n)
+                            && bs
+                                .comments
+                                .get(id)
+                                .zip(bs.spans.get(old))
+                                .is_some_and(|(c, s)| c.end <= s.start) =>
+                    {
+                        match new {
+                            Some(new) => {
+                                Some(aft.subtree(*new).into_iter().map(|m| owner(2, m)).collect())
+                            }
+                            None => fail(format!("{x:?}: no new node")),
+                        }
+                    }
                     Some(n) if n == *old && k != 4 => match new {
                         Some(new) => {
                             let mut alts = vec![owner(k, *new)];

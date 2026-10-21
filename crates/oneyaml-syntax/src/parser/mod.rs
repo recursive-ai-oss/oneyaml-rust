@@ -933,11 +933,14 @@ impl<'a> Parser<'a> {
                 _ if !bom && self.prefix_mark_at(i) => break,
                 _ if scan::mark_at(self.src, i) => {
                     let end = i.saturating_add('\u{feff}'.len_utf8());
+                    // A document prefix holds at most one mark (production
+                    // 202): a mark right behind another is misplaced.
                     let prefix_start = bom
                         && self.fresh
                         && i == self.line_start
                         && self.line_indent == 0
-                        && !self.directives_pending;
+                        && !self.directives_pending
+                        && !self.src.get(..i).is_some_and(|s| s.ends_with('\u{feff}'));
                     if !prefix_start {
                         self.misplaced_bom(i, end);
                         continue;

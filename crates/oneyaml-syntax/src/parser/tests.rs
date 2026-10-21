@@ -347,8 +347,8 @@ fn every_error_code_is_reachable() {
         ("%YAML 1.2\n%YAML 1.2\n---\n", c::DUPLICATE_YAML_DIRECTIVE),
         ("# a\u{7f}\n", c::INVALID_COMMENT_CHARACTER),
         ("%TAG !a! x\n%TAG !a! y\n---\n", c::DUPLICATE_DIRECTIVE),
-        ("!e!x a\n", c::UNDEFINED_TAG_HANDLE),
-        ("%TAG !e! x\n---\na\n--- !e!x b\n", c::UNDEFINED_TAG_HANDLE),
+        ("!e!x a\n", c::UNDECLARED_TAG_HANDLE),
+        ("%TAG !e! x\n---\na\n--- !e!x b\n", c::UNDECLARED_TAG_HANDLE),
         ("  \u{feff}k: v\n", c::MISPLACED_BYTE_ORDER_MARK),
     ];
     for (src, code) in cases {
@@ -858,7 +858,7 @@ fn failed_directive_block_does_not_leak_tags() {
     // Y0001 for the block, then the undeclared handle; no duplicate %YAML.
     assert_eq!(
         codes,
-        [c::DIRECTIVE_WITHOUT_DOCUMENT, c::UNDEFINED_TAG_HANDLE]
+        [c::DIRECTIVE_WITHOUT_DOCUMENT, c::UNDECLARED_TAG_HANDLE]
     );
     assert!(
         evs.sourced()
@@ -911,6 +911,32 @@ fn yaml_1_0_warning_reflects_honor_version_directive() {
     assert!(!honored.contains("parsed as YAML 1.2"), "{honored}");
     assert!(honored.contains("honor_version_directive"), "{honored}");
     assert!(honored.contains("1.1 preset"), "{honored}");
+}
+
+/// Production 202: a document prefix holds at most one byte order mark, so a
+/// mark right behind another, at the start of the stream or of a later
+/// prefix, is misplaced.
+#[test]
+fn a_second_mark_in_a_prefix_is_misplaced() {
+    for src in [
+        "\u{feff}\u{feff}a: 1\n",
+        "\u{feff}\u{feff}",
+        "a\n\u{feff}\u{feff}\n\n",
+        "a\n...\n\u{feff}\u{feff}---\nb\n",
+    ] {
+        let first = events(src)
+            .iter()
+            .find_map(|e| e.diagnostic().map(|d| d.code));
+        assert_eq!(first, Some(c::MISPLACED_BYTE_ORDER_MARK), "{src:?}");
+    }
+    // The position of the first of two leading marks is not counted, so the
+    // second is at the start of the text (1:1).
+    let d = events("\u{feff}\u{feff}a: 1\n")
+        .iter()
+        .find_map(|e| e.diagnostic().cloned())
+        .unwrap();
+    assert_eq!((d.primary.span.start, d.primary.span.end), (3, 6));
+    assert_eq!(first_error("\u{feff}a: 1\n"), None);
 }
 
 /// The `ByteOrderMark` trivia events of `src`.
@@ -1079,7 +1105,7 @@ fn a_mark_after_a_document_starts_a_prefix() {
             "+DOC --- | =VAL :a | -DOC | +DOC --- | =VAL :b | -DOC",
         ),
         ("a\n\u{feff}", "+DOC | =VAL :a | -DOC"),
-        ("a\n\u{feff}\u{feff}\n\n", "+DOC | =VAL :a | -DOC"),
+        ("a\n\u{feff}\n\u{feff}\n\n", "+DOC | =VAL :a | -DOC"),
         // Open block collections and empty nodes close before the mark.
         (
             "k:\n  - x\n\u{feff}--- b\n",
@@ -1113,7 +1139,9 @@ fn a_mark_after_a_document_starts_a_prefix() {
         assert_eq!(tree(src), expected, "{src:?}");
         assert_eq!(first_error(src), None, "{src:?}");
     }
-    assert_eq!(bom_trivia("a\n\u{feff}\u{feff}\n\n"), 2);
+    // One mark per line: each line starts a prefix. (Two marks on one line
+    // are one too many, production 202; see `a_second_mark_in_a_prefix_is_misplaced`.)
+    assert_eq!(bom_trivia("a\n\u{feff}\n\u{feff}\n\n"), 2);
     // A bare document or a directive after such a prefix keeps its error
     // (the document before was not ended with `...`).
     for (src, code) in [
@@ -1224,7 +1252,7 @@ fn a_bare_document_after_a_prefix_is_reported_and_kept() {
     for (src, mark, primary, directive) in [
         ("a: 1\n\u{feff}b: 2\n", 5, (5, 12), false),
         ("a\n\u{feff}# c\nb\n", 2, (9, 10), false),
-        ("a\n\u{feff}\u{feff}b\n", 2, (2, 9), false),
+        ("a\n\u{feff}\n\u{feff}b\n", 2, (6, 10), false),
         ("a\n\u{feff}%YAML 1.2\n", 2, (2, 14), true),
     ] {
         let evs = events(src);

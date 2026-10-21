@@ -561,6 +561,14 @@ pub(super) fn slot_of(n: TreeNode<'_>) -> Result<Slot<'_>, EditError> {
             if c.is_map() && without_colon(n) {
                 return Ok(slot(SlotKind::FlowValue, n));
             }
+            // An empty value behind its colon (`{b:, c: 3}`): the colon is
+            // replaced with the value, so that it gets the space it needs
+            // (`b:2` would be one plain scalar).
+            if c.is_map() {
+                if let Some(colon) = empty_after_colon(n) {
+                    return Ok(slot(SlotKind::FlowValue, colon));
+                }
+            }
             Ok(slot(SlotKind::Flow, n))
         }
         Some(Coll::BlockMap) => {
@@ -609,6 +617,14 @@ pub(super) fn slot_of(n: TreeNode<'_>) -> Result<Slot<'_>, EditError> {
         }
         _ => Err(unsupported("a node in this position")),
     }
+}
+
+/// The colon of `n`, an empty value of a flow mapping entry written with
+/// its `:` (`{b:, c: 3}`): the node sits right behind the colon, so a value
+/// written there replaces the colon too and gives it the space it needs.
+fn empty_after_colon(n: TreeNode<'_>) -> Option<TreeNode<'_>> {
+    n.prev_sibling()
+        .filter(|p| n.span().is_empty() && p.kind() == SyntaxKind::MappingValue)
 }
 
 /// `n` is a mapping value written without `:`: empty, right after its key

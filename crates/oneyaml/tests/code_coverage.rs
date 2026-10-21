@@ -379,7 +379,7 @@ fn drivers() -> Vec<(Code, Driver)> {
             events("%TAG !a! x\n%TAG !a! y\n---\n", Settings::new()),
         ),
         (
-            code::UNDEFINED_TAG_HANDLE,
+            code::UNDECLARED_TAG_HANDLE,
             events("!e!x a\n", Settings::new()),
         ),
         (code::INVALID_SCALAR_FOR_TAG, value("!!int twelve")),

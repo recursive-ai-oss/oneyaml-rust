@@ -314,6 +314,83 @@ impl SyntaxTree {
         taken.ok_or(TreeEditError::Internal)
     }
 
+    /// Gives the block scalar that ends the text its final line break: the
+    /// scalar `sibling` ends (`a: |-\n  x` at the end of the input) has a
+    /// last line that does not end, so nothing can follow it. Its text gets
+    /// `brk` (a line break: `\n`, `\r\n` or `\r`), after the white space
+    /// that ends the input behind it, if any (that white space is the text
+    /// of one more line of the scalar then: `- |+\n   ` becomes
+    /// `- |+\n   \n`). Lines can then go after it with
+    /// [`SyntaxTree::insert_line_after`].
+    ///
+    /// One or two splices applied and checked as one edit.
+    ///
+    /// # Errors
+    ///
+    /// [`TreeEditError::NotWellFormed`] when `sibling` does not end the text
+    /// in a block scalar without a final line break, or `brk` is not a line
+    /// break; [`TreeEditError::Stale`].
+    pub fn close_block_scalar(&mut self, sibling: NodeId, brk: &str) -> Result<(), TreeEditError> {
+        if !matches!(brk, "\n" | "\r\n" | "\r") {
+            return Err(TreeEditError::NotWellFormed);
+        }
+        let s = self.live_slot(sibling)?;
+        // White space ends the input behind the scalar, or nothing does.
+        let ws = match self.nav_after(s) {
+            None => None,
+            Some(w)
+                if self.kind_of(w) == Some(SyntaxKind::Whitespace)
+                    && self.nav_after(w).is_none() =>
+            {
+                Some(w)
+            }
+            Some(_) => return Err(TreeEditError::NotWellFormed),
+        };
+        let tok = self.nav_last_leaf(s).ok_or(TreeEditError::NotWellFormed)?;
+        let kind = self.kind_of(tok).ok_or(TreeEditError::Internal)?;
+        if !matches!(kind, SyntaxKind::LiteralScalar | SyntaxKind::FoldedScalar) {
+            return Err(TreeEditError::NotWellFormed);
+        }
+        let mut text = super::Node::new(self, tok).text().into_owned();
+        if text.ends_with(['\n', '\r']) {
+            return Err(TreeEditError::NotWellFormed);
+        }
+        if let Some(w) = ws {
+            text.push_str(&super::Node::new(self, w).text());
+        }
+        // The block scalar's header, which the content token is read after.
+        let scalar = self.nav_parent(tok).ok_or(TreeEditError::Internal)?;
+        let mut header = None;
+        let mut at = self.nav_first(scalar);
+        while let Some(x) = at {
+            if self.kind_of(x) == Some(SyntaxKind::BlockScalarHeader) {
+                header = Some(super::Node::new(self, x).text().into_owned());
+                break;
+            }
+            at = self.nav_next(x);
+        }
+        let header = header.ok_or(TreeEditError::NotWellFormed)?;
+        let closed = block_token_fragment(kind, &header, &text, brk, &self.settings)?;
+        let first_args = SpliceArgs {
+            parent: scalar,
+            prev: self.nav_prev(tok),
+            removed: vec![tok],
+            fragment: Some(closed),
+        };
+        self.splice_pair(first_args, move |t, _| {
+            Ok(match ws {
+                Some(w) => Some(SpliceArgs {
+                    parent: t.nav_parent(w).ok_or(TreeEditError::Internal)?,
+                    prev: t.nav_prev(w),
+                    removed: vec![w],
+                    fragment: None,
+                }),
+                None => None,
+            })
+        })?;
+        Ok(())
+    }
+
     /// Inserts `with`, whose text must end with a line break, as the lines
     /// right after the line that `sibling` ends (see
     /// [`SyntaxTree::replace_to_line_end`]): the text becomes the text
@@ -438,4 +515,41 @@ impl SyntaxTree {
             }
         }
     }
+}
+
+/// The block scalar token of `kind` holding `text` and then `brk`, read
+/// through the parser after the scalar's `header` (the scalar's content
+/// token, copied out).
+fn block_token_fragment(
+    kind: SyntaxKind,
+    header: &str,
+    text: &str,
+    brk: &str,
+    settings: &oneyaml_core::Settings,
+) -> Result<Fragment, TreeEditError> {
+    let bad = TreeEditError::InvalidToken { kind };
+    let want = format!("{text}{brk}");
+    let tree = SyntaxTree::parse_with(format!("{header}{brk}{want}"), settings);
+    if tree.has_errors() {
+        return Err(bad);
+    }
+    let mut found = None;
+    for n in tree.root().descendants().filter(|n| n.is_token()) {
+        if n.kind() == kind {
+            if found.is_some() {
+                return Err(bad);
+            }
+            found = Some(n);
+        }
+    }
+    let token = found.ok_or(bad)?;
+    if token.text() != want {
+        return Err(TreeEditError::InvalidToken { kind });
+    }
+    let (arena, _) = tree.copy_forest(&[token.slot()])?;
+    Ok(Fragment {
+        arena,
+        context: String::new(),
+        has_tags: false,
+    })
 }

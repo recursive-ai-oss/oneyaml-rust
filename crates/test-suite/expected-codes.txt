@@ -98,7 +98,7 @@ N782      Y0022 Y0008 Y0008      # Invalid document markers in flow style
 P2EQ      Y0017                  # Invalid sequene item on same line as previous item
 Q4CL      Y0017                  # Trailing content after quoted value
 QB6E      Y0011                  # Wrong indented multiline quoted scalar
-QLJ7      Y1005 Y1005            # Tag shorthand used in documents but only defined in the first
+QLJ7      Y0035 Y0035            # Tag shorthand used in documents but only defined in the first
 RHX7      Y0003                  # YAML directive without document end marker
 RXY3      Y0009 Y0009            # Invalid document-end marker in single quoted string
 S4GJ      Y0020                  # Invalid text after block scalar indicator

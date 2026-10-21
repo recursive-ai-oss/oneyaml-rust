@@ -44,8 +44,6 @@
 //! * **P5** — middle moves of a block scalar next to blank lines and
 //!   comments (H2RW, MZX3), refused `NotWellFormed`.
 //! * **P6** — the S4 anchor removal family.
-//! * **P7** — removing the only entry of a nested collection with a
-//!   comment on its properties line (`NESTED_COLLAPSE`).
 //! * **S5** on `xins`.
 //!
 //! The column-0 flow comment lines of the corpus
@@ -85,7 +83,6 @@ const P3: &str = "P3 flow layout on the new calls";
 const P4: &str = "P4 entry comment inside a replaced value";
 const P5: &str = "P5 block scalar middle move";
 const P6: &str = "P6 anchor removal";
-const P7: &str = "P7 nested collapse with a properties-line comment";
 const P8: &str = "P8 root anchor above an empty key";
 
 /// Calls refused now and accepted by the baseline, each in a documented class
@@ -183,8 +180,6 @@ const DOCUMENTED_REFUSALS: &[(&str, &str)] = &[
     ("U3XV/c2/*#0:xins", P2),
     ("UDR7/c1/*#0:xins", P1),
     ("XW4D/c2/*#0:unanc4", P6),
-    ("XW4D/c2/*#1:rm0", P7),
-    ("XW4D/c2/*#1:xins", P7),
     ("XW4D/p/*#0:unanc4", P6),
     ("Y79Y/002/c1/*#1:xins", P3),
     ("YD5X/c2/*#0:xins", P1),
@@ -436,10 +431,4 @@ const DOCUMENTED_ERRORS: &[(&str, &str)] = &[
     ),
     // P8.
     (P8, "E:CommentReattaches:ExplicitValue"),
-    // P7: `NESTED_COLLAPSE`.
-    (
-        P7,
-        "E:Unsupported:the footer comments of a nested collection whose only entry is removed \
-         have no owner",
-    ),
 ];

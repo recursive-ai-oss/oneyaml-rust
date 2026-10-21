@@ -294,6 +294,11 @@ pub const DUPLICATE_YAML_DIRECTIVE: Code = Code(33);
 /// Comment text is made of `nb-char`s (productions 75 and 27). Reported at
 /// the first such character. Error.
 pub const INVALID_COMMENT_CHARACTER: Code = Code(34);
+/// A named tag handle (`!e!`) not declared by a `%TAG` directive of its
+/// document (§6.8.2.1). The shorthand cannot be read, so this is a fault
+/// of the text, a syntax error. Error. (Reported where the parser earlier
+/// reported [`UNDEFINED_TAG_HANDLE`], which is no longer produced.)
+pub const UNDECLARED_TAG_HANDLE: Code = Code(35);
 
 // ---------------------------------------------------------------------------
 // Y1000–Y1999: schema & resolution.
@@ -314,7 +319,9 @@ pub const RESERVED_DIRECTIVE_IGNORED: Code = Code(1003);
 /// `%YAML` directive is [`DUPLICATE_YAML_DIRECTIVE`]. Error.
 pub const DUPLICATE_DIRECTIVE: Code = Code(1004);
 /// A named tag handle (`!e!`) not declared by a `%TAG` directive of its
-/// document (§6.8.2.1). Error.
+/// document (§6.8.2.1). Error. Deprecated: the parser reports
+/// [`UNDECLARED_TAG_HANDLE`] (`Y0035`) instead, because the fault is in the
+/// text.
 pub const UNDEFINED_TAG_HANDLE: Code = Code(1005);
 /// A `%YAML 1.0` directive. By default the document is parsed as
 /// YAML 1.2; under `honor_version_directive` the YAML 1.1 preset applies,
@@ -611,6 +618,10 @@ pub const REGISTRY: &[CodeInfo] = &[
         INVALID_COMMENT_CHARACTER,
         "non-printable character in a comment"
     ),
+    error_entry!(
+        UNDECLARED_TAG_HANDLE,
+        "tag handle not declared by a %TAG directive"
+    ),
     CodeInfo {
         code: YAML_VERSION_1_1,
         name: "YAML_VERSION_1_1",
@@ -643,10 +654,13 @@ pub const REGISTRY: &[CodeInfo] = &[
         DUPLICATE_DIRECTIVE,
         "duplicate %YAML directive or %TAG handle"
     ),
-    error_entry!(
-        UNDEFINED_TAG_HANDLE,
-        "tag handle not declared by a %TAG directive"
-    ),
+    CodeInfo {
+        code: UNDEFINED_TAG_HANDLE,
+        name: "UNDEFINED_TAG_HANDLE",
+        severity: Severity::Error,
+        summary: "tag handle not declared by a %TAG directive",
+        deprecated: true,
+    },
     CodeInfo {
         code: YAML_VERSION_1_0,
         name: "YAML_VERSION_1_0",

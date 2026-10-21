@@ -7,7 +7,7 @@ use oneyaml_core::Span;
 use oneyaml_core::code::{
     BLOCK_COLLECTION_NOT_ALLOWED, DEPTH_LIMIT_EXCEEDED, DIRECTIVE_IN_DOCUMENT, DUPLICATE_PROPERTY,
     INVALID_ANCHOR, INVALID_INDENTATION, INVALID_TAG, SCALAR_TOO_LONG, TAB_INDENTATION,
-    UNDEFINED_TAG_HANDLE,
+    UNDECLARED_TAG_HANDLE,
 };
 
 use super::scan::{
@@ -436,7 +436,7 @@ pub(super) fn validate_tag(
             (None, "!") => (None, PRIMARY),
             (None, "!!") => (None, SECONDARY),
             (None, _) => {
-                return Err((UNDEFINED_TAG_HANDLE, "tag handle is not declared by %TAG"));
+                return Err((UNDECLARED_TAG_HANDLE, "tag handle is not declared by %TAG"));
             }
         },
         _ => (None, UriRead::EMPTY),
