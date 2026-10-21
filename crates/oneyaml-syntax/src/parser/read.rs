@@ -110,7 +110,7 @@ pub(crate) fn scalar_value(
 ) -> Option<Cow<'_, str>> {
     let text = src.get(span.start..span.end)?;
     match style {
-        ScalarStyle::Plain if text.contains(['\n', '\r']) => {
+        ScalarStyle::Plain if super::run::find_break(text.as_bytes(), 0) < text.len() => {
             Some(Cow::Owned(plain_value::<String>(text)))
         }
         ScalarStyle::Plain => Some(Cow::Borrowed(text)),

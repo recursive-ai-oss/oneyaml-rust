@@ -234,6 +234,23 @@ how a few scalars are written. Each follows YAML 1.2.2 more closely.
   or a plain key (`&a[b]`, `{:{0}}`), a verbatim tag that is not a URI, and
   a second anchor on one node.
 
+### Performance
+
+- `oneyaml-syntax`: the parser passes long runs of plain, quoted and block
+  scalar text, comments and line ends sixteen bytes at a time instead of one
+  character at a time, and reads the value of a quoted or plain scalar from
+  such runs. Every event, span, value and diagnostic is the same as before
+  (checked over the whole yaml-test-suite, the fuzz corpora and CRLF, CR,
+  byte-order-mark and trailing-space variants of them, under four settings).
+  Event parsing of a 256 KiB input of long plain, quoted, literal and folded
+  scalars takes about one eighth of the instructions it took, and so does
+  reading their values as well. The parse benchmark rows need 4% to 53%
+  fewer instructions (block scalars -53%, long scalars -52%, comment runs
+  -34%, Helm values -35%, GitHub Actions workflow -24%, wide maps -22%,
+  small Kubernetes and OpenAPI documents -17% to -19%, compose files -15%,
+  flow-heavy input -7%, deeply nested flow sequences -4%). No row needs
+  more, and no row allocates more.
+
 ## 1.1.0 — 2026-10-10
 
 `oneyaml` 1.1.0, `oneyaml-core` 1.1.0, `oneyaml-syntax` 0.1.2.
