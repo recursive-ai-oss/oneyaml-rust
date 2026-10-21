@@ -532,6 +532,7 @@ fn report(what: &str, t: &Tally) {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn suite_cases_and_truncations() {
     let cases = suite();
     assert!(cases.len() >= 402, "{}", cases.len());
@@ -636,6 +637,7 @@ fn encodings_round_trip_and_agree() {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn benchmark_and_adversarial_corpus() {
     let mut t = Tally::default();
     for case in bench::corpus::CASES
@@ -732,6 +734,7 @@ fn first_round() -> usize {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn fuzz_run() {
     let cases = suite();
     let inputs: Vec<String> = cases
@@ -765,6 +768,7 @@ fn fuzz_run() {
 
 /// The structured generator, under every merge setting.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn merge_generator_run() {
     let mut rng = Rng(0x2545_f491_4f6c_dd1d);
     let mut t = Tally::default();

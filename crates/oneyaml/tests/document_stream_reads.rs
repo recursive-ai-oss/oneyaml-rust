@@ -8,8 +8,9 @@
     clippy::arithmetic_side_effects
 )]
 
+mod work;
+
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
 
 use oneyaml::{Document, Settings, Stream, Value, code};
 
@@ -55,7 +56,7 @@ fn alias_navigation_scales_linearly() {
     let time = |n: usize| {
         let d = Document::parse(doc(n)).unwrap();
         let all = d.get("all").unwrap().as_sequence().unwrap();
-        let t = Instant::now();
+        work::reset();
         let mut found = 0usize;
         for item in all.iter() {
             let target = item.alias_target().unwrap();
@@ -63,12 +64,12 @@ fn alias_navigation_scales_linearly() {
             assert!(item.get("nope").is_none());
         }
         assert_eq!(found, n);
-        t.elapsed()
+        work::taken()
     };
     let small = time(2_000);
     let large = time(16_000);
-    // 8× the input: linear is ~8×, the old scan ~64×. Generous for noise.
-    let bound = small.saturating_mul(24).max(Duration::from_millis(250));
+    // 8× the input: linear is ~8×, the old scan ~64×.
+    let bound = small.saturating_mul(24);
     assert!(large <= bound, "2000: {small:?}, 16000: {large:?}");
     // Redefinitions: the closest preceding anchor wins (§3.2.2.2), and an
     // alias in another document never sees this one's anchors.

@@ -81,6 +81,7 @@ fn check_meaning_case(case: &Adversarial) {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn untrusted_rejects_the_adversarial_corpus() {
     let untrusted = Settings::new().limits(Limits::untrusted());
     let default = Settings::new();

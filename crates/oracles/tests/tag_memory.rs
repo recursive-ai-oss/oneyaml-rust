@@ -39,6 +39,7 @@ fn peak(f: impl FnOnce()) -> u64 {
 /// refusal, at the use that goes over: see `byte_budget_memory.rs`); the
 /// memory measured here is of the reads with the byte budget lifted.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn rotating_tags_peak_memory_is_bounded() {
     let preset = Settings::new().limits(Limits::untrusted());
     let refused = oneyaml::from_str_with::<Value>(&rotating(16, 8000), &preset).unwrap_err();

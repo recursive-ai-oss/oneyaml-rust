@@ -262,6 +262,7 @@ fn past_the_cap() -> Vec<(String, String, Settings)> {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn meaning_never_depends_on_max_diagnostics() {
     let suite = test_suite::load_suite(&test_suite::default_data_dir()).unwrap();
     assert!(suite.len() >= 402);

@@ -14,6 +14,8 @@
     clippy::arithmetic_side_effects
 )]
 
+mod work;
+
 use oneyaml::{
     CommentExplanation, CommentOwner, CommentRule, Document, EditError, NodeId, Settings, Stream,
     path,
@@ -861,24 +863,21 @@ fn deep_nesting_on_a_small_stack() {
 #[test]
 fn comment_edits_are_local() {
     // The same edit on a 50× larger document costs about the same.
-    fn time(entries: usize) -> std::time::Duration {
+    fn time(entries: usize) -> u64 {
         let src: String = (0..entries).map(|i| format!("k{i}: v # t{i}\n")).collect();
         let mut d = Document::parse(src).unwrap();
         let mid = key(&d, &path![format!("k{}", entries / 2)]);
-        let start = std::time::Instant::now();
+        work::reset();
         for i in 0..20 {
             d.set_leading(mid, &[&format!("l{i}")]).unwrap();
             d.set_trailing(mid, Some(&format!("t{i}"))).unwrap();
             let _ = d.comments(mid).unwrap();
         }
-        start.elapsed()
+        work::taken()
     }
     let small = (0..3).map(|_| time(200)).min().unwrap();
     let large = (0..3).map(|_| time(10_000)).min().unwrap();
-    assert!(
-        large < small * 10 + std::time::Duration::from_millis(20),
-        "small {small:?}, large {large:?}"
-    );
+    assert!(large < small * 10, "small {small:?}, large {large:?}");
 }
 
 // ====================================================== cost fixes
@@ -972,8 +971,8 @@ fn keep_scalars_before_a_trailing_spaces_line_keep_their_value() {
     }
 }
 
-/// The best of three runs of `f` (timing tests: least noise).
-fn best(mut f: impl FnMut() -> std::time::Duration) -> std::time::Duration {
+/// The fewest steps over three runs of `f`.
+fn best(mut f: impl FnMut() -> u64) -> u64 {
     (0..3).map(|_| f()).min().unwrap()
 }
 
@@ -983,7 +982,7 @@ fn comment_run_length_scaling() {
     // replaced, and removed in O(k) (one splice for consecutive comment
     // lines), where removing them one splice at a time was O(k²) (45 s for
     // 16 000 lines).
-    fn time(k: usize) -> std::time::Duration {
+    fn time(k: usize) -> u64 {
         let mut src = String::from("a: 1\n");
         for i in 0..k {
             src.push_str(&format!("# c{i}\n"));
@@ -993,21 +992,18 @@ fn comment_run_length_scaling() {
         let b = key(&d, &path!["b"]);
         let lines: Vec<String> = (0..k).map(|i| format!("l{i}")).collect();
         let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
-        let start = std::time::Instant::now();
+        work::reset();
         assert_eq!(d.comments(b).unwrap().leading().len(), k);
         assert_eq!(d.clear_comments(b).unwrap().len(), k);
         assert_eq!(d.set_leading(b, &lines).unwrap().len(), k);
         assert_eq!(d.set_leading(b, oneyaml::NO_COMMENTS).unwrap().len(), 0);
-        let t = start.elapsed();
+        let t = work::taken();
         assert_eq!(d.to_string(), "a: 1\nb: 2\n");
         t
     }
     let small = best(|| time(1_000));
     let large = best(|| time(16_000));
-    assert!(
-        large < small * 40 + std::time::Duration::from_millis(50),
-        "1k: {small:?}, 16k: {large:?}"
-    );
+    assert!(large < small * 40, "1k: {small:?}, 16k: {large:?}");
 }
 
 #[test]
@@ -1017,7 +1013,7 @@ fn explicit_owner_count_does_not_slow_reads_writes_or_snapshots() {
     // clones and stream snapshots (O(1)). Bulk re-owning inside a clean
     // document costs O(depth) per comment.
     // The same document (8000 comment lines) with k of them re-owned.
-    fn build(k: usize) -> (Stream, std::time::Duration) {
+    fn build(k: usize) -> (Stream, u64) {
         let mut src = String::from("---\n");
         for i in 0..8_000 {
             src.push_str(&format!("# e{i}\n"));
@@ -1028,16 +1024,16 @@ fn explicit_owner_count_does_not_slow_reads_writes_or_snapshots() {
             let mut d = s.document_mut(0).unwrap();
             let ids = d.comment_ids();
             assert_eq!(ids.len(), 8_000);
-            let start = std::time::Instant::now();
+            work::reset();
             for c in ids.into_iter().take(k) {
                 d.attach_comment(c, CommentOwner::DocumentHeader).unwrap();
             }
-            start.elapsed()
+            work::taken()
         };
         (s, attach)
     }
-    fn work(s: &mut Stream) -> std::time::Duration {
-        let start = std::time::Instant::now();
+    fn work(s: &mut Stream) -> u64 {
+        work::reset();
         for i in 0..20 {
             // Snapshots and clones are O(1) (dropped before the edits: an
             // edit of a shared tree copies it, as documented).
@@ -1055,19 +1051,19 @@ fn explicit_owner_count_does_not_slow_reads_writes_or_snapshots() {
             d.node_mut(m).unwrap().push_footer("f").unwrap();
             let _ = d.clear_comments(m).unwrap();
         }
-        start.elapsed()
+        work::taken()
     }
     let (mut s_small, attach_small) = build(100);
     let (mut s_large, attach_large) = build(8_000);
     let small = best(|| work(&mut s_small));
     let large = best(|| work(&mut s_large));
     assert!(
-        large < small * 4 + std::time::Duration::from_millis(30),
+        large < small * 4,
         "100 explicit: {small:?}, 8000: {large:?}"
     );
     // Linear, not quadratic, in the comments re-owned (80×).
     assert!(
-        attach_large < attach_small * 400 + std::time::Duration::from_millis(50),
+        attach_large < attach_small * 400,
         "attach 100: {attach_small:?}, 8000: {attach_large:?}"
     );
     // The explicit owners still read back.
@@ -1083,7 +1079,7 @@ fn push_footer_cost_follows_its_run() {
     // the comment-run index a block collection's push costs O(depth + log) with
     // the comment-run index (`tests/comment_scaling.rs` pins that); this bound
     // still holds.
-    fn time(k: usize) -> std::time::Duration {
+    fn time(k: usize) -> u64 {
         let mut src = String::from("l:\n  - a\n");
         for i in 0..k {
             src.push_str(&format!("  # f{i}\n"));
@@ -1091,20 +1087,17 @@ fn push_footer_cost_follows_its_run() {
         src.push_str("z: 1\n");
         let mut d = Document::parse(src).unwrap();
         let l = d.get("l").unwrap().id();
-        let start = std::time::Instant::now();
+        work::reset();
         for i in 0..10 {
             d.push_footer(l, &format!("p{i}")).unwrap();
         }
-        let t = start.elapsed();
+        let t = work::taken();
         assert_eq!(d.comments(l).unwrap().footer().len(), k + 10);
         t
     }
     let small = best(|| time(500));
     let large = best(|| time(4_000));
-    assert!(
-        large < small * 20 + std::time::Duration::from_millis(20),
-        "500: {small:?}, 4000: {large:?}"
-    );
+    assert!(large < small * 20, "500: {small:?}, 4000: {large:?}");
 }
 
 #[test]

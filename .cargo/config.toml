@@ -1,0 +1,4 @@
+[alias]
+# The fast test set: unit tests, doc tests and the quick integration tests of
+# every crate. Tests marked slow are skipped; see CONTRIBUTING.md.
+t1 = "test --workspace --profile t1 --no-fail-fast"

@@ -468,6 +468,7 @@ fn synthetic_merges_agree_with_the_value_read_and_the_planned_read() {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn corpus_agrees_with_the_value_read_and_the_planned_read() {
     big_stack(|| {
         for src in corpus() {

@@ -6,12 +6,13 @@
 //! same per comment for 1,000 and 16,000 of them (it used to walk the
 //! stretch for each: O(n²)).
 //!
-//! Method (as `document_scaling.rs`, robust against wall-clock noise):
-//! only ratios are asserted. Each script runs three times on freshly
-//! parsed documents (parsing is not timed) and the minimum is kept; the
-//! inputs differ 16× in size, so a cost linear in the run would make the
-//! large script about 16 times slower per call, while the bound allows
-//! 4× for cache effects. Reported with `--nocapture`.
+//! Method (as `document_scaling.rs`): the tests count the steps the syntax
+//! tree takes instead of measuring time, and only ratios are asserted. Each
+//! script runs three times on freshly parsed documents (parsing is not
+//! counted) and the fewest steps are kept; the inputs differ 16× in size,
+//! so a cost linear in the run would make the large script take about 16
+//! times more steps per call, while the bound allows 4×. Reported with
+//! `--nocapture`.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -20,9 +21,10 @@
 )]
 
 use std::fmt::Write as _;
-use std::time::{Duration, Instant};
 
 use oneyaml::{CommentOwner, Document, Stream};
+
+mod work;
 
 /// A nested mapping whose inner footer already has `n` comment lines,
 /// followed by a document footer.
@@ -35,21 +37,22 @@ fn footer_source(n: usize) -> String {
     s
 }
 
-/// The minimum over three runs of `script` on a fresh document.
-fn best(src: &str, script: &dyn Fn(&mut Document)) -> Duration {
-    let mut min = Duration::MAX;
+/// The fewest steps over three runs of `script` on a fresh document.
+fn best(src: &str, script: &dyn Fn(&mut Document)) -> u64 {
+    let mut min = u64::MAX;
     for _ in 0..3 {
         let mut doc = Document::parse(src).unwrap();
-        let start = Instant::now();
+        work::reset();
         script(&mut doc);
-        min = min.min(start.elapsed());
+        min = min.min(work::taken());
     }
     min
 }
 
-fn ratio(name: &str, a: Duration, b: Duration) {
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
-    eprintln!("{name}: {a:?} small, {b:?} large (ratio {r:.2})");
+/// `a` and `b` are steps per call on the small and the large input.
+fn ratio(name: &str, a: f64, b: f64) {
+    let r = b / a.max(1.0);
+    eprintln!("{name}: {a:.1} small, {b:.1} large (ratio {r:.2})");
     assert!(r < 4.0, "{name} grows with the comment run: ratio {r:.2}");
 }
 
@@ -66,8 +69,8 @@ fn push_footer_does_not_scale_with_the_footer() {
     let large = footer_source(8_000);
     ratio(
         "100 push_footer calls",
-        best(&small, &script),
-        best(&large, &script),
+        best(&small, &script) as f64,
+        best(&large, &script) as f64,
     );
     // The lines went where the footer ends, in order, and are its footer.
     let mut doc = Document::parse(footer_source(30)).unwrap();
@@ -101,14 +104,14 @@ fn stretch_source(n: usize) -> String {
 fn bulk_attach_comment_is_linear() {
     let run = |n: usize| {
         let src = stretch_source(n);
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
             let mut stream = Stream::parse(src.as_str()).unwrap();
             let doc = stream.document(0).unwrap();
             let ids = doc.comment_ids();
             assert_eq!(ids.len(), n);
             let root = doc.root().unwrap().id();
-            let start = Instant::now();
+            work::reset();
             let mut d = stream.document_mut(0).unwrap();
             for c in &ids {
                 d.attach_comment(*c, CommentOwner::Leading(root)).unwrap();
@@ -116,10 +119,10 @@ fn bulk_attach_comment_is_linear() {
             for c in &ids {
                 assert!(d.detach_comment(*c).unwrap().is_some());
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
         // Per comment.
-        min / u32::try_from(n).unwrap()
+        min as f64 / n as f64
     };
     ratio(
         "attach_comment + detach_comment per comment",
@@ -134,19 +137,19 @@ fn bulk_attach_comment_is_linear() {
             writeln!(src, "# header {i}").unwrap();
         }
         src.push_str("b: 2\n");
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
             let mut doc = Stream::parse(src.as_str()).unwrap().document(1).unwrap();
             let ids = doc.comment_ids();
             assert_eq!(ids.len(), n);
-            let start = Instant::now();
+            work::reset();
             for c in &ids {
                 doc.attach_comment(*c, CommentOwner::DocumentFooter)
                     .unwrap();
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
-        min / u32::try_from(n).unwrap()
+        min as f64 / n as f64
     };
     ratio("attach_comment per header comment", run(1_000), run(16_000));
 }

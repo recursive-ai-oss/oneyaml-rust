@@ -2,11 +2,12 @@
 //! `remove` next to a large subtree cost the same on a 100 KB and a 10 MB
 //! document — never O(document).
 //!
-//! Method (as `oneyaml-syntax/tests/edit_scaling.rs`, robust against
-//! wall-clock noise): the script runs several times on a parsed document
-//! (parsing is not timed) and the minimum is kept; the documents
-//! differ 100× in size, so an O(document) step would make the large run
-//! tens of times slower, while the bound allows 4× for cache effects.
+//! Method: the tests count the steps the syntax tree takes (see
+//! `tests/work/mod.rs`) instead of measuring time, so the verdict is the
+//! same on every machine and under any load. The script runs on a parsed
+//! document (parsing is not counted); the documents differ 100× in size,
+//! so an O(document) step would make the large run take tens of times
+//! more steps, while the bound allows 4×.
 //!
 //! Scope of the claim: an edit's cost is local to the collection it
 //! changes; finding a key or a position in a wide collection is O(log
@@ -22,9 +23,10 @@
 )]
 
 use std::fmt::Write as _;
-use std::time::{Duration, Instant};
 
 use oneyaml::{Document, EditError, Limits, Settings, path};
+
+mod work;
 
 fn source(items: usize) -> String {
     let mut s = String::from("big:\n");
@@ -48,21 +50,22 @@ fn script(doc: &mut Document) {
     }
 }
 
-fn best(src: &str, settings: &Settings) -> Duration {
-    let mut min = Duration::MAX;
-    // Parsed once (not timed); the script leaves the document as it
+fn best(src: &str, settings: &Settings) -> u64 {
+    let mut min = u64::MAX;
+    // Parsed once (not counted); the script leaves the document as it
     // found it, apart from the syntax layer's edit overlay.
     let mut doc = Document::parse_with(src, settings).unwrap();
     for _ in 0..3 {
-        let start = Instant::now();
+        work::reset();
         script(&mut doc);
-        min = min.min(start.elapsed());
+        min = min.min(work::taken());
         assert_eq!(doc.to_value().unwrap()["target"]["a"].as_u64(), Some(19));
     }
     min
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn edits_do_not_scale_with_the_document() {
     let settings = Settings::new().limits(Limits::unlimited());
     let small = source(2_500);
@@ -70,7 +73,7 @@ fn edits_do_not_scale_with_the_document() {
     assert!(small.len() > 100_000 && large.len() > 10_000_000);
     let a = best(&small, &settings);
     let b = best(&large, &settings);
-    let ratio = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let ratio = work::ratio("scaling", a, b);
     eprintln!(
         "edit script: {:?} on {} KB, {:?} on {} MB (ratio {ratio:.2})",
         a,
@@ -81,16 +84,16 @@ fn edits_do_not_scale_with_the_document() {
     assert!(ratio < 4.0, "edits scale with the document: {ratio:.2}");
 }
 
-/// The minimum over three runs of `script` on a document parsed from
-/// `src` (not timed); `script` leaves the document as it found it.
-fn best_of(src: &str, script: &dyn Fn(&mut Document)) -> Duration {
+/// The fewest steps over three runs of `script` on a document parsed from
+/// `src` (not counted); `script` leaves the document as it found it.
+fn best_of(src: &str, script: &dyn Fn(&mut Document)) -> u64 {
     let settings = Settings::new().limits(Limits::unlimited());
     let mut doc = Document::parse_with(src, &settings).unwrap();
-    let mut min = Duration::MAX;
+    let mut min = u64::MAX;
     for _ in 0..3 {
-        let start = Instant::now();
+        work::reset();
         script(&mut doc);
-        min = min.min(start.elapsed());
+        min = min.min(work::taken());
     }
     min
 }
@@ -99,7 +102,7 @@ fn ratio(name: &str, small: &str, large: &str, script: &dyn Fn(&mut Document)) {
     assert!(small.len() > 100_000 && large.len() > 10_000_000);
     let a = best_of(small, script);
     let b = best_of(large, script);
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("{name}: {a:?} vs {b:?} (ratio {r:.2})");
     assert!(r < 4.0, "{name} scales with the document: {r:.2}");
 }
@@ -108,6 +111,7 @@ fn ratio(name: &str, small: &str, large: &str, script: &dyn Fn(&mut Document)) {
 /// anchors and aliases (the anchor index is maintained, never rebuilt
 /// per edit; the alias checks are binary searches).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn alias_edits_do_not_scale_with_the_document() {
     let src = |items: usize| {
         let mut s = String::from("big:\n");
@@ -134,6 +138,7 @@ fn alias_edits_do_not_scale_with_the_document() {
 /// Replacing the last item of a long flat sequence
 /// finds its slot from its neighbours, not from the whole sequence.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn replacing_in_a_long_sequence_does_not_scale() {
     let src = |items: usize| {
         let mut s = String::from("flat:\n");
@@ -142,46 +147,46 @@ fn replacing_in_a_long_sequence_does_not_scale() {
         }
         s
     };
-    // The last item is found once per document, untimed.
+    // The last item is found once per document, uncounted.
     let timed = |src: &str| {
         let settings = Settings::new().limits(Limits::unlimited());
         let mut doc = Document::parse_with(src, &settings).unwrap();
         let flat = doc.get("flat").unwrap().as_sequence().unwrap();
         let mut id = flat.iter().last().unwrap().id();
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
-            let start = Instant::now();
+            work::reset();
             for i in 0..20 {
                 id = doc.node_mut(id).unwrap().set(7 + i).unwrap().id();
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
         min
     };
     let (small, large) = (src(12_000), src(1_200_000));
     assert!(small.len() > 100_000 && large.len() > 10_000_000);
     let (a, b) = (timed(&small), timed(&large));
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("set last: {a:?} vs {b:?} (ratio {r:.2})");
     assert!(r < 4.0, "set last scales with the document: {r:.2}");
 }
 
-/// The minimum over three runs of `script` on a document parsed from
-/// `src` (not timed; `prepare` runs untimed too, e.g. to build the anchor
+/// The fewest steps over three runs of `script` on a document parsed from
+/// `src` (not counted; `prepare` runs uncounted too, e.g. to build the anchor
 /// index); `script` leaves the document as it found it.
 fn best_prepared(
     src: &str,
     prepare: &dyn Fn(&mut Document),
     script: &dyn Fn(&mut Document),
-) -> Duration {
+) -> u64 {
     let settings = Settings::new().limits(Limits::unlimited());
     let mut doc = Document::parse_with(src, &settings).unwrap();
     prepare(&mut doc);
-    let mut min = Duration::MAX;
+    let mut min = u64::MAX;
     for _ in 0..3 {
-        let start = Instant::now();
+        work::reset();
         script(&mut doc);
-        min = min.min(start.elapsed());
+        min = min.min(work::taken());
     }
     min
 }
@@ -189,16 +194,16 @@ fn best_prepared(
 /// Cost against the number `k` of repeated names: 10× more must cost
 /// about 10× (linear), never 100× (one list operation per name;
 /// before the fix, 103× measured at 20k, 35× at 10k). The bound
-/// allows 2× noise.
+/// allows 2× slack.
 fn linear(name: &str, src: &dyn Fn(usize) -> String, script: &dyn Fn(&mut Document)) {
     let prepare = |d: &mut Document| {
-        // Builds the anchor index (once, O(n)), outside the timing.
+        // Builds the anchor index (once, O(n)), outside the count.
         let a = d.id_of(&path!["anchor"]).unwrap();
         let _ = d.aliases_of(a).unwrap();
     };
     let a = best_prepared(&src(1_000), &prepare, script);
     let b = best_prepared(&src(10_000), &prepare, script);
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("{name}: {a:?} for 1k vs {b:?} for 10k (ratio {r:.2}, linear is 10)");
     assert!(
         r < 20.0,
@@ -209,6 +214,7 @@ fn linear(name: &str, src: &dyn Fn(usize) -> String, script: &dyn Fn(&mut Docume
 /// Renaming an anchor with many aliases
 /// moves them in one splice per list.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn renaming_an_anchor_with_many_aliases_is_linear() {
     let src = |k: usize| {
         let mut s = String::from("anchor: &x 1\nlist:\n");
@@ -253,6 +259,7 @@ fn moving_a_subtree_of_same_name_anchors_is_linear() {
 /// The empty values of a flow set (`{a, b}`)
 /// are found from their neighbours, never by counting the mapping.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn removing_from_a_long_flow_set_does_not_scale() {
     let src = |items: usize| {
         // One entry per line (`-syntax` validation reads the edited lines).
@@ -263,7 +270,7 @@ fn removing_from_a_long_flow_set_does_not_scale() {
         s.push_str("  end}\n");
         s
     };
-    // The handles of the values near the end, taken untimed.
+    // The handles of the values near the end, taken uncounted.
     let timed = |src: &str| {
         let settings = Settings::new().limits(Limits::unlimited());
         let mut doc = Document::parse_with(src, &settings).unwrap();
@@ -271,13 +278,13 @@ fn removing_from_a_long_flow_set_does_not_scale() {
         let n = set.len();
         let ids: Vec<_> = set.iter().skip(n - 61).map(|(_, v)| v.id()).collect();
         let mut ids = ids.into_iter();
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
-            let start = Instant::now();
+            work::reset();
             for _ in 0..20 {
                 let _ = doc.remove_node(ids.next().unwrap()).unwrap();
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
         assert_eq!(doc.get("set").unwrap().as_mapping().unwrap().len(), n - 60);
         min
@@ -285,7 +292,7 @@ fn removing_from_a_long_flow_set_does_not_scale() {
     let (small, large) = (src(15_000), src(1_500_000));
     assert!(small.len() > 100_000 && large.len() > 10_000_000);
     let (a, b) = (timed(&small), timed(&large));
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("flow set removals: {a:?} vs {b:?} (ratio {r:.2})");
     assert!(r < 4.0, "removing from a flow set scales with it: {r:.2}");
 }
@@ -301,30 +308,26 @@ fn editing_every_document_of_a_stream_is_linear() {
     use oneyaml::Stream;
     let per_doc = |k: usize| {
         let src = "---\na: 1\nb: 2\n".repeat(k);
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for round in 0..3u64 {
             let mut s = Stream::parse(src.as_str()).unwrap();
-            let start = Instant::now();
+            work::reset();
             for i in 0..k {
                 let mut d = s.document_mut(i).unwrap();
                 d.set_path(&path!["b"], round + 3).unwrap();
                 assert!(!d.has_errors());
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
             assert_eq!(
                 s.document(k - 1).unwrap().to_value().unwrap()["b"].as_u64(),
                 Some(round + 3)
             );
         }
-        min.as_secs_f64() / k as f64
+        min as f64 / k as f64
     };
     let (a, b) = (per_doc(200), per_doc(2_000));
     let r = b / a.max(1e-12);
-    eprintln!(
-        "every document: {:.3} ms/doc at 200, {:.3} ms/doc at 2000 (ratio {r:.2})",
-        a * 1e3,
-        b * 1e3
-    );
+    eprintln!("every document: {a:.1} steps/doc at 200, {b:.1} steps/doc at 2000 (ratio {r:.2})");
     assert!(r < 3.0, "editing a document scales with the stream: {r:.2}");
 }
 
@@ -341,18 +344,18 @@ fn an_edit_does_not_scale_with_the_number_of_documents() {
         let mut d = s.document_mut(k / 2).unwrap();
         // The first edit finds the document's guard (O(document)).
         d.set_path(&path!["b"], 0).unwrap();
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
-            let start = Instant::now();
+            work::reset();
             for i in 0..50u64 {
                 d.set_path(&path!["b"], i).unwrap();
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
         min
     };
     let (a, b) = (timed(1_000), timed(100_000));
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("edits in a stream: {a:?} at 1k documents vs {b:?} at 100k (ratio {r:.2})");
     assert!(
         r < 4.0,
@@ -368,6 +371,7 @@ fn an_edit_does_not_scale_with_the_number_of_documents() {
 /// warning (so the stream's diagnostics grow with it), and so does a
 /// middle document's.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn the_last_documents_diagnostics_do_not_scale_with_the_stream() {
     use oneyaml::Stream;
     let lenient = Settings::new().lenient_inline_colons(true);
@@ -380,13 +384,13 @@ fn the_last_documents_diagnostics_do_not_scale_with_the_stream() {
         s.document_mut(0).unwrap().set_path(&path!["a"], 2).unwrap();
         let d = s.document(which(k)).unwrap();
         assert_eq!(d.diagnostics().len(), 1);
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
-            let start = Instant::now();
+            work::reset();
             for _ in 0..50 {
                 assert_eq!(d.diagnostics().len(), 1);
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
         min
     };
@@ -395,7 +399,7 @@ fn the_last_documents_diagnostics_do_not_scale_with_the_stream() {
         ("middle", |k| k / 2),
     ] {
         let (a, b) = (timed(1_000, which), timed(100_000, which));
-        let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+        let r = work::ratio("scaling", a, b);
         eprintln!(
             "{name} document's diagnostics: {a:?} at 1k documents vs {b:?} at 100k (ratio {r:.2})"
         );
@@ -412,6 +416,7 @@ fn the_last_documents_diagnostics_do_not_scale_with_the_stream() {
 /// `-syntax` window and `NodeMut::push` counting the
 /// sequence's items, both fixed).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn appending_after_a_block_scalar_does_not_scale() {
     let src = |items: usize| {
         let mut s = String::from("s:\n");
@@ -467,7 +472,7 @@ fn many_aliases_of_one_name_cost_log_time() {
     };
     let a = best_prepared(&src(1_000), &prepare, &script);
     let b = best_prepared(&src(400_000), &prepare, &script);
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("one name 1k vs 400k times: {a:?} vs {b:?} (ratio {r:.2})");
     assert!(r < 3.0, "one name's lists cost more than log k: {r:.2}");
 }
@@ -479,6 +484,7 @@ fn many_aliases_of_one_name_cost_log_time() {
 /// the whole document was re-read, so draining a commented mapping from the
 /// front was quadratic).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn first_entries_with_leading_comments_do_not_scale() {
     let root = |items: usize| {
         let mut s = String::from("# lead 0\nk0: 0\n# lead 1\nk1: 1\n");
@@ -501,9 +507,9 @@ fn first_entries_with_leading_comments_do_not_scale() {
     let timed = |src: &str, at: &[&str]| {
         let mut d =
             Document::parse_with(src, &Settings::new().limits(Limits::unlimited())).unwrap();
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
-            let mut total = Duration::ZERO;
+            let mut total = 0u64;
             for _ in 0..10 {
                 let (coll, first) = {
                     let mut n = d.root().unwrap();
@@ -513,9 +519,9 @@ fn first_entries_with_leading_comments_do_not_scale() {
                     let m = n.as_mapping().unwrap();
                     (n.id(), m.iter().next().unwrap().1.id())
                 };
-                let start = Instant::now();
+                work::reset();
                 let r = d.remove_node(first).unwrap();
-                total += start.elapsed();
+                total += work::taken();
                 d.node_mut(coll).unwrap().insert_removed_at(0, r).unwrap();
             }
             min = min.min(total);
@@ -528,7 +534,7 @@ fn first_entries_with_leading_comments_do_not_scale() {
     ] {
         assert!(small.len() > 100_000 && large.len() > 10_000_000);
         let (a, b) = (timed(&small, at), timed(&large, at));
-        let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+        let r = work::ratio("scaling", a, b);
         eprintln!(
             "{name} first-entry removals with leading comments: {a:?} vs {b:?} (ratio {r:.2})"
         );
@@ -543,6 +549,7 @@ fn first_entries_with_leading_comments_do_not_scale() {
 /// is linear in that entry (its comments are matched with a set, not a
 /// list scan: before, 128k commented lines took 2.65 s).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn removing_an_only_entry_is_linear_in_it() {
     let src = |items: usize| {
         let mut s = String::from("k:\n  a:\n");
@@ -553,19 +560,19 @@ fn removing_an_only_entry_is_linear_in_it() {
         s
     };
     let timed = |src: &str| {
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
             let mut d = Document::parse(src).unwrap();
             let id = d.id_of(&path!["k", "a"]).unwrap();
-            let start = Instant::now();
+            work::reset();
             let r = d.remove_node(id).unwrap();
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
             assert_eq!(r.comments().len(), src.matches("# c").count());
         }
         min
     };
     let (a, b) = (timed(&src(10_000)), timed(&src(100_000)));
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("only-entry removal: {a:?} vs {b:?} for 10x the entry (ratio {r:.2})");
     assert!(
         r < 30.0,
@@ -582,6 +589,7 @@ fn removing_an_only_entry_is_linear_in_it() {
 /// goes in (removed after it, it followed the new plain scalar, which the
 /// syntax layer re-read with the whole last entry: 873 ms at 250k items).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn appending_after_a_huge_last_entry_does_not_scale() {
     let src = |n: usize| {
         let mut s = String::from("a: 1\nbig:\n");
@@ -727,7 +735,7 @@ fn edits_far_from_a_large_kept_scalar_do_not_scale() {
     let (small, large) = (src(1_000), src(1_000_000));
     let a = best_of(&small, &script);
     let b = best_of(&large, &script);
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("edits far from a kept scalar (1 KB vs 1 MB): {a:?} vs {b:?} (ratio {r:.2})");
     let doc = Document::parse(large.as_str()).unwrap();
     assert!(
@@ -744,15 +752,15 @@ fn edits_far_from_a_large_kept_scalar_do_not_scale() {
 /// Key- and index-addressed
 /// operations on a **wide** collection cost O(log width), never
 /// O(width): the per-call time of `script` on a root collection of 10k
-/// and of 100k entries. `script` runs once untimed first (its first
+/// and of 100k entries. `script` runs once uncounted first (its first
 /// lookup builds the collection's lookup index, O(width) once), then the
 /// minimum of three timed runs is kept; 10× the entries must cost far
-/// less than 10× (linear), the bound allows 3× for cache effects.
+/// less than 10× (linear), the bound allows 3×.
 fn wide(name: &str, src: fn(usize) -> String, script: &dyn Fn(&mut Document, usize) -> usize) {
     wide_prepared(name, src, &|_, _| {}, script);
 }
 
-/// [`wide`] with `prepare` run once, untimed, before the first call.
+/// [`wide`] with `prepare` run once, uncounted, before the first call.
 fn wide_prepared(
     name: &str,
     src: fn(usize) -> String,
@@ -778,16 +786,16 @@ fn wide_doc(
         let mut doc = make(n);
         prepare(&mut doc, n);
         let calls = script(&mut doc, n).max(1);
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..3 {
-            let start = Instant::now();
+            work::reset();
             script(&mut doc, n);
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
-        min / u32::try_from(calls).unwrap()
+        min / u64::try_from(calls).unwrap()
     };
     let (a, b) = (per_call(10_000), per_call(100_000));
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio(name, a, b);
     eprintln!("wide {name}: {a:?}/call at 10k entries, {b:?}/call at 100k (ratio {r:.2})");
     assert!(r < 3.0, "wide {name} scales with the width: {r:.2}");
 }
@@ -1000,6 +1008,7 @@ fn json_array(n: usize) -> String {
 /// collection never walk the line back to its start (no column is needed
 /// for a single-line flow entry).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn minified_json_object_edits() {
     wide("json remove + reinsert last key", json_object, &|doc, n| {
         let key = format!("k{}", n - 1);
@@ -1365,19 +1374,19 @@ fn refusals_in_recovered_input() {
     );
 }
 
-/// The minimum over five fresh documents parsed from `src` (not timed)
+/// The fewest steps over five fresh documents parsed from `src` (not counted)
 /// of the time `script` takes on one (for edits that are not undone),
 /// after `warm` (not timed: a document's first edit sets up its edit
 /// overlay, and touches memory the parse left cold).
-fn best_fresh(src: &str, warm: &dyn Fn(&mut Document), script: &dyn Fn(&mut Document)) -> Duration {
+fn best_fresh(src: &str, warm: &dyn Fn(&mut Document), script: &dyn Fn(&mut Document)) -> u64 {
     let settings = Settings::new().limits(Limits::unlimited());
-    let mut min = Duration::MAX;
+    let mut min = u64::MAX;
     for _ in 0..5 {
         let mut doc = Document::parse_with(src, &settings).unwrap();
         warm(&mut doc);
-        let start = Instant::now();
+        work::reset();
         script(&mut doc);
-        min = min.min(start.elapsed());
+        min = min.min(work::taken());
     }
     min
 }
@@ -1389,6 +1398,7 @@ fn best_fresh(src: &str, warm: &dyn Fn(&mut Document), script: &dyn Fn(&mut Docu
 /// 6 ms vs 104 ms per round): its column is unchanged, so its value is
 /// peeked.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn moving_a_first_entry_past_a_large_one_does_not_scale() {
     for head in ["# header\n\n", ""] {
         let src = |n: usize| {
@@ -1423,6 +1433,7 @@ fn moving_a_first_entry_past_a_large_one_does_not_scale() {
 /// is a token edit above its first entry: before, the whole root was
 /// rewritten (47 ms at 10k entries, linear). The node keeps its handle.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn a_root_anchor_does_not_scale() {
     type Src = fn(usize) -> String;
     let shapes: [(&str, Src); 4] = [
@@ -1465,6 +1476,7 @@ fn a_root_anchor_does_not_scale() {
 /// was re-read whole (to remove its comment, then to check the new
 /// item): 1.7 ms vs 136 ms at 10k vs 100k flow items, before.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn pushing_after_a_commented_last_item_does_not_scale() {
     // Many small items.
     let src = |n: usize| {
@@ -1516,14 +1528,11 @@ fn pushing_after_a_commented_last_item_does_not_scale() {
         };
         let a = best_fresh(&small, &warm, &push);
         let b = best_fresh(&large, &warm, &push);
-        let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+        let r = work::ratio("scaling", a, b);
         eprintln!("push after a long {name}: {a:?} vs {b:?} (ratio {r:.2})");
-        // The bound allows 10x, not 4x: on a fresh 16 MB document the
-        // push meets memory the parse left cold (measured 2-4x in wall
-        // time with the same instruction count, 163k vs 165k Ir at 20k vs
-        // 2M words); the re-read item cost 100x before. The syntax layer's
+        // The re-read item cost 100x more steps before; the syntax layer's
         // tests pin the bytes re-read (`long_scalar_*` in `tree/tests.rs`).
-        assert!(r < 10.0, "push after a long {name} scales: {r:.2}");
+        assert!(r < 4.0, "push after a long {name} scales: {r:.2}");
         let mut d = Document::parse(small.as_str()).unwrap();
         push(&mut d);
         assert_eq!(d.to_string(), format!("{small}- 1\n"));
@@ -1535,6 +1544,7 @@ fn pushing_after_a_commented_last_item_does_not_scale() {
 /// per edit at 4M items, 0.26 s at 1M (linear in the line). The peek now
 /// reads a bounded prefix of the line.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn editing_next_to_a_long_flow_line_does_not_scale() {
     let src = |n: usize| {
         let items: Vec<String> = (0..n).map(|i| (i % 10).to_string()).collect();
@@ -1580,7 +1590,7 @@ fn moving_an_anchor_with_many_aliases_costs_a_copy() {
     };
     let a = best_prepared(&src(1_000), &prepare, &script);
     let b = best_prepared(&src(200_000), &prepare, &script);
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("scaling", a, b);
     eprintln!("move with 1k vs 200k aliases: {a:?} vs {b:?} (ratio {r:.2})");
     assert!(r < 20.0, "a move's alias checks are not O(log k): {r:.2}");
 }
@@ -1591,19 +1601,20 @@ fn moving_an_anchor_with_many_aliases_costs_a_copy() {
 /// against ~0.6 M for every later edit). Each run parses afresh (not
 /// timed) and times one edit, the first.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn first_stream_edit_does_not_scale_with_the_document() {
     use oneyaml::Stream;
     let settings = Settings::new().limits(Limits::unlimited());
     let first = |src: &str| {
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for _ in 0..2 {
             let mut s = Stream::parse_with(src, &settings).unwrap();
-            let start = Instant::now();
+            work::reset();
             s.document_mut(0)
                 .unwrap()
                 .set_path(&path!["target", "a"], 7)
                 .unwrap();
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
             assert_eq!(
                 s.document(0).unwrap().to_value().unwrap()["target"]["a"].as_u64(),
                 Some(7)
@@ -1614,7 +1625,7 @@ fn first_stream_edit_does_not_scale_with_the_document() {
     let small = source(2_500);
     let large = source(250_000);
     let (a, b) = (first(&small), first(&large));
-    let ratio = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let ratio = work::ratio("scaling", a, b);
     eprintln!("first stream edit: {a:?} on 100 KB, {b:?} on 10 MB (ratio {ratio:.2})");
     assert!(
         ratio < 4.0,

@@ -1002,6 +1002,7 @@ pub(crate) fn run(
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn stream_edit_scripts() {
     let rounds = env("ONEYAML_STREAM_FUZZ_ROUNDS", 400);
     let steps = env("ONEYAML_STREAM_FUZZ_STEPS", 12);

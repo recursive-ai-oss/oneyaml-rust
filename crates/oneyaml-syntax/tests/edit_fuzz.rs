@@ -61,6 +61,8 @@
 
 mod edit_support;
 
+mod work;
+
 use std::path::{Path, PathBuf};
 
 use edit_support::{invariants, reparses};
@@ -1145,6 +1147,7 @@ fn per_section(rate: usize, len: usize) -> usize {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn edit_scripts_match_the_splice_model() {
     let inputs = suite_inputs();
     let with_errors: Vec<&String> = inputs
@@ -1503,13 +1506,12 @@ fn eol_script(tree: &mut SyntaxTree, seed: u64, eol: &'static str) -> Vec<Outcom
 ///
 /// The document is a large first document (generated mappings, ~40 KB)
 /// and a second one ending with a block scalar, so a slow path costs
-/// O(document) against a fast path's O(line). Timing as in
-/// `edit_retention.rs`: the minimum of several runs, the line breaks
-/// alternating.
+/// O(document) against a fast path's O(line). The cost is counted in
+/// tree steps, the fewest of several runs, the line breaks alternating.
 #[test]
 fn the_same_script_costs_the_same_on_every_line_break() {
     let rounds = env("ONEYAML_EDIT_FUZZ_EOL_ROUNDS", 12);
-    let mut times = [std::time::Duration::ZERO; 3];
+    let mut times = [0u64; 3];
     let mut accepted = 0usize;
     for round in 0..rounds {
         let mut rng = Rng::new(0xe01 ^ round as u64);
@@ -1531,13 +1533,13 @@ fn the_same_script_costs_the_same_on_every_line_break() {
             .iter()
             .map(|e| SyntaxTree::parse(with_eol(&src, e)))
             .collect();
-        let mut best = [std::time::Duration::MAX; 3];
+        let mut best = [u64::MAX; 3];
         for rep in 0..3 {
             for (k, &eol) in eols.iter().enumerate() {
                 let mut t = trees[k].clone();
-                let start = std::time::Instant::now();
+                work::reset();
                 let got = eol_script(&mut t, round as u64, eol);
-                best[k] = best[k].min(start.elapsed());
+                best[k] = best[k].min(work::taken());
                 if rep == 0 {
                     reparses(&t, &Settings::new());
                     match &outcomes {
@@ -1554,9 +1556,9 @@ fn the_same_script_costs_the_same_on_every_line_break() {
             *t += b;
         }
     }
-    let ratio = |k: usize| times[k].as_secs_f64() / times[0].as_secs_f64().max(1e-9);
+    let ratio = |k: usize| work::ratio("line breaks", times[0], times[k]);
     eprintln!(
-        "the same scripts ({rounds} rounds, {accepted} edits accepted): LF {:?}, CRLF {:?} \
+        "the same scripts ({rounds} rounds, {accepted} edits accepted): LF {:?} steps, CRLF {:?} \
          ({:.2}×), CR {:?} ({:.2}×)",
         times[0],
         times[1],
@@ -1629,6 +1631,7 @@ fn white_space_variants(ws: &str) -> Vec<String> {
 /// of this sweep that put a tab there were accepted and read back
 /// differently (the oracle of its own tests dropped white space).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn indentation_and_line_trivia_edits_read_back() {
     let mut inputs = suite_inputs();
     inputs.extend(fuzz_edit_inputs());

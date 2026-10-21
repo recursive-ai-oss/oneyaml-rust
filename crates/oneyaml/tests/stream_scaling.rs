@@ -13,7 +13,7 @@
     clippy::arithmetic_side_effects
 )]
 
-use std::time::{Duration, Instant};
+mod work;
 
 use oneyaml::{Settings, Stream};
 
@@ -28,12 +28,12 @@ fn read_all(stream: &Stream) -> usize {
     work
 }
 
-fn best_of_three(stream: &Stream) -> Duration {
+fn best_of_three(stream: &Stream) -> u64 {
     (0..3)
         .map(|_| {
-            let t = Instant::now();
+            work::reset();
             std::hint::black_box(read_all(stream));
-            t.elapsed()
+            work::taken()
         })
         .min()
         .unwrap()
@@ -52,8 +52,8 @@ fn assert_linear(name: &str, make: impl Fn(usize) -> Stream, per_doc_errors: boo
         assert!(s.documents().all(|d| d.diagnostics().len() <= 2), "{name}");
     }
     let (t_small, t_large) = (best_of_three(&small), best_of_three(&large));
-    let ratio = t_large.as_secs_f64() / t_small.as_secs_f64().max(1e-9);
-    eprintln!("{name}: 8k {t_small:?}, 32k {t_large:?}, ratio {ratio:.1}");
+    let ratio = work::ratio(name, t_small, t_large);
+    eprintln!("{name}: 8k {t_small:?} steps, 32k {t_large:?}, ratio {ratio:.1}");
     assert!(
         ratio < 9.0,
         "{name}: reading every document is not linear: 8k {t_small:?}, 32k {t_large:?}"
@@ -126,21 +126,23 @@ fn assert_flat_over_cap(name: &str, settings: &oneyaml::Settings, doc: impl Fn(u
         let k = key(s.len());
         (0..3)
             .map(|_| {
-                let t = Instant::now();
+                work::reset();
                 for step in 0..100 {
                     s.document_mut(last).unwrap().set_path(&k, step).unwrap();
                     std::hint::black_box(s.diagnostics());
                     std::hint::black_box(s.document(last).unwrap().diagnostics());
                 }
-                t.elapsed()
+                work::taken()
             })
             .min()
             .unwrap()
     };
     let (mut small, mut large) = (make(2_000), make(16_000));
     let (t_small, t_large) = (run(&mut small), run(&mut large));
-    let ratio = t_large.as_secs_f64() / t_small.as_secs_f64().max(1e-9);
-    eprintln!("{name}: over-cap edits+reads: 2k {t_small:?}, 16k {t_large:?}, ratio {ratio:.1}");
+    let ratio = work::ratio(name, t_small, t_large);
+    eprintln!(
+        "{name}: over-cap edits+reads: 2k {t_small:?} steps, 16k {t_large:?}, ratio {ratio:.1}"
+    );
     assert!(
         ratio < 3.0,
         "{name}: over-cap reads after edits grow with the stream: 2k {t_small:?}, 16k {t_large:?}"

@@ -9,6 +9,8 @@
     clippy::panic
 )]
 
+mod work;
+
 use std::path::{Path as FsPath, PathBuf};
 
 use oneyaml::{
@@ -369,7 +371,6 @@ fn links_are_written_as_values() {
 /// same whatever the expansion (100× more here).
 #[test]
 fn equality_check_does_not_expand_aliases() {
-    use std::time::{Duration, Instant};
     let laughs = |depth: usize| {
         let mut src = String::from("l0: &l0 [x, x, x, x, x, x, x, x, x, x]\n");
         for i in 1..=depth {
@@ -385,20 +386,20 @@ fn equality_check_does_not_expand_aliases() {
     let per = |depth: usize| {
         let d0 = laughs(depth);
         let same_len: Vec<u8> = (1..=9).collect();
-        let mut best = Duration::MAX;
+        let mut best = u64::MAX;
         for _ in 0..3 {
             let mut d = d0.clone();
-            let t = Instant::now();
+            work::reset();
             d.set_path(&path!["f"], &same_len).unwrap();
-            best = best.min(t.elapsed());
+            best = best.min(work::taken());
             let f = d.get("f").unwrap().deserialize::<Value>().unwrap();
             assert_eq!(f, oneyaml::to_value(&same_len).unwrap());
         }
         best
     };
     let (a, b) = (per(2), per(4));
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
-    eprintln!("set f: {a:?} at 10^3 expanded nodes, {b:?} at 10^5 (ratio {r:.2})");
+    let r = work::ratio("set f", a, b);
+    eprintln!("set f: {a:?} steps at 10^3 expanded nodes, {b:?} at 10^5 (ratio {r:.2})");
     assert!(r < 3.0, "the check scales with the expansion: {r:.2}");
 }
 

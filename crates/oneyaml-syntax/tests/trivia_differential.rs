@@ -216,12 +216,12 @@ fn run(
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn accepted_trivia_edits_read_back_as_the_tree() {
     let full = std::env::var("ONEYAML_TRIVIA_DIFF_FULL").is_ok();
     let n_max = env("ONEYAML_TRIVIA_DIFF_N", 3);
     let settings = Settings::new();
     let mut tally = Tally::default();
-    let start = std::time::Instant::now();
     // Adversarial shapes: every token, always.
     for src in adversarial() {
         for nl in ["\n", "\r\n", "\r"] {
@@ -252,11 +252,10 @@ fn accepted_trivia_edits_read_back_as_the_tree() {
         }
     }
     eprintln!(
-        "trivia differential: {} edits, {} accepted, {} failures, {:?}",
+        "trivia differential: {} edits, {} accepted, {} failures",
         tally.edits,
         tally.accepted,
-        tally.failures.len(),
-        start.elapsed()
+        tally.failures.len()
     );
     let shown: Vec<&String> = tally.failures.iter().filter(|f| !f.is_empty()).collect();
     assert!(

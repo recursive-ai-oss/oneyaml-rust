@@ -241,6 +241,7 @@ impl<'t> Node<'t> {
     /// The enclosing node; `None` for the root.
     #[must_use]
     pub fn parent(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.parent_edited();
         }
@@ -250,6 +251,7 @@ impl<'t> Node<'t> {
     /// The first child; `None` for a token or an empty node.
     #[must_use]
     pub fn first_child(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.first_child_edited();
         }
@@ -260,6 +262,7 @@ impl<'t> Node<'t> {
     /// The last child. O(depth).
     #[must_use]
     pub fn last_child(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.last_child_edited();
         }
@@ -281,6 +284,7 @@ impl<'t> Node<'t> {
     /// The next sibling.
     #[must_use]
     pub fn next_sibling(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.next_sibling_edited();
         }
@@ -292,6 +296,7 @@ impl<'t> Node<'t> {
     /// The previous sibling. O(depth).
     #[must_use]
     pub fn prev_sibling(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.prev_sibling_edited();
         }
@@ -313,6 +318,7 @@ impl<'t> Node<'t> {
     /// The previous element in preorder (a token, or an enclosing or empty
     /// node). O(1); O(log R) in an edited tree.
     pub(super) fn pred(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.pred_edited();
         }
@@ -321,6 +327,7 @@ impl<'t> Node<'t> {
 
     /// The next element in preorder. O(1); O(log R) in an edited tree.
     pub(super) fn succ(self) -> Option<Self> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited() {
             return self.succ_edited();
         }
@@ -672,6 +679,7 @@ impl<'t> Iterator for Children<'t> {
 
     #[inline]
     fn next(&mut self) -> Option<Node<'t>> {
+        super::cost::count(super::cost::Step::Nav);
         let i = self.next?;
         if self.edited {
             return self.next_edited(i);
@@ -778,6 +786,7 @@ impl<'t> Iterator for Descendants<'t> {
 
     #[inline]
     fn next(&mut self) -> Option<Node<'t>> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited {
             // Inside a run, the same increment as unedited.
             let i = self.next;
@@ -897,6 +906,7 @@ impl<'t> Iterator for Walk<'t> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        super::cost::count(super::cost::Step::Nav);
         if self.edited {
             return self.next_edited();
         }

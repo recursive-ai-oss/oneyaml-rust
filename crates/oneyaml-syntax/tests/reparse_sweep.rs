@@ -475,6 +475,7 @@ fn report(what: &str, t: &Tally) {
 /// The inputs found while hardening the edit layer and the synthetic
 /// shapes, every element.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn reported_inputs_and_shapes_agree_with_their_reparse() {
     let mut inputs = synthetic();
     for rel in [
@@ -525,6 +526,7 @@ fn reported_inputs_and_shapes_agree_with_their_reparse() {
 
 /// The yaml-test-suite: 30 sampled elements of every input.
 #[test]
+#[ignore = "slow: runs in CI"]
 fn suite_edits_agree_with_their_reparse() {
     let inputs = files(
         &crates().join("test-suite/data/yaml-test-suite"),
@@ -545,6 +547,7 @@ fn suite_edits_agree_with_their_reparse() {
 /// of each (the release-mode sweep of the unit's report covered every
 /// element).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn corpus_edits_agree_with_their_reparse() {
     let mut inputs = files(&crates().join("fuzz/corpus"), None);
     assert!(inputs.len() > 1000, "fuzz corpora missing");
@@ -579,6 +582,7 @@ fn corpus_edits_agree_with_their_reparse() {
 /// them (92 to 260 correct edits per input at depth 70; 1036 in this
 /// sweep).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn deep_empty_keys_agree_and_keep_edits_after_them() {
     let mut inputs = Vec::new();
     for d in [31usize, 40, 70] {

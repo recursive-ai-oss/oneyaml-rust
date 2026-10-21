@@ -11,7 +11,7 @@
     clippy::cast_precision_loss
 )]
 
-use std::time::{Duration, Instant};
+mod work;
 
 use oneyaml::{Document, Limits, Settings, Severity, Stream, Value, code, path};
 
@@ -36,7 +36,7 @@ fn reading_documents_past_the_cap_is_linear() {
         let capped = Limits::untrusted().max_documents(usize::MAX);
         let p = Stream::parse_recovering_with(src.as_str(), &with(capped));
         let docs: Vec<Document> = p.value().documents().collect();
-        let start = Instant::now();
+        work::reset();
         let reads: Vec<_> = docs.iter().map(|d| read(d.to_value())).collect();
         let regions: usize = docs
             .iter()
@@ -46,13 +46,13 @@ fn reading_documents_past_the_cap_is_linear() {
                     .collect::<Vec<_>>()
             })
             .count();
-        let t = start.elapsed();
+        let t = work::taken();
         assert!(regions >= n);
         (t, reads)
     };
     let (a, _) = timed(2_000);
     let (b, reads) = timed(16_000);
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9) / 8.0;
+    let r = work::ratio("past the cap", a, b) / 8.0;
     eprintln!("reads past the cap: {a:?} at 2k, {b:?} at 16k (per-document ratio {r:.2})");
     assert!(
         r < 3.0,
@@ -134,27 +134,27 @@ fn edits_next_to_suppressed_warnings_do_not_depend_on_the_cap() {
 /// whose trees exceed `max_diagnostics` elements.
 #[test]
 fn a_documents_diagnostics_after_an_edit_stay_local() {
-    let timed = |k: usize| -> (Duration, usize) {
+    let timed = |k: usize| -> (u64, usize) {
         let src = "---\na: 1\nb: 2\n".repeat(k);
         let mut s = Stream::parse(src).unwrap();
         let elements = s.syntax().len();
-        let mut min = Duration::MAX;
+        let mut min = u64::MAX;
         for round in 0..3u64 {
-            let start = Instant::now();
+            work::reset();
             for i in (0..k).step_by(k / 200) {
                 let mut d = s.document_mut(i).unwrap();
                 d.set_path(&path!["b"], round + 3).unwrap();
                 assert!(!d.has_errors());
                 assert!(d.diagnostics().is_empty());
             }
-            min = min.min(start.elapsed());
+            min = min.min(work::taken());
         }
         (min, elements)
     };
     let (a, _) = timed(4_000);
     let (b, elements) = timed(40_000);
     assert!(elements > 200_000, "{elements} elements");
-    let r = b.as_secs_f64() / a.as_secs_f64().max(1e-9);
+    let r = work::ratio("diagnostics after an edit", a, b);
     eprintln!(
         "200 edits + reads: {a:?} at 4k documents, {b:?} at 40k ({elements} elements, ratio {r:.2})"
     );

@@ -147,7 +147,9 @@ jobs:
       - name: Build tests
         run: cargo test --locked --workspace --exclude oneyaml --exclude oneyaml-syntax --exclude oneyaml-core --no-run
       - name: cargo test (bench, fuzz, oracles, test-suite)
-        run: cargo test --locked --workspace --exclude oneyaml --exclude oneyaml-syntax --exclude oneyaml-core --no-fail-fast
+        # The full set: the slow tests (marked `#[ignore = "slow: runs in
+        # CI"]`, skipped by `cargo t1`) run here too.
+        run: cargo test --locked --workspace --exclude oneyaml --exclude oneyaml-syntax --exclude oneyaml-core --no-fail-fast -- --include-ignored
 
   test-unoptimized:
     name: test (${{ matrix.toolchain }}, unoptimized, ${{ matrix.shard.name }})
@@ -186,7 +188,9 @@ jobs:
       - name: Build tests
         run: cargo test --locked ${{ matrix.shard.packages }} --no-run
       - name: cargo test
-        run: cargo test --locked ${{ matrix.shard.packages }} --no-fail-fast
+        # The full set: the slow tests (marked `#[ignore = "slow: runs in
+        # CI"]`, skipped by `cargo t1`) run here too.
+        run: cargo test --locked ${{ matrix.shard.packages }} --no-fail-fast -- --include-ignored
       # The code and tests behind oneyaml's optional features.
       # They run even when the step above failed, so one run shows every
       # failure.

@@ -4095,6 +4095,7 @@ mod tests {
     /// (the estimate counts the dropped-warning set and the heap
     /// inside diagnostics too.)
     #[test]
+    #[ignore = "slow: runs in CI"]
     fn toggles_retain_what_the_tree_holds_not_the_history() {
         let big: String = (0..300).map(|i| format!("key{i}: v\n")).collect();
         for src in ["a: [q, y]\nb: 1\n".to_owned(), format!("a: q\n{big}")] {

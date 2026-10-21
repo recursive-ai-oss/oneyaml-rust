@@ -21,3 +21,13 @@ workspace = true
 
 [dependencies]
 oneyaml-core = { path = "../oneyaml-core", version = "1.1.0" }
+
+[features]
+# Test-only work counters (`tree::take_work`) for this crate's tests and the
+# tests of `oneyaml`. Unstable: not covered by semver, may change or go in
+# any release; never enable it in a library.
+__internal-checks = []
+
+[dev-dependencies]
+# The integration tests use the test-only counters.
+oneyaml-syntax = { path = ".", features = ["__internal-checks"] }

@@ -315,6 +315,17 @@ mod attach;
 mod build;
 mod check;
 mod cost;
+
+/// Work counters for tests (behind the unstable `__internal-checks`
+/// feature, outside the stability promise): the number of overlay
+/// lookups, treap edges and compaction visits the tree has taken on this
+/// thread since the last call. Tests use it to state that an edit costs
+/// the same on a small and on a huge document, without measuring time.
+#[cfg(feature = "__internal-checks")]
+#[doc(hidden)]
+pub fn take_work() -> u64 {
+    cost::take_total()
+}
 mod edit;
 mod facts;
 mod fragment;

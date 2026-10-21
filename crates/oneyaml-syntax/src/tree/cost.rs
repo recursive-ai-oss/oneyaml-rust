@@ -29,20 +29,26 @@ pub(super) enum Step {
     /// One entry visited by a compaction of the arena slab (a treap item
     /// renumbered, a slab entry moved).
     Visit,
+    /// One navigation call of a [`Node`](super::Node) (parent, child,
+    /// sibling, or one step of a children, descendants or walk iterator),
+    /// counted for the tests' totals only.
+    Nav,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "__internal-checks"))]
 thread_local! {
     static COUNTS: core::cell::Cell<(u64, u64)> = const { core::cell::Cell::new((0, 0)) };
     static VISITS: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
+    static NAVS: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
 }
 
 /// Counts one step (tests only; nothing in library builds).
 #[inline(always)]
 pub(super) fn count(step: Step) {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "__internal-checks"))]
     match step {
         Step::Visit => VISITS.with(|v| v.set(v.get().saturating_add(1))),
+        Step::Nav => NAVS.with(|v| v.set(v.get().saturating_add(1))),
         _ => COUNTS.with(|c| {
             let (l, e) = c.get();
             c.set(match step {
@@ -51,7 +57,7 @@ pub(super) fn count(step: Step) {
             });
         }),
     }
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "__internal-checks")))]
     let _ = step;
 }
 
@@ -67,4 +73,17 @@ pub(super) fn take() -> (u64, u64) {
 #[cfg(test)]
 pub(super) fn take_visits() -> u64 {
     VISITS.with(|v| v.replace(0))
+}
+
+/// Every step counted on this thread since the last call (lookups, edges,
+/// compaction visits and navigation calls together), and resets them.
+#[cfg(feature = "__internal-checks")]
+pub(super) fn take_total() -> u64 {
+    let (lookups, edges) = COUNTS.with(|c| c.replace((0, 0)));
+    let visits = VISITS.with(|v| v.replace(0));
+    let navs = NAVS.with(|v| v.replace(0));
+    lookups
+        .saturating_add(edges)
+        .saturating_add(visits)
+        .saturating_add(navs)
 }

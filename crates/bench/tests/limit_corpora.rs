@@ -93,6 +93,7 @@ fn presets() -> [(&'static str, Settings); 4] {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn real_world_corpus_hits_no_default_limit() {
     let mut checked = 0usize;
     let mut bytes = 0usize;
@@ -128,6 +129,7 @@ fn adversarial_limit(case: &Adversarial, settings: &Settings) -> Option<Code> {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn compat_presets_never_change_limits_on_the_adversarial_corpus() {
     let cases = corpus();
     assert!(cases.len() >= 17, "{} cases", cases.len());
@@ -189,6 +191,7 @@ fn byte_charge(src: &str, settings: &Settings) -> Option<usize> {
 /// measured expansion ratios (bytes charged / input bytes) stay far below
 /// the `untrusted()` factor of 2 (printed for the report).
 #[test]
+#[ignore = "slow: runs in CI"]
 fn real_world_corpus_fits_every_alias_byte_budget() {
     for case in CASES.iter().filter(|c| c.kind == Kind::RealWorld) {
         let src = case.generate(1);

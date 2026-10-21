@@ -9,6 +9,8 @@
     clippy::arithmetic_side_effects
 )]
 
+mod work;
+
 use std::collections::{BTreeMap, HashMap};
 
 use oneyaml::{Code, Compat, Document, DuplicateKeys, Schema, Settings, Value, code};
@@ -199,14 +201,12 @@ fn get_through_a_shared_merge_dag_is_exact_and_fast() {
     // O(merge closure): 60 levels would be 2^60 paths.
     let src = shared_dag(60);
     let doc = Document::parse_with(src.as_str(), &s).unwrap();
-    let t = std::time::Instant::now();
+    work::reset();
     assert!(doc.get("top").unwrap().get("nope").is_none());
     assert_eq!(doc.get("top").unwrap().get("target").unwrap().text(), "1");
-    assert!(
-        t.elapsed() < std::time::Duration::from_secs(2),
-        "{:?}",
-        t.elapsed()
-    );
+    let steps = work::taken();
+    // About 12,000 steps; the 2^60 paths of an unshared walk are out of reach.
+    assert!(steps < 120_000, "{steps} steps");
 }
 
 #[test]

@@ -22,9 +22,10 @@
     clippy::arithmetic_side_effects
 )]
 
+mod work;
+
 use std::fmt::Write as _;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
 use oneyaml_syntax::tree::{NodeId, SyntaxKind as K, SyntaxTree};
 
@@ -92,10 +93,10 @@ fn edited(n: usize, history: History) -> SyntaxTree {
     t
 }
 
-/// The time of `QUESTIONS` index questions on `t` (finding them is not
-/// timed): the footer's last comment (rule 13's cut above 0), and the
+/// The steps of `QUESTIONS` index questions on `t` (finding them is not
+/// counted): the footer's last comment (rule 13's cut above 0), and the
 /// owner of comments at the run's start, middle and end.
-fn questions(t: &SyntaxTree) -> Duration {
+fn questions(t: &SyntaxTree) -> u64 {
     const QUESTIONS: usize = 300;
     let inner = t
         .root()
@@ -113,7 +114,7 @@ fn questions(t: &SyntaxTree) -> Duration {
         comments[comments.len() / 2],
         comments[comments.len() - 1],
     ];
-    let start = Instant::now();
+    work::reset();
     let mut sink = 0;
     for k in 0..QUESTIONS {
         sink += usize::from(t.last_footer_comment(inner).is_some());
@@ -121,11 +122,11 @@ fn questions(t: &SyntaxTree) -> Duration {
         sink += a.blank_lines_before();
     }
     std::hint::black_box(sink);
-    start.elapsed()
+    work::taken()
 }
 
-fn per_question(n: usize, history: History) -> Duration {
-    let mut min = Duration::MAX;
+fn per_question(n: usize, history: History) -> u64 {
+    let mut min = u64::MAX;
     for _ in 0..3 {
         let t = edited(n, history);
         min = min.min(questions(&t));
@@ -134,6 +135,7 @@ fn per_question(n: usize, history: History) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn index_questions_do_not_scale_with_the_edit_history() {
     let _g = serial();
     for history in [
@@ -143,7 +145,7 @@ fn index_questions_do_not_scale_with_the_edit_history() {
     ] {
         let small = per_question(1_000, history);
         let large = per_question(16_000, history);
-        let r = large.as_secs_f64() / small.as_secs_f64().max(1e-9);
+        let r = work::ratio("questions", small, large);
         eprintln!("{history:?}: {small:?} at 1k, {large:?} at 16k (ratio {r:.2})");
         assert!(
             r < 4.0,

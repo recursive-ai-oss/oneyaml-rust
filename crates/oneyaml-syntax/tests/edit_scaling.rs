@@ -24,8 +24,9 @@
     clippy::arithmetic_side_effects
 )]
 
+mod work;
+
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
 use oneyaml_core::{Limits, Settings};
 use oneyaml_syntax::tree::{Fragment, NodeId, SyntaxKind as K, SyntaxTree, WalkEvent};
@@ -41,20 +42,20 @@ fn serial() -> std::sync::MutexGuard<'static, ()> {
 }
 
 /// The minimum over 5 runs of `run` on a fresh `setup()` (not timed).
-fn best<T>(setup: impl Fn() -> T, run: impl Fn(&mut T) -> usize) -> (Duration, usize) {
-    let mut min = Duration::MAX;
+fn best<T>(setup: impl Fn() -> T, run: impl Fn(&mut T) -> usize) -> (u64, usize) {
+    let mut min = u64::MAX;
     let mut sink = 0;
     for _ in 0..5 {
         let mut x = setup();
-        let start = Instant::now();
+        work::reset();
         sink = run(&mut x);
-        min = min.min(start.elapsed());
+        min = min.min(work::taken());
     }
     (min, sink)
 }
 
-fn ratio(small: Duration, large: Duration) -> f64 {
-    large.as_secs_f64() / small.as_secs_f64().max(1e-9)
+fn ratio(small: u64, large: u64) -> f64 {
+    work::ratio("scaling", small, large)
 }
 
 fn unlimited() -> Settings {
@@ -110,7 +111,7 @@ fn script(tree: &mut SyntaxTree, targets: &[NodeId], extra: &Fragment) -> usize 
     sink
 }
 
-fn flat(src: &str) -> Duration {
+fn flat(src: &str) -> u64 {
     let tree = SyntaxTree::parse(src);
     let t = SyntaxTree::parse("[x, yy]");
     let seq = t.root().first_child().unwrap().first_child().unwrap();
@@ -140,6 +141,7 @@ fn flat(src: &str) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn local_edits_do_not_scale_with_the_document() {
     let _serial = serial();
     let small = document(100 * 1024);
@@ -161,7 +163,7 @@ fn local_edits_do_not_scale_with_the_document() {
 /// content, and a `%TAG` directive; 64 edits that each need the tag
 /// context (a tagged node replaced by a copy of itself), 64 token
 /// replacements, 64 comment replacements.
-fn comments(n: usize) -> Duration {
+fn comments(n: usize) -> u64 {
     let src = format!(
         "%TAG !e! tag:e,2000:\n--- \n{}a: !e!t [1]\n",
         "# c\n".repeat(n)
@@ -205,7 +207,7 @@ fn comments(n: usize) -> Duration {
 
 /// `n` documents with errors after a clean one;
 /// edits in the clean one, each followed by local diagnostic queries.
-fn diagnostics(n: usize) -> Duration {
+fn diagnostics(n: usize) -> u64 {
     let src = format!("[x, y]\n{}", "--- a: b: c\n".repeat(n));
     let tree = SyntaxTree::parse(src);
     assert!(tree.diagnostics().len() >= n);
@@ -234,10 +236,11 @@ fn diagnostics(n: usize) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn comments_and_diagnostics_elsewhere_cost_nothing() {
     let _serial = serial();
     for (what, f) in [
-        ("comments", comments as fn(usize) -> Duration),
+        ("comments", comments as fn(usize) -> u64),
         ("diagnostics", diagnostics),
     ] {
         let _ = f(1_000);
@@ -253,7 +256,7 @@ fn comments_and_diagnostics_elsewhere_cost_nothing() {
 /// A block chain `- - - … a` of depth `d` (the
 /// shape whose reads were O(depth²) after an edit: no closing bracket ends
 /// the nesting). An edit at the bottom, then reads that climb.
-fn chain(d: usize) -> (Duration, usize) {
+fn chain(d: usize) -> (u64, usize) {
     let src = format!("{}a\n", "- ".repeat(d));
     let tree = SyntaxTree::parse_with(src, &unlimited());
     assert!(!tree.has_errors());
@@ -308,7 +311,7 @@ fn innermost_entry(d: usize) -> Fragment {
 
 /// `!t [` nested `d` deep; extracting and replacing
 /// the outer sequence copies it once, O(size), not O(tags × depth).
-fn tagged(d: usize) -> (Duration, usize) {
+fn tagged(d: usize) -> (u64, usize) {
     let src = format!("{}{}\n", "!t [".repeat(d), "]".repeat(d));
     let tree = SyntaxTree::parse_with(src, &unlimited());
     assert!(!tree.has_errors());
@@ -330,7 +333,7 @@ fn tagged(d: usize) -> (Duration, usize) {
 /// deepest collection the chain ends with; finding it walked the chain
 /// with one O(depth) `nav_last` and one O(column) column per level
 /// (O(depth²)); now it follows the chain of last children once.
-fn append_after_chain(d: usize) -> (Duration, usize) {
+fn append_after_chain(d: usize) -> (u64, usize) {
     let src = format!("{}a\n", "- ".repeat(d));
     let tree = SyntaxTree::parse_with(src, &unlimited());
     assert!(!tree.has_errors());
@@ -352,10 +355,11 @@ fn append_after_chain(d: usize) -> (Duration, usize) {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn deep_edits_and_reads_are_linear_in_depth() {
     let _serial = serial();
     for (what, f) in [
-        ("block chain", chain as fn(usize) -> (Duration, usize)),
+        ("block chain", chain as fn(usize) -> (u64, usize)),
         ("tagged flow", tagged),
         ("appended after a block chain", append_after_chain),
     ] {
@@ -370,7 +374,7 @@ fn deep_edits_and_reads_are_linear_in_depth() {
         // (~12 MB at 16k, out of cache: 11-14x for 8x the depth, 25x under
         // load); now 40 bytes, one side, ~8x (instruction counts were
         // linear throughout: 45.5M at 2k, 349M at 16k).
-        let (mut small, mut large) = (Duration::MAX, Duration::MAX);
+        let (mut small, mut large) = (u64::MAX, u64::MAX);
         for _ in 0..7 {
             small = small.min(f(2_000).0);
             large = large.min(f(16_000).0);
@@ -410,7 +414,7 @@ fn timed(
     src: &str,
     find: fn(&SyntaxTree) -> NodeId,
     script: fn(&mut SyntaxTree, &mut NodeId, usize) -> usize,
-) -> Duration {
+) -> u64 {
     let tree = SyntaxTree::parse(src);
     assert!(!tree.has_errors(), "{}", &src[..src.len().min(200)]);
     let (min, _) = best(
@@ -447,7 +451,7 @@ fn flip(t: &mut SyntaxTree, id: &mut NodeId, i: usize) -> usize {
 
 /// `a: 1` before a large entry: the window stops at the next entry's
 /// first line (before the fix it re-read the whole neighbour: 102× at 100×).
-fn before_large(n: usize) -> Duration {
+fn before_large(n: usize) -> u64 {
     timed(
         &format!("a: 1\n{}z: 2\n", big("b", n)),
         |t| plain(t, "1"),
@@ -456,13 +460,13 @@ fn before_large(n: usize) -> Duration {
 }
 
 /// `a: 1` after a large entry: the window starts at its own entry.
-fn after_large(n: usize) -> Duration {
+fn after_large(n: usize) -> u64 {
     timed(&format!("{}a: 1\n", big("b", n)), |t| plain(t, "1"), flip)
 }
 
 /// An entry appended after a large last entry, then removed: the window
 /// starts at the last entry of the deepest collection it ends with.
-fn append_after_large(n: usize) -> Duration {
+fn append_after_large(n: usize) -> u64 {
     timed(
         &big("b", n),
         |t| t.root().first_child().unwrap().first_child().unwrap().id(),
@@ -499,19 +503,19 @@ fn comment_in_run(t: &mut SyntaxTree, mid: &mut NodeId, _: usize) -> usize {
 
 /// A comment line inserted before a document-level comment (between
 /// `---` and the root), then removed (before the fix: 103× at 100×).
-fn document_comments(n: usize) -> Duration {
+fn document_comments(n: usize) -> u64 {
     let src = format!("--- \n{}a: 1\n", "# c\n".repeat(n));
     timed(&src, mid_comment, comment_in_run)
 }
 
 /// The same at stream level, after the last document (before the fix: 109×).
-fn stream_comments(n: usize) -> Duration {
+fn stream_comments(n: usize) -> u64 {
     let src = format!("a: 1\n{}", "# c\n".repeat(n));
     timed(&src, mid_comment, comment_in_run)
 }
 
 /// A document's root replaced among `n` documents: O(that document).
-fn documents(n: usize) -> Duration {
+fn documents(n: usize) -> u64 {
     let src: String = (0..n).map(|i| format!("--- d{i}\n")).collect();
     timed(
         &src,
@@ -528,13 +532,11 @@ fn documents(n: usize) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn edits_next_to_large_neighbours_and_trivia_runs_stay_local() {
     let _serial = serial();
     for (what, f) in [
-        (
-            "before a large entry",
-            before_large as fn(usize) -> Duration,
-        ),
+        ("before a large entry", before_large as fn(usize) -> u64),
         ("after a large entry", after_large),
         ("appended after a large entry", append_after_large),
         ("document-level comment run", document_comments),
@@ -557,7 +559,7 @@ fn timed_with(
     src: &str,
     find: fn(&SyntaxTree) -> NodeId,
     script: fn(&mut SyntaxTree, &mut NodeId, usize) -> usize,
-) -> Duration {
+) -> u64 {
     let tree = SyntaxTree::parse_with(src, settings);
     assert!(!tree.has_errors(), "{}", &src[..src.len().min(200)]);
     let (min, _) = best(
@@ -593,7 +595,7 @@ fn many_documents() -> Settings {
 /// A document inserted among `n` documents, and
 /// removed, 64 times. Counting the documents per insertion made each one
 /// O(n).
-fn insert_document(n: usize) -> Duration {
+fn insert_document(n: usize) -> u64 {
     let src = "--- a\n".repeat(n);
     timed_with(
         &many_documents(),
@@ -620,7 +622,7 @@ fn insert_document(n: usize) -> Duration {
 /// 65 comments between a large document and `--- b`;
 /// `b` replaced. The walk back to the document gave up after 64 trivia
 /// elements, so the window took the whole large document.
-fn after_comment_run(n: usize) -> Duration {
+fn after_comment_run(n: usize) -> u64 {
     let src = format!("{}{}--- b\n", big("a", n), "# c\n".repeat(65));
     timed(&src, |t| plain(t, "b"), flip)
 }
@@ -628,7 +630,7 @@ fn after_comment_run(n: usize) -> Duration {
 /// A previous document with a warning (`%YAML 1.1`) made the
 /// next document's start unsafe, so its window took the previous
 /// document whole.
-fn after_warned_document(n: usize) -> Duration {
+fn after_warned_document(n: usize) -> u64 {
     let src = format!("%YAML 1.1\n---\n{}--- b\n", big("a", n));
     let tree = SyntaxTree::parse(src.as_str());
     assert_eq!(tree.diagnostics().len(), 1);
@@ -638,7 +640,7 @@ fn after_warned_document(n: usize) -> Duration {
 /// A long run of comments indented deeper than the mapping
 /// after its last entry, whose value is a plain scalar: the first comment
 /// ends what the scalar can read, so the window stops there.
-fn deeper_comments(n: usize) -> Duration {
+fn deeper_comments(n: usize) -> u64 {
     let src = format!("a:\n  b: 1\n{}z: 2\n", "    # c\n".repeat(n));
     timed(&src, |t| plain(t, "1"), flip)
 }
@@ -646,7 +648,7 @@ fn deeper_comments(n: usize) -> Duration {
 /// `n` lines with a `Y0028` warning each under
 /// `lenient_inline_colons`; an edit at the top checked every warning of
 /// the document, twice.
-fn many_warnings(n: usize) -> Duration {
+fn many_warnings(n: usize) -> u64 {
     let settings = Settings::new().lenient_inline_colons(true);
     let mut src = String::from("x: 1\n");
     for i in 0..n {
@@ -658,12 +660,13 @@ fn many_warnings(n: usize) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn unit_21e_edits_stay_local() {
     let _serial = serial();
     for (what, f) in [
         (
             "a document inserted among many",
-            insert_document as fn(usize) -> Duration,
+            insert_document as fn(usize) -> u64,
         ),
         ("a document after 65 comments", after_comment_run),
         ("a document after a warned document", after_warned_document),
@@ -681,7 +684,7 @@ fn unit_21e_edits_stay_local() {
 /// `n` documents replaced by one at stream level. The
 /// document count skipped the removed ones with a linear search per
 /// document (O(n²): 10¹⁰ comparisons at 100k); now the removal is linear.
-fn replace_all_documents(n: usize) -> (Duration, usize) {
+fn replace_all_documents(n: usize) -> (u64, usize) {
     let src = "--- a\n".repeat(n);
     let tree = SyntaxTree::parse_with(src, &many_documents());
     best(
@@ -702,6 +705,7 @@ fn replace_all_documents(n: usize) -> (Duration, usize) {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn replacing_many_documents_is_linear() {
     let _serial = serial();
     let _ = replace_all_documents(2_000);
@@ -723,7 +727,7 @@ fn replacing_many_documents_is_linear() {
 /// trivia shortcut reads the last token of the content before the run
 /// (the chain's bottom): O(depth), where one `nav_last` per level was
 /// O(depth²).
-fn comment_after_chain(d: usize) -> (Duration, usize) {
+fn comment_after_chain(d: usize) -> (u64, usize) {
     let src = format!("{}a\n# c\n", "- ".repeat(d));
     let tree = SyntaxTree::parse_with(src, &unlimited());
     assert!(!tree.has_errors());
@@ -775,7 +779,7 @@ fn a_comment_after_a_deep_chain_is_edited_in_linear_time() {
 /// then removed. With an error below the value, `deepest_last` checks every
 /// level, and each level's column was an O(column) scan of the one line
 /// they all share: O(depth²) (1.0 ms at 1k, 213 ms at 16k).
-fn append_after_erroneous_chain(d: usize) -> (Duration, usize) {
+fn append_after_erroneous_chain(d: usize) -> (u64, usize) {
     let src = format!("{}&x &y a\n", "- ".repeat(d));
     let tree = SyntaxTree::parse_with(src, &unlimited());
     assert!(tree.has_errors());
@@ -819,7 +823,7 @@ fn an_error_in_a_deep_chain_keeps_appending_linear() {
 /// over every comment (0.72 ms at 1k, 562 ms at 1M); the run is now
 /// jumped over. `after_comment_run` fixes the run at 65 lines; this one
 /// grows it.
-fn after_growing_comment_run(n: usize) -> Duration {
+fn after_growing_comment_run(n: usize) -> u64 {
     let src = format!("a: 1\n{}--- b\n", "# c\n".repeat(n));
     timed(&src, |t| plain(t, "b"), flip)
 }
@@ -827,7 +831,7 @@ fn after_growing_comment_run(n: usize) -> Duration {
 /// The same with the run cut by edits into overlay runs first (a comment
 /// replaced in the middle, one near each end): the jump crosses each
 /// piece in O(log R).
-fn after_edited_comment_run(n: usize) -> Duration {
+fn after_edited_comment_run(n: usize) -> u64 {
     let src = format!("a: 1\n{}--- b\n", "# c\n".repeat(n));
     let tree = SyntaxTree::parse(src.as_str());
     let mut edited = tree.clone();
@@ -858,12 +862,13 @@ fn after_edited_comment_run(n: usize) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn unit_21f_root_edits_after_long_comment_runs_stay_local() {
     let _serial = serial();
     for (what, f) in [
         (
             "a document after a growing comment run",
-            after_growing_comment_run as fn(usize) -> Duration,
+            after_growing_comment_run as fn(usize) -> u64,
         ),
         (
             "a document after an edited comment run",
@@ -880,7 +885,7 @@ fn unit_21f_root_edits_after_long_comment_runs_stay_local() {
 
 /// `has_errors` on an edited tree with `n` warnings
 /// built and cloned every diagnostic; it is a count now.
-fn has_errors_after_an_edit(n: usize) -> Duration {
+fn has_errors_after_an_edit(n: usize) -> u64 {
     let settings = Settings::new().lenient_inline_colons(true);
     let mut src = String::from("x: 1\n");
     for i in 0..n {
@@ -896,6 +901,7 @@ fn has_errors_after_an_edit(n: usize) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn has_errors_is_constant_time() {
     let _serial = serial();
     let _ = has_errors_after_an_edit(1_000);
@@ -913,7 +919,7 @@ fn has_errors_is_constant_time() {
 /// 64 replacements of the scalar `x`
 /// (and back) in recovered input `src`, accepted or refused, on fresh
 /// clones; the minimum over 5 runs. Every state agrees with its text.
-fn recovered_flips(src: &str) -> Duration {
+fn recovered_flips(src: &str) -> u64 {
     let tree = SyntaxTree::parse(src);
     assert!(tree.has_errors(), "{}", &src[..src.len().min(200)]);
     let script = |t: &mut SyntaxTree, id: &mut NodeId, i: usize| {
@@ -949,14 +955,14 @@ fn recovered_flips(src: &str) -> Duration {
 /// document with an error after it: deciding whether the collection sits
 /// in a key's place walked every comment line before it (4.73 ms at
 /// 400k lines, 32 µs once fixed).
-fn flow_after_comments(n: usize) -> Duration {
+fn flow_after_comments(n: usize) -> u64 {
     recovered_flips(&format!("k: {{a:{}\n [x, y]}}\nb: ]\n", "\n # c".repeat(n)))
 }
 
 /// A document with a directive error and `n` comment lines among its
 /// directives, and a content error: telling the two errors apart walked
 /// the document's first children.
-fn directives_then_error(n: usize) -> Duration {
+fn directives_then_error(n: usize) -> u64 {
     recovered_flips(&format!(
         "%YAML 1.2\n%YAML 1.2\n{}---\nk: [x, y]\nb: ]\n",
         "# c\n".repeat(n)
@@ -967,7 +973,7 @@ fn directives_then_error(n: usize) -> Duration {
 /// document ended by `...`; the next document has `n - 1` duplicate
 /// `%YAML` errors (`Y1004`) and a content error. Whether that document's
 /// errors reach the edit scanned every directive error (3.74 ms at 400k).
-fn duplicate_yaml_after(n: usize) -> Duration {
+fn duplicate_yaml_after(n: usize) -> u64 {
     recovered_flips(&format!(
         "c: x\n...\n{}---\nb: [y\n",
         "%YAML 1.2\n".repeat(n)
@@ -976,7 +982,7 @@ fn duplicate_yaml_after(n: usize) -> Duration {
 
 /// Probe p14: as [`duplicate_yaml_after`], with duplicate
 /// `%TAG` handles.
-fn duplicate_tag_after(n: usize) -> Duration {
+fn duplicate_tag_after(n: usize) -> u64 {
     recovered_flips(&format!(
         "c: x\n...\n{}---\nb: [y\n",
         "%TAG !t! tag:t,2000:\n".repeat(n)
@@ -985,7 +991,7 @@ fn duplicate_tag_after(n: usize) -> Duration {
 
 /// Probe p11b: the document with the directive errors is two
 /// documents before the edit's (the one between has no errors).
-fn duplicate_yaml_two_before(n: usize) -> Duration {
+fn duplicate_yaml_two_before(n: usize) -> u64 {
     recovered_flips(&format!(
         "{}---\nb: [y\n--- \nq: 1\n---\nc: x\n",
         "%YAML 1.2\n".repeat(n)
@@ -998,7 +1004,7 @@ fn duplicate_yaml_two_before(n: usize) -> Duration {
 /// error. Whether its errors reach the edit scanned every directive error
 /// (4.15 ms at 400k, 13 µs at 1k); a mixed document is now taken to reach
 /// it, in O(1).
-fn mixed_yaml_after(n: usize) -> Duration {
+fn mixed_yaml_after(n: usize) -> u64 {
     recovered_flips(&format!(
         "c: x\n...\n%YAML 0.2\n----\n...\n{}---\nb: [\n",
         "%YAML 1.2\n".repeat(n)
@@ -1006,7 +1012,7 @@ fn mixed_yaml_after(n: usize) -> Duration {
 }
 
 /// As [`mixed_yaml_after`], with duplicate `%TAG` handles.
-fn mixed_tag_after(n: usize) -> Duration {
+fn mixed_tag_after(n: usize) -> u64 {
     recovered_flips(&format!(
         "c: x\n...\n%TAG !t! a\n----\n...\n{}--- [y\n",
         "%TAG !t! a\n".repeat(n)
@@ -1014,7 +1020,7 @@ fn mixed_tag_after(n: usize) -> Duration {
 }
 
 /// The mixed document is two documents before the edit's.
-fn mixed_yaml_two_before(n: usize) -> Duration {
+fn mixed_yaml_two_before(n: usize) -> u64 {
     recovered_flips(&format!(
         "%YAML 0.2\n----\n...\n{}---\nb: [y\n--- \nq: 1\n---\nc: x\n",
         "%YAML 1.2\n".repeat(n)
@@ -1022,12 +1028,13 @@ fn mixed_yaml_two_before(n: usize) -> Duration {
 }
 
 #[test]
+#[ignore = "slow: runs in CI"]
 fn edits_in_recovered_documents_stay_local() {
     let _serial = serial();
     for (what, f) in [
         (
             "flow collection after a comment run",
-            flow_after_comments as fn(usize) -> Duration,
+            flow_after_comments as fn(usize) -> u64,
         ),
         ("comment run among directives", directives_then_error),
         (
