@@ -1148,10 +1148,10 @@ impl Document {
     /// the steps did around them (line breaks moved across levels
     /// included). Groups nest: an inner edit's failure undoes its own steps
     /// only.
-    pub(super) fn atomic<T>(
+    pub(super) fn atomic<T, E: From<EditError>>(
         &mut self,
-        f: impl FnOnce(&mut Self) -> Result<T, EditError>,
-    ) -> Result<T, EditError> {
+        f: impl FnOnce(&mut Self) -> Result<T, E>,
+    ) -> Result<T, E> {
         // The outermost group checks the final space line's
         // reader once, at its end (never per step).
         let outer = !self.tree().in_group();
@@ -1182,7 +1182,7 @@ impl Document {
                     self.tail = TailGuard::default();
                     if let Err(e) = checked {
                         self.rollback(txn)?;
-                        return Err(e);
+                        return Err(e.into());
                     }
                 }
                 let r = self.tree_mut()?.end_group(txn.mark);

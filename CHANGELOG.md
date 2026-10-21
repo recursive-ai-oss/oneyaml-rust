@@ -14,6 +14,24 @@ MSRV change is always announced here (the MSRV policy is in the
 Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 [migration guide](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/migrating-from-serde-yaml.md).
 
+## Unreleased
+
+### Added
+
+- JSON Patch (RFC 6902), merge patch (RFC 7396) and JSON Pointer (RFC 6901)
+  on `Document`, `DocumentMut` and `Stream`: `apply_patch` and
+  `apply_merge_patch`, with the types `Patch`, `PatchOp`, `MergePatch`,
+  `Pointer`, `PatchError` and `PatchErrorKind`, and `Document::get_pointer`
+  and `get_pointer_tokens` to read a node by pointer. A patch is applied as a
+  whole: if any operation fails, the document is exactly as it was, including
+  its comments and layout. A patch changes only the text of the values it
+  names. Writes refuse to go through an alias, and removing an anchored node
+  that an alias still uses is refused. The size of copied values counts
+  against the alias byte budget, and the document size limit applies after
+  every write. A copied or moved value is written out in full, so an alias
+  inside it becomes its content and comments inside a moved value are not
+  kept.
+
 ## 1.1.0 — 2026-10-10
 
 `oneyaml` 1.1.0, `oneyaml-core` 1.1.0, `oneyaml-syntax` 0.1.2.

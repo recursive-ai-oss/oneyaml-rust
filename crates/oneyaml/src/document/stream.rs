@@ -288,6 +288,59 @@ impl Stream {
         Some(DocumentMut { doc: e })
     }
 
+    /// Applies an RFC 6902 patch to document `document` of the stream, all or
+    /// nothing (see [`Document::apply_patch`]): when it fails, the whole
+    /// stream is exactly as it was. The other documents are never touched.
+    ///
+    /// ```
+    /// use oneyaml::{Patch, Stream};
+    ///
+    /// let mut stream = Stream::parse("a: 1\n---\nb: 2  # two\n").unwrap();
+    /// let patch = Patch::from_json(r#"[{"op": "replace", "path": "/b", "value": 3}]"#).unwrap();
+    /// stream.apply_patch(1, &patch).unwrap();
+    /// assert_eq!(stream.to_string(), "a: 1\n---\nb: 3  # two\n");
+    /// assert!(stream.apply_patch(5, &patch).is_err()); // no such document
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Document::apply_patch`]; [`PatchErrorKind::Path`](super::patch::PatchErrorKind::Path)
+    /// when the stream has no document `document`.
+    pub fn apply_patch(
+        &mut self,
+        document: usize,
+        patch: &super::patch::Patch,
+    ) -> Result<(), super::patch::PatchError> {
+        self.document_for_patch(document)?.apply_patch(patch)
+    }
+
+    /// Applies an RFC 7396 merge patch to document `document`, all or nothing
+    /// (see [`Document::apply_merge_patch`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Stream::apply_patch`].
+    pub fn apply_merge_patch(
+        &mut self,
+        document: usize,
+        patch: &super::patch::MergePatch,
+    ) -> Result<(), super::patch::PatchError> {
+        self.document_for_patch(document)?.apply_merge_patch(patch)
+    }
+
+    fn document_for_patch(
+        &mut self,
+        document: usize,
+    ) -> Result<DocumentMut<'_>, super::patch::PatchError> {
+        let len = self.len();
+        self.document_mut(document).ok_or_else(|| {
+            super::patch::PatchError::new(
+                super::patch::PatchErrorKind::Path,
+                format!("the stream has no document {document} (it has {len})"),
+            )
+        })
+    }
+
     /// The documents, in order (snapshots, see [`Stream::document`]).
     pub fn documents(&self) -> impl ExactSizeIterator<Item = Document> + '_ {
         (0..self.len())
@@ -418,6 +471,30 @@ impl core::ops::Deref for DocumentMut<'_> {
 }
 
 impl DocumentMut<'_> {
+    /// [`Document::apply_patch`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Document::apply_patch`].
+    pub fn apply_patch(
+        &mut self,
+        patch: &super::patch::Patch,
+    ) -> Result<(), super::patch::PatchError> {
+        self.doc.apply_patch(patch)
+    }
+
+    /// [`Document::apply_merge_patch`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Document::apply_merge_patch`].
+    pub fn apply_merge_patch(
+        &mut self,
+        patch: &super::patch::MergePatch,
+    ) -> Result<(), super::patch::PatchError> {
+        self.doc.apply_merge_patch(patch)
+    }
+
     /// [`Document::node_mut`].
     ///
     /// # Errors

@@ -68,6 +68,7 @@ mod edit;
 mod error;
 mod key;
 mod lookup;
+mod patch;
 mod path_arg;
 mod place;
 mod render;
@@ -81,6 +82,7 @@ pub use comments::{
 pub use edit::{Entry, NodeMut, ReinsertError, Removed};
 pub use error::EditError;
 pub use key::AsKey;
+pub use patch::{MergePatch, Patch, PatchError, PatchErrorKind, PatchOp, Pointer};
 pub use path_arg::IntoPath;
 pub use stream::{DocumentMut, Stream};
 pub use view::{MappingRef, NodeKind, NodeRef, ScalarRef, ScalarStyle, SequenceRef};
