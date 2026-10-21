@@ -19,6 +19,51 @@ mod pointer;
 mod tests;
 mod textindex;
 
+/// The text indexes that [`Document::get_pointer`] builds, kept until the next
+/// edit so that reading a wide mapping's keys is not repeated for every read.
+#[derive(Default)]
+pub(super) struct ReadCache {
+    slot: std::sync::Mutex<Option<textindex::Texts>>,
+}
+
+impl ReadCache {
+    /// Takes the indexes out (to use them without holding the lock).
+    fn take(&self) -> Option<textindex::Texts> {
+        self.slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+    }
+
+    /// Keeps `texts` for the next read, unless they index more keys than a
+    /// document of `len` bytes can hold at one per eight bytes: a cache of
+    /// every key of a document of tiny entries would take more memory than it
+    /// is worth, and such a read builds its index again.
+    fn keep(&self, texts: textindex::Texts, len: usize) {
+        if texts.indexed() > (len / 8).saturating_add(1024) {
+            return;
+        }
+        *self
+            .slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(texts);
+    }
+
+    /// Forgets the indexes: the document was edited.
+    pub(super) fn clear(&mut self) {
+        *self
+            .slot
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+    }
+
+    /// Keys put into indexes on this thread since it began (tests).
+    #[cfg(test)]
+    fn built_on_thread() -> usize {
+        textindex::BUILT_ON_THREAD.with(std::cell::Cell::get)
+    }
+}
+
 pub use error::{PatchError, PatchErrorKind};
 pub use pointer::Pointer;
 
@@ -418,7 +463,7 @@ impl Document {
     /// `/80` finds the key `80`, `'80'` and `"80"` alike, and `/true` finds the
     /// key `true`, whatever tag a key carries. An alias key has the text of the
     /// node it names. A key that is a collection cannot be addressed. Two keys
-    /// with the text are refused as ambiguous
+    /// with the same text are refused as ambiguous
     /// ([`PatchErrorKind::RefusedAmbiguous`]), and so is a key that a later
     /// duplicate of the same meaning overrides (with `DuplicateKeys::LastWins`,
     /// `16: a` followed by `0x10: b` means `{16: b}`, so `/16` is not read as
@@ -429,15 +474,19 @@ impl Document {
     /// its keys, built the first time a patch looks at the mapping and kept up
     /// to date by the patch's own edits, so a lookup costs a hash lookup however
     /// wide the mapping is, and what a token names never depends on the
-    /// mapping's width. Building it reads the mapping's keys once per patch (a
-    /// single [`Document::get_pointer`] reads the keys of each mapping on its
-    /// way). Alias keys, and the mappings a mapping merges in, are read
-    /// afresh for each lookup, because what they name can change under an
-    /// edit; those steps are counted, and a patch that takes more than about
-    /// a million of them, plus twice the document's length in bytes, fails
-    /// with [`PatchErrorKind::Limit`] (a file that merges a handful of
-    /// mappings uses a few per operation). `Limits::unlimited()` removes the
-    /// bound.
+    /// mapping's width. Building it reads the mapping's keys once per patch.
+    /// The text of an alias key is read once per patch too, and read again only
+    /// if the patch removes or replaces the node it names or the alias comes to
+    /// name another; the bytes read are charged to the document's alias byte
+    /// budget ([`Limits::alias_byte_budget`](crate::Limits::alias_byte_budget)),
+    /// and so are the bytes of the alias keys of a mapping that an `add` into
+    /// it, a lookup that must compare a key with every alias key (with
+    /// `DuplicateKeys::LastWins`), or a search of the mappings it merges in
+    /// has to read afresh. Looking at each alias key and merged mapping of a
+    /// lookup is counted in steps, and a patch that takes more than about a
+    /// million of them, plus twice the document's length in bytes, fails with
+    /// [`PatchErrorKind::Limit`] (a file that merges a handful of mappings uses
+    /// a few per operation). `Limits::unlimited()` removes both bounds.
     ///
     /// Reads (`test`, the `from` of `copy`) follow aliases. A write below an
     /// alias is refused with [`PatchErrorKind::RefusedAlias`], and so is a write
@@ -573,6 +622,12 @@ impl Document {
     /// The node a pointer names, for reading. Aliases are followed, on the
     /// way and at the end (the node returned is the anchored one).
     ///
+    /// The first read after an edit builds the key index of each mapping on its
+    /// way (once, O(its width)); the indexes are kept until the document is next
+    /// edited, so further reads cost a hash lookup per token. A document whose
+    /// entries are so short that its indexes would take more memory than one
+    /// key per eight bytes of text does not keep them.
+    ///
     /// ```
     /// use oneyaml::Document;
     ///
@@ -600,12 +655,16 @@ impl Document {
     /// [`PatchErrorKind::Path`] and [`PatchErrorKind::RefusedAmbiguous`], as
     /// for [`Document::get_pointer`].
     pub fn get_pointer_tokens(&self, pointer: &Pointer) -> Result<NodeRef<'_>, PatchError> {
-        let loc = locate::locate(
-            self,
-            pointer.tokens(),
-            false,
-            &mut textindex::Texts::unlimited(),
-        )?;
+        // The indexes of the mappings on the way are kept until the document is
+        // edited, so a run of reads builds each index once.
+        let mut texts = self
+            .shared
+            .pointer_reads
+            .take()
+            .unwrap_or_else(textindex::Texts::unlimited);
+        let loc = locate::locate(self, pointer.tokens(), false, &mut texts);
+        self.shared.pointer_reads.keep(texts, self.span().len());
+        let loc = loc?;
         let id = loc.node.ok_or_else(|| {
             PatchError::new(PatchErrorKind::Path, "there is nothing at the location")
         })?;

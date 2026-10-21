@@ -35,9 +35,19 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
     same text are refused as ambiguous, and so is a key that a later duplicate
     of the same meaning overrides (`DuplicateKeys::LastWins`). With
     `merge_keys` on, keys merged in by `<<` are found, as `get_path` finds
-    them. Alias keys and merged mappings are searched afresh for each
-    operation, and a patch that spends more than about a million such steps
-    (plus twice the document's length in bytes) fails with a `Limit` error.
+    them.
+  - The text of an alias key is read once per patch (again only if the patch
+    removes or replaces what the alias names), so a patch of many operations
+    on a mapping with alias keys does not read them again for each operation.
+    The bytes read are charged to the alias byte budget, as are the bytes of
+    the alias keys that an `add` into the mapping, a `LastWins` duplicate
+    check or a search of merged mappings has to read afresh. Looking at alias
+    keys and merged mappings is also counted in steps, and a patch that spends
+    more than about a million of them (plus twice the document's length in
+    bytes) fails with a `Limit` error.
+  - `Document::get_pointer` keeps the key indexes it builds until the document
+    is next edited, so reading many pointers in a wide mapping indexes it
+    once.
   - Writes refuse to go through an alias, to change a key that exists only in
     a mapping merged in by `<<`, and to remove an anchored node that an alias
     still uses. These are `RefusedAlias` errors.

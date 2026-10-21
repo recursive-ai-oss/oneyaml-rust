@@ -175,7 +175,15 @@ fn push_token(out: &mut String, token: &str) {
 /// Merges `patch` into `doc`. The caller makes the whole of it atomic.
 pub(super) fn apply_merge(doc: &mut Document, patch: &Value) -> Result<(), PatchError> {
     check_shape(doc, patch)?;
-    let mut run = Run::new(doc);
+    apply_merge_in(doc, &mut Run::new(doc), patch)
+}
+
+/// [`apply_merge`] with the run given, so a test can look at what it counted.
+pub(super) fn apply_merge_in(
+    doc: &mut Document,
+    run: &mut Run,
+    patch: &Value,
+) -> Result<(), PatchError> {
     let Value::Mapping(top) = patch else {
         // A patch that is not an object is the result.
         doc.set_root(patch)?;
@@ -241,7 +249,7 @@ fn step<'p>(
                 // would delete it for everything else that uses that mapping.
                 Some((_, _, true)) => return Err((merged_error(), Some(name))),
                 Some((id, key, false)) => {
-                    remove_node(doc, id).map_err(|e| (e, Some(name)))?;
+                    remove_node(doc, texts, id).map_err(|e| (e, Some(name)))?;
                     if let Some(f) = &frame {
                         texts.removed(f.map, name, key);
                     }
@@ -283,7 +291,7 @@ fn step<'p>(
                     return Err(fail(refused_alias()));
                 }
                 Some((id, false, Target::Other)) => {
-                    replace_node(doc, id, &without_nulls(value)).map_err(fail)?;
+                    replace_node(doc, texts, id, &without_nulls(value)).map_err(fail)?;
                 }
                 None => {
                     insert_member(doc, texts, map, name, &without_nulls(value)).map_err(fail)?
@@ -294,7 +302,7 @@ fn step<'p>(
             let found = member(doc, texts, top.map, name).map_err(fail)?;
             match found {
                 Some((_, _, true)) => return Err(fail(merged_error())),
-                Some((id, _, false)) => replace_node(doc, id, other),
+                Some((id, _, false)) => replace_node(doc, texts, id, other),
                 None => insert_member(doc, texts, map, name, other),
             }
             .map_err(fail)?;

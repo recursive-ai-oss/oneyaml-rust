@@ -35,7 +35,8 @@ pub enum PatchErrorKind {
     /// that an alias still refers to, or merge into an alias, or change a key
     /// that exists only in a mapping merged in by `<<`. (`refused-alias`)
     RefusedAlias,
-    /// Two keys of a mapping match one pointer token. (`refused-ambiguous`)
+    /// Two keys of a mapping have the same text as one pointer token, or a key is
+    /// overridden by a later key with the same meaning. (`refused-ambiguous`)
     RefusedAmbiguous,
     /// A limit was reached: `Limits::max_depth` (a value or a patch nested too
     /// deeply), `Limits::alias_budget` (aliases written out by a copy or move,

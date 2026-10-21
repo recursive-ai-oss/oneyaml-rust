@@ -214,6 +214,9 @@ struct Shared {
     /// (`lookup.rs`), built by reads on first use, maintained by every
     /// edit (a `Mutex`: reads build them through `&self`).
     lookups: std::sync::Mutex<lookup::Indexes>,
+    /// The key text indexes `Document::get_pointer` builds, dropped by every
+    /// edit (`patch/mod.rs`).
+    pointer_reads: patch::ReadCache,
 }
 
 impl core::fmt::Debug for Shared {
@@ -384,6 +387,7 @@ impl Shared {
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .clone(),
             ),
+            pointer_reads: patch::ReadCache::default(),
         }
     }
 
@@ -465,6 +469,7 @@ impl Shared {
             cap_view: OnceLock::new(),
             cap_index: std::sync::Mutex::new(None),
             lookups: std::sync::Mutex::new(lookup::Indexes::default()),
+            pointer_reads: patch::ReadCache::default(),
         }
     }
 
@@ -529,6 +534,7 @@ impl Shared {
         self.lines = OnceLock::new();
         self.cap_view = OnceLock::new();
         self.node_events = OnceLock::new();
+        self.pointer_reads.clear();
         // (`tags` stays valid: see `tags.rs`.)
         // The meaning checks' reach follows the
         // syntax errors; O(1) unless they changed.
@@ -551,6 +557,7 @@ impl Shared {
     /// document list is read again (O(documents), once).
     fn documents_changed(&mut self) {
         self.cap_view = OnceLock::new();
+        self.pointer_reads.clear();
         self.drop_cap_index();
         self.doc_ids = self.documents().map(TreeNode::id).collect();
         self.checked = checked_documents(&self.tree, &self.doc_ids);

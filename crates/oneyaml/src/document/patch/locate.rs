@@ -9,7 +9,7 @@
 //! too, as `Document::get_path` finds them; they belong to the merged
 //! mapping, so a patch cannot change them (see `Loc::merged`).
 
-use super::textindex::{Hit, Texts};
+use super::textindex::{Cause, Hit, Texts};
 use super::{PatchError, PatchErrorKind};
 use crate::document::{Document, MappingRef, NodeId, NodeKind, NodeRef};
 
@@ -42,13 +42,18 @@ pub(super) struct Parent {
 }
 
 /// A token shortened for a message.
-fn shown(token: &str) -> String {
+fn bounded(token: &str) -> String {
     const KEPT: usize = 48;
     let mut s: String = token.chars().take(KEPT).collect();
     if token.chars().nth(KEPT).is_some() {
         s.push('…');
     }
-    format!("{s:?}")
+    s
+}
+
+/// A token shortened for a message, quoted.
+fn shown(token: &str) -> String {
+    format!("{:?}", bounded(token))
 }
 
 fn path_error(message: String) -> PatchError {
@@ -78,7 +83,7 @@ pub(super) fn find_member<'d>(
 ) -> Result<Option<Member<'d>>, PatchError> {
     match texts.find(doc, map, token)? {
         Hit::Absent => Ok(None),
-        Hit::Ambiguous => Err(ambiguous(token)),
+        Hit::Ambiguous(cause) => Err(ambiguous(token, cause)),
         Hit::One { key, value, merged } => Ok(Some(Member { key, value, merged })),
     }
 }
@@ -90,12 +95,16 @@ pub(super) struct Member<'d> {
     pub merged: bool,
 }
 
-/// Two keys match `token`.
-pub(super) fn ambiguous(token: &str) -> PatchError {
-    PatchError::new(
-        PatchErrorKind::RefusedAmbiguous,
-        format!("two keys match the token {}", shown(token)),
-    )
+/// `token` names more than one key, or a key that another overrides.
+pub(super) fn ambiguous(token: &str, cause: Cause) -> PatchError {
+    let message = match cause {
+        Cause::SameText => format!("two keys match the token {}", shown(token)),
+        Cause::Overridden => format!(
+            "the key `{}` is overridden by a later key with the same meaning",
+            bounded(token)
+        ),
+    };
+    PatchError::new(PatchErrorKind::RefusedAmbiguous, message)
 }
 
 /// The node a step goes through: for a write, an alias is refused (it would

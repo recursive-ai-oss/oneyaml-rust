@@ -112,9 +112,17 @@ impl From<EditError> for PatchError {
 
 /// Applies `ops` in order to `doc`. The caller makes the whole of it atomic.
 pub(super) fn apply_ops(doc: &mut Document, ops: &[PatchOp]) -> Result<(), PatchError> {
-    let mut run = Run::new(doc);
+    apply_ops_in(doc, &mut Run::new(doc), ops)
+}
+
+/// [`apply_ops`] with the run given, so a test can look at what it counted.
+pub(super) fn apply_ops_in(
+    doc: &mut Document,
+    run: &mut Run,
+    ops: &[PatchOp],
+) -> Result<(), PatchError> {
     for (i, op) in ops.iter().enumerate() {
-        apply_op(doc, &mut run, op).map_err(|e| e.in_op(i, op.name()))?;
+        apply_op(doc, run, op).map_err(|e| e.in_op(i, op.name()))?;
     }
     Ok(())
 }
@@ -159,9 +167,11 @@ fn apply_op(doc: &mut Document, run: &mut Run, op: &PatchOp) -> Result<(), Patch
 /// Replaces the node `id`, an alias node included, by `value`.
 pub(super) fn replace_node(
     doc: &mut Document,
+    texts: &mut Texts,
     id: NodeId,
     value: &Value,
 ) -> Result<(), PatchError> {
+    texts.will_change(doc, id)?;
     doc.node_mut(id)?.set(value)?;
     Ok(())
 }
@@ -174,6 +184,7 @@ pub(super) fn insert_member(
     key: &str,
     value: &Value,
 ) -> Result<(), PatchError> {
+    texts.will_insert(doc, map)?;
     let added = doc.node_mut(map)?.insert(key, value)?.id();
     texts.added(doc, map, added);
     Ok(())
@@ -187,6 +198,7 @@ fn add(
     value: &Value,
 ) -> Result<(), PatchError> {
     let Some(last) = tokens.last() else {
+        texts.reset();
         doc.set_root(value)?;
         return Ok(());
     };
@@ -205,10 +217,11 @@ fn add(
         }
         return match node {
             // Adding a member that is there replaces its value.
-            Some(id) => replace_node(doc, id, value),
+            Some(id) => replace_node(doc, texts, id, value),
             None => insert_member(doc, texts, parent.id, last, value),
         };
     }
+    texts.sequence_changed();
     if parent.at_end {
         doc.node_mut(parent.id)?.push(value)?;
         return Ok(());
@@ -237,6 +250,7 @@ fn replace(
     value: &Value,
 ) -> Result<(), PatchError> {
     if tokens.is_empty() {
+        texts.reset();
         doc.set_root(value)?;
         return Ok(());
     }
@@ -245,7 +259,7 @@ fn replace(
         return Err(merged_error());
     }
     match loc.node {
-        Some(id) => replace_node(doc, id, value),
+        Some(id) => replace_node(doc, texts, id, value),
         None => Err(PatchError::new(
             PatchErrorKind::Path,
             "there is nothing to replace at the location",
@@ -282,7 +296,7 @@ fn remove_member(
     token: Option<&str>,
     id: NodeId,
 ) -> Result<(), PatchError> {
-    remove_node(doc, id)?;
+    remove_node(doc, texts, id)?;
     if let (Some(parent), Some(key), Some(token)) = (&loc.parent, loc.key, token) {
         if parent.is_map {
             texts.removed(parent.id, token, key);
@@ -291,7 +305,12 @@ fn remove_member(
     Ok(())
 }
 
-pub(super) fn remove_node(doc: &mut Document, id: NodeId) -> Result<(), PatchError> {
+pub(super) fn remove_node(
+    doc: &mut Document,
+    texts: &mut Texts,
+    id: NodeId,
+) -> Result<(), PatchError> {
+    texts.will_change(doc, id)?;
     // The removed text is dropped; what the edit layer returns is not needed.
     let _removed = doc.remove_node(id)?;
     Ok(())

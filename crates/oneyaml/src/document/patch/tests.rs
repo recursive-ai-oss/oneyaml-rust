@@ -8,9 +8,11 @@
     clippy::arithmetic_side_effects
 )]
 
-use super::merge::without_nulls_noting;
+use super::apply::{Run, apply_ops_in};
+use super::merge::{apply_merge_in, without_nulls_noting};
 use super::textindex::{Hit, Texts};
-use crate::{Document, DuplicateKeys, Mapping, NodeId, NodeKind, NodeRef, Settings, Value};
+use super::{PatchError, PatchErrorKind, PatchOp, ReadCache};
+use crate::{Document, DuplicateKeys, Limits, Mapping, NodeId, NodeKind, NodeRef, Settings, Value};
 
 /// An object of `nulls` null members and `kept` others, nested `depth` deep.
 fn null_heavy(nulls: usize, kept: usize, depth: usize) -> Value {
@@ -66,7 +68,7 @@ fn lookup(doc: &Document, texts: &mut Texts, token: &str) -> Found {
     let map = doc.root().unwrap().as_mapping().unwrap();
     match texts.find(doc, map, token).unwrap() {
         Hit::Absent => Found::Absent,
-        Hit::Ambiguous => Found::Ambiguous,
+        Hit::Ambiguous(_) => Found::Ambiguous,
         Hit::One { key, merged, .. } => {
             assert!(!merged);
             Found::One(key)
@@ -255,7 +257,7 @@ fn the_index_agrees_with_a_plain_scan_for_every_key() {
                 let map = doc.root().unwrap().as_mapping().unwrap();
                 match texts.find(&doc, map, token).unwrap() {
                     Hit::Absent => Found::Absent,
-                    Hit::Ambiguous => Found::Ambiguous,
+                    Hit::Ambiguous(_) => Found::Ambiguous,
                     Hit::One { key, merged, .. } => {
                         if merged {
                             // Only the merged-in keys are not own keys.
@@ -272,4 +274,197 @@ fn the_index_agrees_with_a_plain_scan_for_every_key() {
         }
     }
     assert!(checked > 2_000, "{checked}");
+}
+
+// ---- the work of whole patches and of reads -----------------------------------
+
+/// A mapping of `n` keys `k0`..`k{n-1}`.
+fn wide(n: usize) -> String {
+    (0..n).map(|i| format!("k{i}: {i}\n")).collect()
+}
+
+/// Applies `ops` as `Document::apply_patch` does, and says how many keys the
+/// patch put into indexes and how many key texts it read.
+fn counted(doc: &mut Document, ops: &[PatchOp]) -> (Result<(), PatchError>, usize, usize) {
+    doc.prepare().unwrap();
+    let mut run = Run::new(doc);
+    let result = doc.atomic(|d| apply_ops_in(d, &mut run, ops));
+    (result, run.texts.built, run.texts.reads)
+}
+
+#[test]
+fn many_operations_on_a_wide_mapping_index_it_once_and_read_a_key_each() {
+    for n in [1_000usize, 4_000] {
+        let mut doc = Document::parse(wide(n)).unwrap();
+        let m = n / 2;
+        let mut ops = Vec::new();
+        for i in 0..m {
+            ops.push(PatchOp::add(format!("/n{i}"), Value::from(1)));
+            ops.push(PatchOp::remove(format!("/k{i}")));
+            ops.push(PatchOp::replace(format!("/k{}", n - 1 - i), Value::from(2)));
+            ops.push(PatchOp::test(format!("/n{i}"), Value::from(1)));
+        }
+        let (result, built, reads) = counted(&mut doc, &ops);
+        result.unwrap();
+        // The index of the root: every key once, then every key added.
+        assert_eq!(built, n + m, "width {n}");
+        // One key is read to confirm a name that is there (the remove, the
+        // replace and the test); a name that is not there reads none.
+        assert_eq!(reads, 3 * m, "width {n}");
+        assert!(reads <= ops.len());
+    }
+}
+
+#[test]
+fn a_wide_merge_patch_indexes_the_mapping_once_and_reads_a_key_per_member() {
+    for n in [1_000usize, 4_000] {
+        let mut doc = Document::parse(wide(n)).unwrap();
+        let m = n / 2;
+        let mut patch = Mapping::new();
+        for i in 0..m {
+            patch.insert(Value::from(format!("k{i}")), Value::Null);
+            patch.insert(Value::from(format!("n{i}")), Value::from(1));
+            patch.insert(Value::from(format!("k{}", n - 1 - i)), Value::from(2));
+        }
+        let patch = Value::from(patch);
+        doc.prepare().unwrap();
+        let mut run = Run::new(&doc);
+        doc.atomic(|d| apply_merge_in(d, &mut run, &patch)).unwrap();
+        assert_eq!(run.texts.built, n + m, "width {n}");
+        // The replaced keys and the deleted ones are each read once.
+        assert_eq!(run.texts.reads, 2 * m, "width {n}");
+        assert_eq!(doc.get("k0"), None);
+        assert_eq!(
+            doc.get(format!("k{}", n - 1).as_str()).unwrap().as_i64(),
+            Some(2)
+        );
+    }
+}
+
+/// A mapping `m` with `k` alias keys that each name an anchored scalar of
+/// `len` bytes, and a key `b`.
+fn aliased(k: usize, len: usize) -> String {
+    let mut src = String::new();
+    for i in 0..k {
+        src.push_str(&format!("a{i}: &k{i} {i}{}\n", "y".repeat(len)));
+    }
+    src.push_str("m:\n");
+    for i in 0..k {
+        src.push_str(&format!("  *k{i} : {i}\n"));
+    }
+    src.push_str("  b: 1\n");
+    src
+}
+
+#[test]
+fn the_text_of_an_alias_key_is_read_once_however_many_operations_look_at_it() {
+    let (k, ops) = (6usize, 400usize);
+    let mut doc = Document::parse(aliased(k, 4_000)).unwrap();
+    let mut list = Vec::new();
+    for i in 0..ops {
+        // Writes in the mapping between the reads do not make the alias keys
+        // be read again.
+        match i % 4 {
+            0 => list.push(PatchOp::test("/m/b", Value::from(1))),
+            1 => list.push(PatchOp::add(format!("/m/x{i}"), Value::from(i as i64))),
+            2 => list.push(PatchOp::replace("/m/b", Value::from(1))),
+            _ => list.push(PatchOp::remove(format!("/m/x{}", i - 2))),
+        }
+    }
+    let (result, _, reads) = counted(&mut doc, &list);
+    result.unwrap();
+    // Each alias key once. Then one key is read to confirm each name that is
+    // there: `m` and `b` for a test or a replace, `m` alone for an add (the
+    // new name is not there), `m` and the added member for a remove.
+    assert_eq!(reads, k + 7 * (ops / 4));
+}
+
+#[test]
+fn an_alias_key_is_read_again_when_the_patch_changes_what_it_names() {
+    // Replacing the anchored value changes the key's text, in the same patch.
+    let src = "a: &k old\nm:\n  *k : 1\n  b: 2\n";
+    let mut doc = Document::parse(src).unwrap();
+    let ops = [
+        PatchOp::test("/m/old", Value::from(1)),
+        PatchOp::replace("/a", Value::from("new")),
+        PatchOp::test("/m/new", Value::from(1)),
+        PatchOp::test("/m/b", Value::from(2)),
+    ];
+    let (result, _, reads) = counted(&mut doc, &ops);
+    result.unwrap();
+    // The alias key is read for `old`, again for `new` because the patch
+    // replaced what it names, and not for `b`. The other reads are the
+    // names that are there: `m`, `a`, `m`, then `m` and `b`.
+    assert_eq!(reads, 2 + 5, "{reads}");
+    let mut doc = Document::parse(src).unwrap();
+    let stale = [
+        PatchOp::test("/m/old", Value::from(1)),
+        PatchOp::replace("/a", Value::from("new")),
+        PatchOp::test("/m/old", Value::from(1)),
+    ];
+    let (result, _, _) = counted(&mut doc, &stale);
+    assert_eq!(result.unwrap_err().kind(), PatchErrorKind::Path);
+}
+
+#[test]
+fn alias_keys_naming_large_values_are_read_once_under_the_untrusted_limits() {
+    let (k, len, ops) = (8usize, 250_000usize, 600usize);
+    let src = aliased(k, len);
+    let settings = Settings::new().limits(Limits::untrusted());
+    let mut doc = Document::parse_with(src, &settings).unwrap();
+    let list: Vec<PatchOp> = (0..ops)
+        .map(|_| PatchOp::test("/m/b", Value::from(1)))
+        .collect();
+    let (result, _, reads) = counted(&mut doc, &list);
+    result.unwrap();
+    // Each alias key once; `m` and `b` are read for each test.
+    assert_eq!(reads, k + 2 * ops);
+}
+
+#[test]
+fn reading_alias_keys_is_charged_by_length_to_the_alias_byte_budget() {
+    let src = aliased(2, 40_000);
+    let settings = Settings::new().limits(Limits::default().alias_byte_budget(100_000));
+    let mut doc = Document::parse_with(src.clone(), &settings).unwrap();
+    let (result, _, _) = counted(&mut doc, &[PatchOp::test("/m/b", Value::from(1))]);
+    // 80,000 bytes of keys read once: within the budget.
+    result.unwrap();
+    // Each `add` into the mapping compares the new key with all of them.
+    let adds: Vec<PatchOp> = (0..5)
+        .map(|i| PatchOp::add(format!("/m/n{i}"), Value::from(1)))
+        .collect();
+    let mut doc = Document::parse_with(src.clone(), &settings).unwrap();
+    let (result, _, _) = counted(&mut doc, &adds);
+    assert_eq!(result.unwrap_err().kind(), PatchErrorKind::Limit);
+    // And the failed patch left the document as it was.
+    let mut doc = Document::parse_with(src.clone(), &settings).unwrap();
+    let r = doc.apply_patch(&crate::Patch::new(adds));
+    assert_eq!(r.unwrap_err().kind(), PatchErrorKind::Limit);
+    assert_eq!(doc.to_string(), src);
+}
+
+#[test]
+fn reading_pointers_builds_the_index_of_a_wide_mapping_once() {
+    let n = 20_000;
+    let doc = Document::parse(wide(n)).unwrap();
+    let before = ReadCache::built_on_thread();
+    for i in 0..1_000 {
+        let node = doc.get_pointer(&format!("/k{}", i * 7)).unwrap();
+        assert_eq!(node.as_i64(), Some(i * 7));
+    }
+    assert_eq!(ReadCache::built_on_thread() - before, n);
+    // An edit drops what was kept; the next read builds again, once.
+    let mut doc = doc;
+    doc.set_path("k0", 5).unwrap();
+    let before = ReadCache::built_on_thread();
+    for i in 0..100 {
+        doc.get_pointer(&format!("/k{i}")).unwrap();
+    }
+    assert_eq!(ReadCache::built_on_thread() - before, n);
+    assert_eq!(doc.get_pointer("/k0").unwrap().as_i64(), Some(5));
+    // A clone keeps its own state: editing it does not show in the original.
+    let mut copy = doc.clone();
+    copy.set_path("k1", 6).unwrap();
+    assert_eq!(copy.get_pointer("/k1").unwrap().as_i64(), Some(6));
+    assert_eq!(doc.get_pointer("/k1").unwrap().as_i64(), Some(1));
 }
