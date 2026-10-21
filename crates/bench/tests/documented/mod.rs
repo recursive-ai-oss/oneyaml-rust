@@ -17,6 +17,9 @@ pub const DOCUMENTED_UNSUPPORTED: &[&str] = &[
     "block content or comments cannot move into a flow collection",
     "a flow entry with comments around it cannot be re-inserted yet",
     "the removed text cannot be re-indented there",
+    // A flow `? k : v` entry whose key or value spans lines has no block
+    // form that keeps its text.
+    "a multi-line flow entry with an explicit key cannot move into a block mapping",
     // Refusals of the request itself.
     "an alias inside its own anchored node",
     "an alias or error region cannot have an anchor",
