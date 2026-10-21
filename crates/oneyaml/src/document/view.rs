@@ -438,7 +438,7 @@ impl<'d> NodeRef<'d> {
 
     /// The source text of the node, exactly as written. Borrowed from the
     /// document's text; `Cow` because the syntax tree keeps no copies of
-    /// text split by edits (changed before 0.2).
+    /// text split by edits.
     #[must_use]
     pub fn text(self) -> Cow<'d, str> {
         self.node.text()

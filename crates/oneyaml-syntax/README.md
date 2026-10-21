@@ -11,7 +11,8 @@ want `oneyaml`'s `Document` instead.
 
 **Editing.** `SyntaxTree` has structural edits (`remove`, `replace`,
 `insert_before`/`insert_after`, `append_child`, `replace_token`, and
-the line-end forms `replace_to_line_end`/`insert_line_after`) that splice
+the line-end forms `replace_to_line_end`/`insert_line_after`, with
+`close_block_scalar` to end a block scalar's last line first) that splice
 `Fragment`s parsed by the same parser. Each edit is checked in its real
 context and refused with a `TreeEditError` (the tree unchanged) when its
 text would read back as a different tree, so an edited tree always equals

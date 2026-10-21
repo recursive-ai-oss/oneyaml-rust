@@ -89,14 +89,17 @@ pub use pointer::Pointer;
 /// ```
 /// use oneyaml::{Document, Patch, PatchOp, Value};
 ///
-/// let mut doc = Document::parse("a: 1\nb: [x]\n").unwrap();
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut doc = Document::parse("a: 1\nb: [x]\n")?;
 /// let patch = Patch::new(vec![
 ///     PatchOp::replace("/a", Value::from(2)),
 ///     PatchOp::add("/b/-", Value::from("w")),
 ///     PatchOp::copy("/a", "/c"),
 /// ]);
-/// doc.apply_patch(&patch).unwrap();
+/// doc.apply_patch(&patch)?;
 /// assert_eq!(doc.to_string(), "a: 2\nb: [x, w]\nc: 2\n");
+/// # Ok(())
+/// # }
 /// ```
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
@@ -217,14 +220,16 @@ impl PatchOp {
 /// ```
 /// use oneyaml::{Document, Patch};
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let patch = Patch::from_json(
 ///     r#"[{"op": "add", "path": "/tags/-", "value": "new"},
 ///         {"op": "replace", "path": "/port", "value": 9090}]"#,
-/// )
-/// .unwrap();
-/// let mut doc = Document::parse("port: 80  # http\ntags:\n  - old\n").unwrap();
-/// doc.apply_patch(&patch).unwrap();
+/// )?;
+/// let mut doc = Document::parse("port: 80  # http\ntags:\n  - old\n")?;
+/// doc.apply_patch(&patch)?;
 /// assert_eq!(doc.to_string(), "port: 9090  # http\ntags:\n  - old\n  - new\n");
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Patch {
@@ -323,10 +328,13 @@ impl FromIterator<PatchOp> for Patch {
 /// ```
 /// use oneyaml::{Document, MergePatch};
 ///
-/// let patch = MergePatch::from_json(r#"{"a": {"b": "d", "c": null}, "z": [1, 2]}"#).unwrap();
-/// let mut doc = Document::parse("a:\n  b: c  # kept comment\n  c: gone\n").unwrap();
-/// doc.apply_merge_patch(&patch).unwrap();
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let patch = MergePatch::from_json(r#"{"a": {"b": "d", "c": null}, "z": [1, 2]}"#)?;
+/// let mut doc = Document::parse("a:\n  b: c  # kept comment\n  c: gone\n")?;
+/// doc.apply_merge_patch(&patch)?;
 /// assert_eq!(doc.to_string(), "a:\n  b: d  # kept comment\nz:\n  - 1\n  - 2\n");
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergePatch {
@@ -552,23 +560,24 @@ impl Document {
     /// ```
     /// use oneyaml::{Document, Patch, PatchErrorKind};
     ///
-    /// let mut doc = Document::parse("a: 1  # one\nb: 2\n").unwrap();
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut doc = Document::parse("a: 1  # one\nb: 2\n")?;
     /// let patch = Patch::from_json(
     ///     r#"[{"op": "replace", "path": "/a", "value": 10},
     ///         {"op": "add", "path": "/c", "value": [1, 2]}]"#,
-    /// )
-    /// .unwrap();
-    /// doc.apply_patch(&patch).unwrap();
+    /// )?;
+    /// doc.apply_patch(&patch)?;
     /// assert_eq!(doc.to_string(), "a: 10  # one\nb: 2\nc:\n  - 1\n  - 2\n");
     ///
     /// // A later failure undoes the earlier edits.
     /// let bad = Patch::from_json(
     ///     r#"[{"op": "remove", "path": "/a"}, {"op": "remove", "path": "/zz"}]"#,
-    /// )
-    /// .unwrap();
+    /// )?;
     /// let before = doc.to_string();
     /// assert_eq!(doc.apply_patch(&bad).unwrap_err().kind(), PatchErrorKind::Path);
     /// assert_eq!(doc.to_string(), before);
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Errors
@@ -616,10 +625,13 @@ impl Document {
     /// ```
     /// use oneyaml::{Document, MergePatch};
     ///
-    /// let mut doc = Document::parse("# config\n\na: 1\nb: {x: 1}\n").unwrap();
-    /// let patch = MergePatch::from_json(r#"{"a": null, "b": {"z": 2}}"#).unwrap();
-    /// doc.apply_merge_patch(&patch).unwrap();
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut doc = Document::parse("# config\n\na: 1\nb: {x: 1}\n")?;
+    /// let patch = MergePatch::from_json(r#"{"a": null, "b": {"z": 2}}"#)?;
+    /// doc.apply_merge_patch(&patch)?;
     /// assert_eq!(doc.to_string(), "# config\n\nb: {x: 1, z: 2}\n");
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Errors
@@ -642,11 +654,14 @@ impl Document {
     /// ```
     /// use oneyaml::Document;
     ///
-    /// let doc = Document::parse("a/b: {\"1\": [x, y]}\ncopy: &c [z]\nalias: *c\n").unwrap();
-    /// let node = doc.get_pointer("/a~1b/1/1").unwrap();
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let doc = Document::parse("a/b: {\"1\": [x, y]}\ncopy: &c [z]\nalias: *c\n")?;
+    /// let node = doc.get_pointer("/a~1b/1/1")?;
     /// assert_eq!(node.as_str().as_deref(), Some("y"));
-    /// assert_eq!(doc.get_pointer("/alias/0").unwrap().as_str().as_deref(), Some("z"));
+    /// assert_eq!(doc.get_pointer("/alias/0")?.as_str().as_deref(), Some("z"));
     /// assert!(doc.get_pointer("/nope").is_err());
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Errors

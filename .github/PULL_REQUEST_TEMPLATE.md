@@ -9,7 +9,7 @@
 
 ## Checklist
 
-- [ ] `cargo test --workspace` passes.
+- [ ] `cargo t1` passes (CI runs the full set).
 - [ ] `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings` pass.
 - [ ] Any change to golden output, corpora or benchmark baselines is explained.
 - [ ] No new runtime dependency, no `unsafe`, no panicking path.

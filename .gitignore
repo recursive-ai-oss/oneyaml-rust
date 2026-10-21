@@ -1,9 +1,8 @@
 # Public repository: allowlist.
 #
 # Everything at the top level is ignored unless it is listed below, so a new
-# file is private until someone deliberately adds it here. The surrounding
-# directory also holds private working files (plans, agent definitions) that
-# must never be committed.
+# file stays out of the repository until someone deliberately adds it here,
+# which keeps local working files out of commits.
 /*
 !/.gitignore
 !/.github/

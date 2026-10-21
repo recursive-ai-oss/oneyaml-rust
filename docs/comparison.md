@@ -35,6 +35,7 @@ This page restates no benchmark number; it links to the tables.
 | serde read and write | yes | yes | yes | no |
 | Lossless editing that keeps comments | yes (`Document`) | no | no | yes |
 | One parser behind both serde and editing | yes | n/a | n/a | n/a |
+| JSON Patch, merge patch and JSON Pointer on the YAML text, keeping comments | yes (`Document::apply_patch`, `apply_merge_patch`, `get_pointer`) | n/a | n/a | see its docs |
 | YAML version read by default | 1.2.2, Core schema | 1.1 (libyaml) | see its docs | see its docs |
 | Merge keys (`<<`) in typed reads | opt-in setting `merge_keys` | only through `Value::apply_merge` | expanded by default | n/a |
 | Several documents in one stream | yes | yes | yes | see its docs |

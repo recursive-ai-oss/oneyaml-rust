@@ -40,7 +40,9 @@ better; hatched bars are workloads where oneyaml is slower):
   An edit changes only what you touch: every comment stays with the
   entry it belongs to, by
   [numbered rules](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md),
-  and new content is laid out like its neighbours.
+  and new content is laid out like its neighbours. JSON Patch and merge
+  patches edit the same way, all or nothing
+  ([patches and pointers](#patches-and-pointers)).
 - **Correct YAML 1.2.2 by default.** The Core schema reads `yes` as a
   string and `0777` as a decimal integer, as the spec says; the Failsafe
   and JSON schemas are built in. Every YAML 1.1 behaviour,
@@ -163,6 +165,50 @@ and the
 `miette` feature plugs errors into miette's reports. More on
 [diagnostics on `Error`](https://docs.rs/oneyaml/latest/oneyaml/struct.Error.html#diagnostics).
 
+## Patches and pointers
+
+A `Document` applies a JSON Patch (RFC 6902) or a merge patch (RFC 7396)
+all or nothing: if any operation fails, the document is exactly as it
+was. A patch changes only the text of the values it names, so comments
+and layout stay:
+
+```rust
+use oneyaml::{Document, MergePatch, Patch, PatchErrorKind};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut doc = Document::parse("# app\nimage: web:1.0  # pinned\nports: [80]\n")?;
+    let patch = Patch::from_json(
+        r#"[{"op": "test", "path": "/image", "value": "web:1.0"},
+            {"op": "replace", "path": "/image", "value": "web:1.1"},
+            {"op": "add", "path": "/ports/-", "value": 443}]"#,
+    )?;
+    doc.apply_patch(&patch)?;
+    assert_eq!(doc.to_string(), "# app\nimage: web:1.1  # pinned\nports: [80, 443]\n");
+
+    // The `test` fails now, so nothing is applied.
+    let err = doc.apply_patch(&patch).err().ok_or("expected an error")?;
+    assert_eq!(err.kind(), PatchErrorKind::Test);
+    assert_eq!(doc.get_pointer("/ports/1")?.as_u64(), Some(443));
+
+    // A merge patch: `null` removes a key.
+    let mut doc = Document::parse("image: web:1.0  # pinned\nenv:\n  DEBUG: \"1\"\n  LOG: info\n")?;
+    doc.apply_merge_patch(&MergePatch::from_json(r#"{"image": "web:1.1", "env": {"DEBUG": null}}"#)?)?;
+    assert_eq!(doc.to_string(), "image: web:1.1  # pinned\nenv:\n  LOG: info\n");
+    Ok(())
+}
+```
+
+[`Document::get_pointer`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.get_pointer)
+reads a node by JSON Pointer, and `DocumentMut` and `Stream` apply
+patches too. To change one value without a patch, the setters
+([`Document::set_path`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.set_path),
+[`NodeMut::set`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#method.set))
+write exactly the value you give and keep the old value's style: a
+block scalar stays a block scalar, quotes stay, and so does a tag that
+still fits. Where a patch's `test` departs from RFC 6902, and what a
+patch may copy, is on
+[`Document::apply_patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.apply_patch).
+
 ## When not to use oneyaml
 
 - **You need the fastest typed reads in wall-clock time.** oneyaml's
@@ -257,8 +303,8 @@ and the guides in the repository cover the rest:
 
 - **Read and edit a document.**
   [`Document`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html)
-  walks the core path (parse, look up, edit, write) and lists what an
-  edit refuses;
+  walks the core path (parse, look up, edit, write), says how new
+  content and set values are written, and lists what an edit refuses;
   [`NodeRef`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeRef.html#reading)
   covers typed reads, spans and `deserialize`;
   [`NodeMut`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#values-keys-and-refusals)
@@ -268,6 +314,14 @@ and the guides in the repository cover the rest:
   (`"spec.containers[0].image"`) or `path!` values; the syntax, and how
   to quote a key that holds a `.`, are on
   [`IntoPath`](https://docs.rs/oneyaml/latest/oneyaml/trait.IntoPath.html).
+- **Apply patches.**
+  [`Document::apply_patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.apply_patch)
+  and
+  [`apply_merge_patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.apply_merge_patch)
+  cover what each operation writes, how a pointer token matches a key,
+  and the limits a patch is held to;
+  [`PatchError`](https://docs.rs/oneyaml/latest/oneyaml/struct.PatchError.html)
+  names the operation that failed.
 - **Keep and edit comments.** Each comment has an owner, set by the
   [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md);
   edits move comments with their owner, and `explain_comment` tells you

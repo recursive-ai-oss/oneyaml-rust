@@ -35,7 +35,9 @@ better; hatched bars are workloads where oneyaml is slower):
 - **Edits that keep your file.** An untouched document writes back byte
   for byte; an edit changes only what you touch, and every comment stays
   with the entry it belongs to
-  ([comment rules](docs/comment-attachment.md)).
+  ([comment rules](docs/comment-attachment.md)). JSON Patch and merge
+  patches edit the same way, all or nothing
+  ([patches](crates/oneyaml/README.md#patches-and-pointers)).
 - **Correct YAML 1.2.2 by default.** `yes` is a string and `0777` a
   decimal integer; every YAML 1.1 behaviour, `<<` merge keys included,
   is a named setting, off by default. Checked against the full
@@ -101,8 +103,9 @@ for docker-compose-style `<<` merge keys, turn on
 
 - **Using oneyaml:** the [crate README](crates/oneyaml/README.md) (also the
   [docs.rs front page](https://docs.rs/oneyaml)): quick start, untrusted
-  input, merge keys, and a guide to the API reference for editing,
-  comments, streams, diagnostics and settings.
+  input, merge keys, [JSON Patch and merge patches](crates/oneyaml/README.md#patches-and-pointers),
+  and a guide to the API reference for editing, comments, streams,
+  diagnostics and settings.
 - **Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`:**
   [the migration guide](docs/migrating-from-serde-yaml.md).
 - **Choosing a YAML crate:** [how oneyaml compares](docs/comparison.md),

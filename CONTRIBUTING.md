@@ -170,8 +170,9 @@ feature newer than that in them; check with
   person for user docs.
 - Every public item has a doc comment with an example, and `# Errors`
   for anything that returns `Result`. Examples use `?`, not `unwrap()`.
-- New diagnostics get a new `Y####` code; a code's meaning never
-  changes.
+- New diagnostics get a new `Y####` code. A code is never reused for a
+  different problem; it may be split into narrower codes or deprecated,
+  and either is announced in the changelog.
 
 ## Documentation
 
