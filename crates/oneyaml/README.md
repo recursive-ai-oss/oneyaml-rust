@@ -38,10 +38,11 @@ better; hatched bars are workloads where oneyaml is slower):
   byte for byte, on every valid file of the yaml-test-suite
   ([round trip](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md#results-classification-and-round-trip)).
   An edit changes only what you touch: every comment stays with the
-  entry it belongs to, by
+  entry it belongs to, also when you move the entry, by
   [numbered rules](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md),
   and new content is laid out like its neighbours. JSON Patch and merge
-  patches edit the same way, all or nothing
+  patches change values the same way, all or nothing (a patch `move`
+  carries the value without its comments)
   ([patches and pointers](#patches-and-pointers)).
 - **Correct YAML 1.2.2 by default.** The Core schema reads `yes` as a
   string and `0777` as a decimal integer, as the spec says; the Failsafe
@@ -66,8 +67,10 @@ better; hatched bars are workloads where oneyaml is slower):
   span and a path, and common mistakes come with a suggested fix
   ([diagnostics](#diagnostics)).
 - **Fast, with the losses shown.** oneyaml executes fewer instructions
-  than each competitor on most workloads in the chart above, and an
-  edit's cost doesn't grow with the file. It isn't faster everywhere: a
+  than each competitor on most workloads in the chart above, and the
+  cost of a measured edit depends on what it touches, not on the file's
+  size (a patch also reads the keys of each mapping it looks into, once
+  per patch). It isn't faster everywhere: a
   typed read of the OpenAPI workload and edits of the smallest file take
   more instructions, and in wall-clock time its typed reads are slower
   on most of these workloads, `Document` parsing is level or slightly
@@ -167,10 +170,10 @@ and the
 
 ## Patches and pointers
 
-A `Document` applies a JSON Patch (RFC 6902) or a merge patch (RFC 7396)
-all or nothing: if any operation fails, the document is exactly as it
-was. A patch changes only the text of the values it names, so comments
-and layout stay:
+A `Document` applies JSON Patch (RFC 6902) operations on YAML, and merge
+patches (RFC 7396), all or nothing: if any operation fails, the document
+is exactly as it was. A patch changes only the text of the values it
+names, so the comments and layout around them stay:
 
 ```rust
 use oneyaml::{Document, MergePatch, Patch, PatchErrorKind};
@@ -205,9 +208,22 @@ patches too. To change one value without a patch, the setters
 [`NodeMut::set`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#method.set))
 write exactly the value you give and keep the old value's style: a
 block scalar stays a block scalar, quotes stay, and so does a tag that
-still fits. Where a patch's `test` departs from RFC 6902, and what a
-patch may copy, is on
-[`Document::apply_patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Document.html#method.apply_patch).
+still fits.
+
+Patches work on the YAML data model, so they differ from JSON Patch in a
+few places: `test` compares YAML values (`1` is not `1.0`), a pointer
+token matches a key by its text, and writes below an alias or to a key
+merged in by `<<` are refused. `copy` and `move` write the value, not its
+text: the comments and anchors inside a moved value are dropped. To move
+an entry with its comments, use
+[`NodeMut::move_entry`](https://docs.rs/oneyaml/latest/oneyaml/struct.NodeMut.html#method.move_entry)
+or
+[`Removed`](https://docs.rs/oneyaml/latest/oneyaml/struct.Removed.html).
+[`Patch`](https://docs.rs/oneyaml/latest/oneyaml/struct.Patch.html) lists every difference and what each operation keeps, and
+says what a successful patch guarantees. `Patch::from_json` also reads
+YAML text, with the default limits; for untrusted text, read a `Value`
+with `from_str_with` and `Limits::untrusted()` and build the patch with
+`Patch::from_value`.
 
 ## When not to use oneyaml
 
@@ -344,8 +360,10 @@ and the guides in the repository cover the rest:
 - **Serialize and configure.**
   [`to_string`](https://docs.rs/oneyaml/latest/oneyaml/fn.to_string.html)
   and `to_writer` write any `Serialize`, quoting every string that some
-  reader would read as something else. Every entry point has a `*_with`
-  twin that takes an explicit
+  reader would read as something else. Every reading and parsing entry
+  point has a `*_with` twin (`Patch::from_json` and
+  `MergePatch::from_json` excepted: they read with the defaults) that
+  takes an explicit
   [`Settings`](https://docs.rs/oneyaml/latest/oneyaml/struct.Settings.html)
   (there are no globals): the schema, YAML 1.1 behaviours, duplicate-key
   handling, output layout

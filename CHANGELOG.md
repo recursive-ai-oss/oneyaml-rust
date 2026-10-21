@@ -114,11 +114,11 @@ point at the character that cannot belong.
   - Writes refuse to go through an alias, to change a key that exists only in
     a mapping merged in by `<<`, and to remove an anchored node that an alias
     still uses. These are `RefusedAlias` errors.
-  - `test` compares by the YAML data model under the Core schema, which
-    departs from RFC 6902 section 4.6: `1` is not `1.0`, and `0x1F` is `31`.
-    A mapping key in a compared value matches a JSON object key only if it is
-    a string under the Core schema, so the integer key `1` does not match
-    `"1"`.
+  - `test` compares by the YAML data model under the document's schema
+    (Core by default), which departs from RFC 6902 section 4.6: `1` is not
+    `1.0`, and `0x1F` is `31`. A mapping key in a compared value matches a
+    JSON object key only if it is a string under that schema, so the
+    integer key `1` does not match `"1"`.
   - The bytes a patch copies are charged to the alias byte budget
     (`Limits::alias_byte_budget`; by default the larger of ten times the
     document's length and 64 MiB), three times each, because a copied value is
@@ -130,8 +130,14 @@ point at the character that cannot belong.
     third of ten times the document when that is larger). A patch over the
     budget fails with a limit error and changes nothing. The document size
     limit applies after every write.
-  - A copied or moved value is written out in full, so an alias inside it
-    becomes its content, and comments inside a moved value are not kept.
+  - `copy` and `move` write the value they read, not its text: an alias
+    inside it becomes its content, and the comments inside a moved value
+    and around its old entry, and its anchors, are not kept. To move an
+    entry with its comments, use `NodeMut::move_entry` or `Removed`.
+  - `Patch::from_json` and `MergePatch::from_json` read JSON or YAML text
+    with the default settings and limits. For untrusted text, read a
+    `Value` with `from_str_with` and your own `Limits`, then use
+    `Patch::from_value` or `MergePatch::new`.
 
 - `oneyaml-syntax`: `SyntaxTree::close_block_scalar` adds the missing
   final line break to a block scalar that ends the text without one, so

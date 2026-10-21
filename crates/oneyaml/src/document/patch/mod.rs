@@ -5,7 +5,8 @@
 //! byte for byte what it was. The edits go through the same edit layer as
 //! [`Document::set_path`](crate::Document::set_path) and friends, so a patch
 //! changes only the text of the values it names and keeps comments, layout and
-//! the style of everything else.
+//! the style of everything else. `copy` and `move` write the value they read,
+//! not its source text (see [`Patch`]).
 
 use crate::Value;
 use crate::document::{Document, NodeRef};
@@ -126,6 +127,16 @@ pub enum PatchOp {
         value: Value,
     },
     /// Removes the value at `from` and adds it at `path`.
+    ///
+    /// The value moves, not its text: it is removed with its entry's
+    /// comments and written afresh at `path`, like a new value there. So the
+    /// comments inside it and around its old entry are dropped, its anchors
+    /// are dropped and the aliases inside it are written out as their
+    /// content, and its scalars take the style of their new siblings (a
+    /// custom tag is kept). To move an entry with its text and comments, use
+    /// [`NodeMut::move_entry`](crate::NodeMut::move_entry) within a
+    /// collection, or [`Document::remove_path`](crate::Document::remove_path)
+    /// and [`NodeMut::insert_removed`](crate::NodeMut::insert_removed).
     Move {
         /// The pointer the value is taken from.
         from: String,
@@ -133,6 +144,11 @@ pub enum PatchOp {
         path: String,
     },
     /// Adds a copy of the value at `from` at `path`.
+    ///
+    /// The copy is written from the value, not the text: it has no comments
+    /// or anchors, the aliases inside it are written out as their content,
+    /// and its scalars take the style of their new siblings (a custom tag is
+    /// kept). The source is not changed.
     Copy {
         /// The pointer the value is read from.
         from: String,
@@ -140,7 +156,8 @@ pub enum PatchOp {
         path: String,
     },
     /// Fails the patch unless the value at `path` equals `value`, by the YAML
-    /// data model under the document's schema.
+    /// data model under the document's schema (the Core schema unless the
+    /// document's settings choose another): `1` is not `1.0`.
     Test {
         /// The pointer of the location.
         path: String,
@@ -215,7 +232,42 @@ impl PatchOp {
     }
 }
 
-/// An RFC 6902 patch: a list of [`PatchOp`]s applied in order.
+/// A list of [`PatchOp`]s applied in order: JSON Patch (RFC 6902) operations
+/// on YAML, with these differences.
+///
+/// * `test` compares by the YAML data model under the document's schema
+///   (Core by default), not by JSON equality: `1` is not `1.0`, `0x1F` is
+///   `31`, and the integer key `1` is not the string key `"1"`.
+/// * A pointer token matches a mapping key by the key's scalar text: `/80`
+///   finds `80`, `'80'` and `"80"`. Two keys with the same text are refused
+///   as ambiguous ([`PatchErrorKind::RefusedAmbiguous`]), and a key that is a
+///   collection cannot be addressed.
+/// * Writes below an alias are refused, and so are writes to a key that is
+///   only merged in by `<<` ([`PatchErrorKind::RefusedAlias`]); reads follow
+///   both. [`Document::set_path`](crate::Document::set_path) instead gives
+///   the mapping an own key that shadows the merged one.
+/// * Removing or moving an anchored node that an alias still uses is
+///   refused.
+/// * `copy` and `move` write the value they read, not its text.
+///
+/// What each operation keeps of the document's text (everything a patch
+/// does not name stays byte for byte):
+///
+/// | Operation | Comments | Anchors | Tags | Scalar style |
+/// |---|---|---|---|---|
+/// | `replace`, or `add` over an existing member | the entry's stay; those inside the old value go | the node's anchor stays | stays while the new value reads back under it | quotes and block style stay |
+/// | `add` of a new member or item | none added; the neighbours' stay | none | the value's own | like its siblings |
+/// | `remove` | the entry's own comments go with it | — | — | — |
+/// | `copy` | the copy has none; the source is unchanged | none; aliases written out | custom tags kept | like its new siblings |
+/// | `move` | dropped, inside the value and around its old entry | dropped; aliases written out | custom tags kept | like its new siblings |
+/// | merge patch ([`Document::apply_merge_patch`](crate::Document::apply_merge_patch)) | members it does not name keep theirs; a member it sets is a `replace`, a new one an `add` | as `replace` / `add` | as `replace` / `add` | as `replace` / `add` |
+/// | [`NodeMut::move_entry`](crate::NodeMut::move_entry), [`NodeMut::insert_removed`](crate::NodeMut::insert_removed) (not a patch) | kept: the entry's text moves | kept | kept | kept |
+///
+/// A patch that succeeds leaves text that reads back as the edited tree,
+/// with every comment it kept owned as before. It can still leave a
+/// meaning error (a `<<` that now merges a scalar), which
+/// [`Document::has_errors`](crate::Document::has_errors) reports: check it
+/// before saving (see [`Document::apply_patch`]).
 ///
 /// ```
 /// use oneyaml::{Document, Patch};
@@ -228,6 +280,24 @@ impl PatchOp {
 /// let mut doc = Document::parse("port: 80  # http\ntags:\n  - old\n")?;
 /// doc.apply_patch(&patch)?;
 /// assert_eq!(doc.to_string(), "port: 9090  # http\ntags:\n  - old\n  - new\n");
+/// # Ok(())
+/// # }
+/// ```
+///
+/// A `move` carries the value, not its comments; moving the entry keeps them:
+///
+/// ```
+/// use oneyaml::{Document, Patch};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let src = "a: 1\n# about b\nb:\n  x: 'v'  # why v\n";
+/// let mut doc = Document::parse(src)?;
+/// doc.apply_patch(&Patch::from_json(r#"[{"op": "move", "from": "/b", "path": "/c"}]"#)?)?;
+/// assert_eq!(doc.to_string(), "a: 1\nc:\n  x: v\n");
+///
+/// let mut doc = Document::parse(src)?;
+/// doc.root_mut()?.move_entry(1, 0)?;
+/// assert_eq!(doc.to_string(), "# about b\nb:\n  x: 'v'  # why v\na: 1\n");
 /// # Ok(())
 /// # }
 /// ```
@@ -260,14 +330,35 @@ impl Patch {
         &self.ops
     }
 
-    /// Reads a patch from JSON text: an array of objects, each with an `op`
-    /// and a `path` (a `from` for `move` and `copy`, a `value` for `add`,
-    /// `replace` and `test`). Members an operation does not use are ignored.
+    /// Reads a patch from JSON or YAML text: an array of objects, each with
+    /// an `op` and a `path` (a `from` for `move` and `copy`, a `value` for
+    /// `add`, `replace` and `test`). Members an operation does not use are
+    /// ignored.
     ///
-    /// The text is read with oneyaml's own reader (JSON is YAML), so a number
-    /// is an integer when it has no decimal point or exponent and a float when
-    /// it has either, and the reader's limits apply. Text that is YAML but not
-    /// JSON, such as `[{op: remove, path: /a}]`, is read too.
+    /// The text is read with oneyaml's own YAML reader (JSON is YAML), so
+    /// text that is YAML but not JSON, such as `[{op: remove, path: /a}]`,
+    /// is read too, and a number is an integer when it has no decimal point
+    /// or exponent and a float when it has either. It is read with the
+    /// default [`Settings`](crate::Settings) and their default
+    /// [`Limits`](crate::Limits), whatever the document's are; the
+    /// `serde_json` feature is not needed. For text from an untrusted
+    /// source, read it with your own limits and build the patch from the
+    /// value:
+    ///
+    /// ```
+    /// use oneyaml::{Limits, Patch, Settings, Value};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let text = r#"[{"op": "remove", "path": "/a"}]"#;
+    /// let settings = Settings::new().limits(Limits::untrusted());
+    /// let patch = Patch::from_value(oneyaml::from_str_with::<Value>(text, &settings)?)?;
+    /// assert_eq!(patch.ops().len(), 1);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// The limits that bound applying a patch (its copies, its lookups) are
+    /// the document's, described on [`Document::apply_patch`].
     ///
     /// # Errors
     ///
@@ -349,8 +440,10 @@ impl MergePatch {
         Self { value }
     }
 
-    /// Reads a merge patch from JSON text (with oneyaml's own reader, as
-    /// [`Patch::from_json`] does).
+    /// Reads a merge patch from JSON or YAML text, with the default settings
+    /// and limits, as [`Patch::from_json`] does. For untrusted text, read a
+    /// [`Value`] with [`from_str_with`](crate::from_str_with) and your own
+    /// limits, and pass it to [`MergePatch::new`].
     ///
     /// # Errors
     ///
@@ -521,17 +614,20 @@ impl Document {
     ///
     /// # `test`
     ///
-    /// `test` compares by the YAML data model under the Core schema, which
-    /// departs from RFC 6902 section 4.6: `1` is not `1.0`, and `0x1F` is `31`.
-    /// A mapping key in a compared value matches a JSON object key only if it
-    /// is a string under the Core schema, so the integer key `1` does not match
+    /// `test` compares by the YAML data model under the document's schema
+    /// (the Core schema unless its settings choose another), which departs
+    /// from RFC 6902 section 4.6: `1` is not `1.0`, and `0x1F` is `31`. A
+    /// mapping key in a compared value matches a JSON object key only if it
+    /// is a string under that schema, so the integer key `1` does not match
     /// `"1"`. (A pointer token, above, matches by text: `/1` addresses the key
     /// `1` too.)
     ///
     /// # Limits
     ///
-    /// `copy` and `move` write the value they read: an alias inside it is
-    /// written out as the value it stands for. The bytes a patch copies are
+    /// `copy` and `move` write the value they read, not its text: an alias
+    /// inside it is written out as the value it stands for, and its comments
+    /// and anchors are not kept (the table on [`Patch`] says what each
+    /// operation keeps). The bytes a patch copies are
     /// charged to the document's alias byte budget
     /// ([`Limits::alias_byte_budget`](crate::Limits::alias_byte_budget), for a
     /// document of this length; by default the larger of ten times its length
@@ -548,6 +644,28 @@ impl Document {
     /// changes nothing. After every write the document may not be longer than
     /// `Limits::max_document_size`, and a value nested deeper than
     /// `Limits::max_depth` is refused.
+    ///
+    /// # What success guarantees
+    ///
+    /// When `apply_patch` returns `Ok`, every operation was applied, the
+    /// document's text reads back as the edited tree, and every comment the
+    /// patch kept has the owner it had. As with every edit, a patch can
+    /// still leave a meaning error that its text holds (a `<<` that now
+    /// merges a scalar, two keys that became equal):
+    /// [`Document::has_errors`] and [`Document::diagnostics`] report it, so
+    /// check them before you save.
+    ///
+    /// ```
+    /// use oneyaml::{Document, Patch, Settings};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let settings = Settings::new().merge_keys(true);
+    /// let mut doc = Document::parse_with("base: &b {p: 1}\nweb:\n  <<: *b\n", &settings)?;
+    /// doc.apply_patch(&Patch::from_json(r#"[{"op": "replace", "path": "/base", "value": 3}]"#)?)?;
+    /// assert!(doc.has_errors()); // `web` now merges the scalar 3
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Atomicity
     ///

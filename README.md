@@ -34,9 +34,10 @@ better; hatched bars are workloads where oneyaml is slower):
   never disagree about what a file means.
 - **Edits that keep your file.** An untouched document writes back byte
   for byte; an edit changes only what you touch, and every comment stays
-  with the entry it belongs to
+  with the entry it belongs to, also when you move the entry
   ([comment rules](docs/comment-attachment.md)). JSON Patch and merge
-  patches edit the same way, all or nothing
+  patches change values the same way, all or nothing (a patch `move`
+  carries the value without its comments)
   ([patches](crates/oneyaml/README.md#patches-and-pointers)).
 - **Correct YAML 1.2.2 by default.** `yes` is a string and `0777` a
   decimal integer; every YAML 1.1 behaviour, `<<` merge keys included,

@@ -1970,7 +1970,10 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 ///   edits elsewhere work.
 /// * **Patches and pointers**: [`Document::apply_patch`] applies a JSON
 ///   Patch (RFC 6902) and [`Document::apply_merge_patch`] a merge patch
-///   (RFC 7396), all or nothing, keeping comments and layout;
+///   (RFC 7396), all or nothing, keeping the layout and the comments of
+///   what they do not name; `copy` and `move` write the value, not its
+///   text, so its comments and anchors are not kept ([`Patch`] lists the
+///   differences from JSON and what each operation keeps).
 ///   [`Document::get_pointer`] reads a node by JSON Pointer (RFC 6901).
 ///   [`DocumentMut`] and [`Stream`] apply patches too.
 /// * **Handles**: [`NodeId`]s name nodes across edits; the id-taking
@@ -1985,7 +1988,9 @@ pub struct NodeId(oneyaml_syntax::tree::NodeId);
 /// footer, or the document header or footer) decided by the numbered rules
 /// of the [comment attachment rulebook](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/comment-attachment.md). Edits carry comments with
 /// their owner: a removed entry takes its own comments (listed on the
-/// [`Removed`]), a moved entry brings them along, and
+/// [`Removed`]), an entry moved with [`NodeMut::move_entry`] or
+/// [`NodeMut::insert_removed`] brings them along (a patch `move` writes the
+/// value afresh and does not: see [`Patch`]), and
 /// [`Document::explain_comment`] says which rule decided:
 ///
 /// ```
