@@ -19,6 +19,7 @@ use oneyaml_core::code::{
 };
 use oneyaml_core::{Code, Replacement, Span};
 
+use super::run;
 use super::scan::{
     any_marker_at, break_len, byte, char_at, is_nb_json, line_end, plain_line_end, skip_white,
 };
@@ -94,10 +95,11 @@ pub(super) fn split_lines(text: &str) -> impl Iterator<Item = &str> {
     let mut rest = Some(text);
     core::iter::from_fn(move || {
         let t = rest?;
-        let Some(at) = t.find(['\n', '\r']) else {
+        let at = run::find_break(t.as_bytes(), 0);
+        if at >= t.len() {
             rest = None;
             return Some(t);
-        };
+        }
         let width = break_len(t, at);
         rest = t.get(at.saturating_add(width)..);
         t.get(..at)
@@ -142,7 +144,13 @@ fn next_line(src: &str, i: usize, parent: Option<usize>) -> NextLine {
             .as_bytes()
             .get(j..)
             .map_or(0, |r| r.iter().take_while(|b| **b == b' ').count());
-        let content = skip_white(src, j);
+        // After the spaces only a tab can be more white space.
+        let after = j.saturating_add(spaces);
+        let content = if byte(src, after) == Some(b'\t') {
+            skip_white(src, after)
+        } else {
+            after
+        };
         let blen = break_len(src, content);
         let tabbed = content > j.saturating_add(spaces);
         let bad_empty = blen > 0 && tabbed && parent.is_some_and(|n| spaces <= n);
@@ -173,8 +181,11 @@ fn push_fold<S: Sink>(out: &mut S, empties: usize) {
 /// Continues a plain scalar whose first line is `start..first_end` over
 /// following lines (`ns-plain-multi-line`, production 135) that are indented
 /// more than `parent` (`None` = the document level, indentation -1). In flow
-/// context (`flow`) the text also stops at flow indicators. The value is
-/// measured with [`plain_value`].
+/// context (`flow`) the text also stops at flow indicators. The value's
+/// length is counted as the lines are joined, exactly what [`plain_value`]
+/// builds (the tests check them against each other).
+///
+/// Cost: O(the scalar's length), one pass.
 pub(super) fn plain(
     src: &str,
     start: usize,
@@ -184,6 +195,9 @@ pub(super) fn plain(
 ) -> Flow<Count> {
     let mut end = first_end;
     let mut multiline = false;
+    // The value's length, as `plain_value` would build it: each line's
+    // trimmed text, and a space or one `\n` per empty line between lines.
+    let mut len = first_end.saturating_sub(start);
     loop {
         let after = skip_white(src, end);
         if break_len(src, after) == 0 {
@@ -204,13 +218,10 @@ pub(super) fn plain(
         }
         multiline = true;
         end = line_end;
+        len = len
+            .saturating_add(line_end.saturating_sub(line.content))
+            .saturating_add(line.empties.max(1));
     }
-    let text = src.get(start..end).unwrap_or("");
-    let len = if multiline {
-        plain_value::<Count>(text).0
-    } else {
-        text.len()
-    };
     Flow {
         end,
         value: None,
@@ -226,11 +237,11 @@ pub(super) fn plain(
 /// this is exactly the value of what [`plain`] scanned.
 pub(super) fn plain_value<S: Sink>(text: &str) -> S {
     let mut lines = split_lines(text);
-    let first = lines.next().unwrap_or("").trim_matches([' ', '\t']);
+    let first = trim_white(lines.next().unwrap_or(""));
     let mut out = S::from_raw(first);
     let mut empties = 0usize;
     for line in lines {
-        let line = line.trim_matches([' ', '\t']);
+        let line = trim_white(line);
         if line.is_empty() {
             empties = empties.saturating_add(1);
         } else {
@@ -240,6 +251,18 @@ pub(super) fn plain_value<S: Sink>(text: &str) -> S {
         }
     }
     out
+}
+
+/// `line` without the spaces and tabs at both ends (bytes, not `char`s: both
+/// are one byte, so the cuts are on character boundaries).
+pub(super) fn trim_white(line: &str) -> &str {
+    let bytes = line.as_bytes();
+    let white = |b: &u8| *b == b' ' || *b == b'\t';
+    let Some(first) = bytes.iter().position(|b| !white(b)) else {
+        return "";
+    };
+    let last = bytes.iter().rposition(|b| !white(b)).map_or(first, |k| k);
+    line.get(first..last.saturating_add(1)).unwrap_or("")
 }
 
 /// The value of the `n` hexadecimal digits at `from`, if they are all there.
@@ -545,6 +568,11 @@ fn check_line(
 /// The value is the raw text between the quotes (borrowable) unless
 /// an escape, a `''`, or a line fold changes it; only then is a sink
 /// started, from the text scanned so far.
+///
+/// Cost: O(the scalar's length). Text between the specials (the quote, a
+/// backslash, a line break, a control character) is passed as a run (see
+/// `run`) and, when a value is being built, appended with one `push_str`
+/// rather than a character at a time; each special costs one `char` step.
 pub(super) fn quoted<S: Sink>(
     src: &str,
     start: usize,
@@ -563,7 +591,34 @@ pub(super) fn quoted<S: Sink>(
         out.take()
             .unwrap_or_else(|| S::from_raw(src.get(body..upto).unwrap_or("")))
     };
+    let quote = if double { b'"' } else { b'\'' };
     loop {
+        // A run of characters that are copied as they are (anything but the
+        // quote, a backslash in a double-quoted scalar, a line break, or a
+        // control character) is passed in one step.
+        let run_end = run::quoted_run_end(src.as_bytes(), i, quote, double);
+        if run_end > i {
+            if let Some(o) = out.as_mut() {
+                let text = src.get(i..run_end).unwrap_or("");
+                let before = o.len();
+                let white = text
+                    .bytes()
+                    .rev()
+                    .take_while(|b| *b == b' ' || *b == b'\t')
+                    .count();
+                // Where trailing white space starts, as the per-character
+                // reading would have marked it.
+                if white == text.len() {
+                    ws_mark.get_or_insert(before);
+                } else if white > 0 {
+                    ws_mark = Some(before.saturating_add(text.len().saturating_sub(white)));
+                } else {
+                    ws_mark = None;
+                }
+                o.push_str(text);
+            }
+            i = run_end;
+        }
         let Some(c) = char_at(src, i) else {
             return Err((UNTERMINATED_QUOTED_SCALAR, "quoted scalar is not closed"));
         };

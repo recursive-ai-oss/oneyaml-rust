@@ -45,7 +45,7 @@ use oneyaml_core::{Code, Span};
 use super::block::HeadMode;
 use super::scan::{
     IMPLICIT_KEY_MAX_CHARS, TagPrefix, any_marker_at, blank_or_end, break_len, byte, char_at,
-    comment_at, is_flow_indicator, key_too_long, line_end, skip_white,
+    comment_at, is_flow_indicator, key_too_long, line_end, mark_at, skip_white,
 };
 use super::{Item, Out, Parser};
 use crate::event::{CollectionStyle, Event, EventKind, Indicator, Properties, TriviaKind};
@@ -528,7 +528,7 @@ impl<'s, 'a> Flow<'s, 'a> {
                     self.comment_errors(i, end);
                     end
                 }
-                _ if src.get(i..).is_some_and(|r| r.starts_with('\u{feff}')) => {
+                _ if mark_at(src, i) => {
                     // §5.2, production 202: never a document prefix here.
                     let end = i.saturating_add('\u{feff}'.len_utf8());
                     if i == lead {
