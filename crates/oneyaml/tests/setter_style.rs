@@ -440,9 +440,13 @@ fn the_empty_path_key_names_the_key_with_no_content() {
         let d = Document::parse(src).unwrap();
         let two = |d: &Document| d.get_path(&path![""]).map(|n| n.text().into_owned());
         assert_eq!(two(&d).as_deref(), Some("2"), "{src:?}");
+        // `get` goes by `Value` equality: only a quoted empty key is the
+        // string "", a key written as nothing reads as null.
+        let quoted = src.contains("''") || src.contains("\"\"");
         assert_eq!(
             d.get("").map(|n| n.text().into_owned()).as_deref(),
-            Some("2")
+            quoted.then_some("2"),
+            "{src:?}"
         );
         // Setting replaces that value and creates no second key.
         let mut s = d.clone();
@@ -452,7 +456,7 @@ fn the_empty_path_key_names_the_key_with_no_content() {
         assert_eq!(
             Document::parse(out.as_str())
                 .unwrap()
-                .get("")
+                .get_path(&path![""])
                 .map(|n| n.text().into_owned())
                 .as_deref(),
             Some("9")
@@ -481,7 +485,12 @@ fn the_empty_path_key_names_the_key_with_no_content() {
     for src in ["'': 1\n: 2\n", "\"\": 1\n&x : 2\n"] {
         let d = Document::parse(src).unwrap();
         assert!(d.get_path(&path![""]).is_none(), "{src:?}");
-        assert!(d.get("").is_none());
+        // (`get` keeps `Value` equality: the quoted key is the string "".)
+        assert_eq!(
+            d.get("").map(|n| n.text().into_owned()).as_deref(),
+            Some("1"),
+            "{src:?}"
+        );
         let mut e = d.clone();
         assert!(matches!(
             e.set_path(&path![""], 9),

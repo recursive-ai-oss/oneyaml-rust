@@ -994,15 +994,12 @@ impl<'d> MappingRef<'d> {
     #[must_use]
     pub fn get<K: AsKey>(self, key: K) -> Option<NodeRef<'d>> {
         let k = key::arg(&key);
-        if matches!(k, KeyArg::Str("")) {
-            return self.segment("", false).ok().flatten();
-        }
         self.get_in(KeyQuery::of(&k), false)
     }
 
     /// The value a path segment names: for `key` as [`MappingRef::get`]
     /// (`own`: only this mapping's own entries, as the last segment of a
-    /// set does).
+    /// set does), except that the empty segment goes by the key's text.
     ///
     /// The empty segment names the entry whose key has no content: a key
     /// written as nothing (`: v`, `[: v]`) is a scalar of empty text, though

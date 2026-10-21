@@ -151,11 +151,27 @@ fn sp(n: usize) -> String {
     " ".repeat(n)
 }
 
+/// `items` split in one pass into those `is_taken` names and the others,
+/// each in order, asking once per item.
+fn split_taken<T>(items: Vec<T>, is_taken: impl FnMut(&T) -> bool) -> (Vec<T>, Vec<T>) {
+    items.into_iter().partition(is_taken)
+}
+
 /// Whether `text` is a block scalar written with the clip indicator (no `-`
 /// or `+`): its header is the last word of the first line, before a comment.
 fn clip_header(text: &str) -> bool {
     let first = text.split(['\n', '\r']).next().unwrap_or_default();
-    let first = first.split(" #").next().unwrap_or_default();
+    // A comment starts at a `#` after white space.
+    let cut = first
+        .char_indices()
+        .zip(
+            first
+                .chars()
+                .scan(' ', |prev, c| Some(std::mem::replace(prev, c))),
+        )
+        .find(|((_, c), before)| *c == '#' && before.is_whitespace())
+        .map_or(first.len(), |((i, _), _)| i);
+    let first = first.get(..cut).unwrap_or_default();
     first
         .split_whitespace()
         .next_back()
@@ -360,7 +376,10 @@ fn block_tail(
                     Some(b) if b.kind() == SyntaxKind::LineBreak => {
                         (b, text, width >= indent, false)
                     }
-                    None => (r, text, width >= indent, false),
+                    // A comment ending the file without a line break: taking
+                    // it would give it one when it goes back.
+                    None if width >= indent => return None,
+                    None => (r, text, false, false),
                     _ => break,
                 }
             }
@@ -4368,20 +4387,18 @@ impl Document {
             // The comments removed with those lines are the entry's now:
             // `Removed` keeps them, with the owner the rules gave them, and
             // they are no longer expected to stay where their owner had them.
+            // One pass over the window's comments, however many are taken.
             let mut taken: Vec<Expect> = Vec::new();
             if let Some(t) = &tail_lines {
-                for c in &t.3 {
-                    let at = carry
-                        .rest
-                        .iter()
-                        .position(|x| x.old == Some(*c))
-                        .ok_or(EditError::NotWellFormed { at: Path::new() })?;
-                    let x = carry.rest.remove(at);
-                    if !matches!(x.want, Want::Rel(_)) {
-                        return Err(EditError::NotWellFormed { at: Path::new() });
-                    }
-                    taken.push(x);
+                let ids: HashSet<TreeId> = t.3.iter().copied().collect();
+                let (mine, rest) = split_taken(std::mem::take(&mut carry.rest), |x| {
+                    x.old.is_some_and(|c| ids.contains(&c))
+                });
+                carry.rest = rest;
+                if mine.len() != ids.len() || mine.iter().any(|x| !matches!(x.want, Want::Rel(_))) {
+                    return Err(EditError::NotWellFormed { at: Path::new() });
                 }
+                taken = mine;
             }
             if keep_lead && (only || flow) && carry.kept_lead > 0 {
                 return Err(unsupported(
@@ -8077,6 +8094,36 @@ mod tests {
             };
             d.op_move(coll, from, Where::Append).unwrap();
             assert_eq!(d.to_string(), src);
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::indexing_slicing)]
+mod split_tests {
+    use super::{clip_header, split_taken};
+
+    #[test]
+    fn a_header_comment_after_any_white_space_is_not_the_header() {
+        for t in [" |", " | # c", " |\t# c", " |\t #c", " >  \t# c\n  x"] {
+            assert!(clip_header(t), "{t:?}");
+        }
+        for t in [" |-", " |+\t# c", " |- # c", " x", " x #|"] {
+            assert!(!clip_header(t), "{t:?}");
+        }
+    }
+
+    #[test]
+    fn taking_comments_asks_once_per_comment() {
+        for n in [10usize, 1000, 4000] {
+            let mut asked = 0usize;
+            let (mine, rest) = split_taken((0..n).collect(), |i| {
+                asked += 1;
+                i % 2 == 0
+            });
+            assert_eq!(asked, n);
+            assert_eq!(mine.len() + rest.len(), n);
+            assert!(mine.windows(2).all(|w| w[0] < w[1]));
         }
     }
 }

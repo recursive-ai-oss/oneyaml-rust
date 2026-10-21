@@ -375,6 +375,22 @@ fn the_comments_a_last_entry_takes_from_under_a_block_scalar_come_back() {
     for (src, left, comments) in cases {
         last_entry_round_trip(src, &map, &x, 1, left, comments);
     }
+    // A comment that ends the file without a line break would get one when
+    // it goes back: the removal is refused and nothing changes.
+    for src in [
+        "- |\n  v\n- x\n  # c",
+        "a:\n  k: |\n    v\n  x: 1\n    # c",
+        "a:\n  k: |\n    v\n  x: 1\n    # c1\n    # c2",
+    ] {
+        let mut d = Document::parse(src).unwrap();
+        let at = if src.starts_with('-') {
+            path![1]
+        } else {
+            path!["a", "x"]
+        };
+        assert!(d.remove_path(&at).is_err(), "{src:?}");
+        assert_eq!(d.to_string(), src);
+    }
     // A sequence item.
     last_entry_round_trip(
         "- |\n  v\n- x\n  # c\n",
@@ -402,7 +418,9 @@ fn a_comment_narrower_than_the_scalar_ends_what_a_last_entry_takes() {
 fn a_comment_after_an_empty_line_is_never_dropped_by_a_last_entry_removal() {
     use oneyaml::path;
     let src = "a:\n  k: |\n    v\n  x: 1\n\n    # c\nb: 2\n";
+    let value = |d: &Document| oneyaml::Value::try_from(d).unwrap();
     let mut d = Document::parse(src).unwrap();
+    let before = value(&d);
     // The removal may be refused; if it goes through, the comment is kept
     // in the text or reported by the removal.
     if let Ok(removed) = d.remove_path(&path!["a", "x"]) {
@@ -411,7 +429,13 @@ fn a_comment_after_an_empty_line_is_never_dropped_by_a_last_entry_removal() {
             "{:?}",
             d.to_string()
         );
+        let mut expected = before;
+        if let Some(a) = expected.get_mut("a").and_then(|a| a.as_mapping_mut()) {
+            a.remove(&oneyaml::Value::from("x"));
+        }
+        assert_eq!(value(&d), expected);
     } else {
         assert_eq!(d.to_string(), src);
+        assert_eq!(value(&d), before);
     }
 }
