@@ -468,3 +468,85 @@ fn reading_pointers_builds_the_index_of_a_wide_mapping_once() {
     assert_eq!(copy.get_pointer("/k1").unwrap().as_i64(), Some(6));
     assert_eq!(doc.get_pointer("/k1").unwrap().as_i64(), Some(1));
 }
+
+#[test]
+fn reading_pointers_keeps_no_copy_of_the_text_of_the_keys_it_reads() {
+    // 300 mappings keyed by an alias of one 60 KB value: copies of its text
+    // would take 18 MB.
+    let mut src = format!("a: &a {}\n", "y".repeat(60_000));
+    for i in 0..300 {
+        src.push_str(&format!("m{i}:\n  *a : 1\n"));
+    }
+    let doc = Document::parse(src).unwrap();
+    for i in 0..300 {
+        assert!(doc.get_pointer(&format!("/m{i}/x")).is_err());
+    }
+    let kept = doc.shared.pointer_reads.kept_memo_bytes().unwrap();
+    assert!(kept <= 64, "{kept}");
+    // The key still answers to its text.
+    let token = format!("/m7/{}", "y".repeat(60_000));
+    assert_eq!(doc.get_pointer(&token).unwrap().as_i64(), Some(1));
+}
+
+#[test]
+fn alias_keys_naming_one_node_are_read_once_in_a_single_lookup() {
+    // The keys of one mapping, all aliases of one value, with later keys
+    // overriding earlier ones.
+    let k = 2_000;
+    let mut src = format!("a: &a {}\nm:\n", "y".repeat(5_000));
+    for i in 0..k {
+        src.push_str(&format!("  *a : {i}\n"));
+    }
+    let doc = Document::parse_with(src, &lastwins()).unwrap();
+    let map = doc.get("m").unwrap().as_mapping().unwrap();
+    let mut texts = Texts::unlimited();
+    assert!(matches!(texts.find(&doc, map, "x").unwrap(), Hit::Absent));
+    assert_eq!(texts.reads, 1);
+    assert!(texts.memo_bytes() <= 64);
+    // Asked for by its text, it is two keys or more: ambiguous.
+    let token = "y".repeat(5_000);
+    assert!(matches!(
+        texts.find(&doc, map, &token).unwrap(),
+        Hit::Ambiguous(_)
+    ));
+    assert_eq!(texts.reads, 1);
+}
+
+#[test]
+fn replacing_a_scalar_does_no_work_for_the_alias_keys_that_were_read() {
+    let k = 600;
+    let mut src = String::new();
+    for i in 0..k {
+        src.push_str(&format!("a{i}: &x{i} v{i}\n"));
+    }
+    src.push_str("z: 0\nm:\n");
+    for i in 0..k {
+        src.push_str(&format!("  *x{i} : {i}\n"));
+    }
+    let mut doc = Document::parse(src).unwrap();
+    doc.prepare().unwrap();
+    let mut run = Run::new(&doc);
+    let read = [PatchOp::test("/m/v5", Value::from(5))];
+    doc.atomic(|d| apply_ops_in(d, &mut run, &read)).unwrap();
+    assert_eq!(run.texts.reads, k + 1);
+    let before = run.texts.steps();
+    let replaces: Vec<PatchOp> = (0..300)
+        .map(|i| PatchOp::replace("/z", Value::from(i)))
+        .collect();
+    doc.atomic(|d| apply_ops_in(d, &mut run, &replaces))
+        .unwrap();
+    // Finding `z` in the root costs a step for the mapping; nothing is spent on
+    // the 600 nodes that were read.
+    let spent = run.texts.steps() - before;
+    assert!(spent <= 2 * replaces.len(), "{spent}");
+    // Replacing the anchored value itself makes its alias key be read again.
+    let reread = [
+        PatchOp::replace("/a5", Value::from("w")),
+        PatchOp::test("/m/w", Value::from(5)),
+    ];
+    let reads = run.texts.reads;
+    doc.atomic(|d| apply_ops_in(d, &mut run, &reread)).unwrap();
+    // Three reads: the key `a5` and the key `m` of the root, and the node the
+    // alias key `*x5` names, which is read again.
+    assert_eq!(run.texts.reads - reads, 3);
+}

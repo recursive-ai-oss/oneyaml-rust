@@ -15,15 +15,17 @@
 //! not read `a`).
 //!
 //! Alias keys are the exception to "built once", because what they name can
-//! change under an edit. The text of an alias key is read at most once per
-//! patch and remembered together with the node it was read from. The patch's
-//! own removals and replacements forget the texts that came from the nodes
-//! they touch, and a remembered text is used only while its alias still names
-//! the same node. Every read is charged by its length in bytes to the
-//! document's alias byte budget, and the walk over the alias keys and merged
-//! mappings of each lookup is charged in steps, so the work of a patch is
-//! bounded by those budgets and not by the number of its operations times the
-//! size of what its alias keys name.
+//! change under an edit. The node an alias key names is read at most once per
+//! patch, however many alias keys name it, and only the digest and the length
+//! of its text are kept, so what a patch remembers never grows with the size
+//! of the values the keys name; a token that agrees with both is confirmed by
+//! reading that one node again. The patch's own removals and replacements
+//! forget what was read from the nodes they touch, and a remembered read is
+//! used only for the node the alias names now. Every first read is charged by
+//! its length in bytes to the document's alias byte budget, and the walk over
+//! the alias keys and merged mappings of each lookup is charged in steps, so
+//! the work of a patch is bounded by those budgets and not by the number of
+//! its operations times the size of what its alias keys name.
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasher, RandomState};
@@ -60,15 +62,11 @@ struct MapIndex {
     aliases: Vec<NodeId>,
 }
 
-/// What reading an alias key found, and the node it was read from.
-#[derive(Debug)]
-struct AliasMemo {
-    /// The node the alias named when it was read; `None` for an alias that
-    /// names nothing.
-    target: Option<NodeId>,
-    /// The text of the scalar it names; `None` when that is not a scalar.
-    text: Option<String>,
-}
+/// What reading the node an alias key names found: the digest and the length
+/// of its text, never the text (a copy of document text kept here would grow
+/// with the number of alias keys, not with the document). `None` when the node
+/// is not a scalar.
+type TextMark = Option<(u64, usize)>;
 
 /// Why a token is ambiguous.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,8 +109,9 @@ pub(super) enum Hit<'d> {
 /// the work it has spent.
 pub(super) struct Texts {
     maps: HashMap<NodeId, MapIndex>,
-    /// Alias keys that were read, by the key.
-    aliases: HashMap<NodeId, AliasMemo>,
+    /// The nodes alias keys name that were read, by node, so any number of
+    /// alias keys naming one node cost one read.
+    marks: HashMap<NodeId, TextMark>,
     /// The mappings a mapping merges in, by the mapping (only with merge keys
     /// on), until the next write.
     sources: HashMap<NodeId, Vec<NodeId>>,
@@ -161,7 +160,7 @@ impl Texts {
     fn with_budgets(budget: Option<usize>, byte_budget: Option<usize>) -> Self {
         Self {
             maps: HashMap::new(),
-            aliases: HashMap::new(),
+            marks: HashMap::new(),
             sources: HashMap::new(),
             hasher: RandomState::new(),
             indexed: 0,
@@ -175,6 +174,20 @@ impl Texts {
             #[cfg(test)]
             reads: 0,
         }
+    }
+
+    /// The bytes the memory of alias-key reads takes: one entry per node read.
+    #[cfg(test)]
+    pub(super) fn memo_bytes(&self) -> usize {
+        self.marks
+            .len()
+            .saturating_mul(std::mem::size_of::<(NodeId, TextMark)>())
+    }
+
+    /// The steps spent so far.
+    #[cfg(test)]
+    pub(super) fn steps(&self) -> usize {
+        self.spent
     }
 
     /// How many keys the indexes hold.
@@ -216,14 +229,13 @@ impl Texts {
         self.hasher.hash_one(text)
     }
 
-    fn file(&mut self, ix: &mut MapIndex, id: NodeId, text: &str) {
+    fn file(&mut self, ix: &mut MapIndex, id: NodeId, d: u64) {
         self.indexed = self.indexed.saturating_add(1);
         #[cfg(test)]
         {
             self.built = self.built.saturating_add(1);
             BUILT_ON_THREAD.with(|c| c.set(c.get().saturating_add(1)));
         }
-        let d = self.hasher.hash_one(text);
         match ix.by_text.remove(&d) {
             None => {
                 ix.by_text.insert(d, Bucket::One(id));
@@ -240,12 +252,17 @@ impl Texts {
 
     fn build(&mut self, map: MappingRef<'_>) {
         let mut ix = MapIndex::default();
-        let mut keys: Vec<(NodeId, Option<String>)> = Vec::new();
-        map.for_each_text_key(|key, text| keys.push((key.id(), text.map(|t| t.into_owned()))));
-        for (id, text) in keys {
-            match text {
+        // Digests only: the keys' texts are not copied, not even for the
+        // length of the build.
+        let hasher = self.hasher.clone();
+        let mut keys: Vec<(NodeId, Option<u64>)> = Vec::new();
+        map.for_each_text_key(|key, text| {
+            keys.push((key.id(), text.map(|t| hasher.hash_one(&*t))));
+        });
+        for (id, digest) in keys {
+            match digest {
                 None => ix.aliases.push(id),
-                Some(text) => self.file(&mut ix, id, &text),
+                Some(d) => self.file(&mut ix, id, d),
             }
         }
         self.maps.insert(map.node().id(), ix);
@@ -263,9 +280,11 @@ impl Texts {
         }
     }
 
-    /// Whether the alias key `id` has the text `token`. The text is read when
-    /// the alias has not been read, or names another node than it did, and
-    /// the read is charged by the length of what it names.
+    /// Whether the alias key `id` has the text `token`. The node the alias
+    /// names is read when it has not been, and the read is charged by its
+    /// length. What is kept is the digest and length of its text; a token that
+    /// agrees with both is confirmed by reading that one node again (borrowed,
+    /// and no longer than the token).
     fn alias_matches(
         &mut self,
         doc: &Document,
@@ -275,34 +294,38 @@ impl Texts {
         let Ok(key) = doc.node(id) else {
             return Ok(Match::Gone);
         };
-        let target = key.alias_target();
-        let target_id = target.map(NodeRef::id);
-        if let Some(memo) = self.aliases.get(&id).filter(|m| m.target == target_id) {
-            return Ok(if memo.text.as_deref() == Some(token) {
-                Match::Yes
-            } else {
-                Match::No
-            });
+        let Some(target) = key.alias_target() else {
+            return Ok(Match::No);
+        };
+        let mark = match self.marks.get(&target.id()) {
+            Some(mark) => *mark,
+            None => {
+                // The length of the source is charged before it is read, so a
+                // refused read costs nothing.
+                self.charge_bytes(target.span().len())?;
+                #[cfg(test)]
+                {
+                    self.reads = self.reads.saturating_add(1);
+                }
+                let mark = target
+                    .as_scalar()
+                    .map(|s| s.value())
+                    .map(|v| (self.hasher.hash_one(&*v), v.len()));
+                self.marks.insert(target.id(), mark);
+                mark
+            }
+        };
+        let Some((digest, len)) = mark else {
+            return Ok(Match::No);
+        };
+        if len != token.len() || digest != self.digest(token) {
+            return Ok(Match::No);
         }
-        // The length of the source is charged before it is decoded, so a
-        // refused read costs nothing.
-        self.charge_bytes(target.map_or(0, |t| t.span().len()))?;
-        #[cfg(test)]
-        {
-            self.reads = self.reads.saturating_add(1);
-        }
-        let text = target
-            .and_then(NodeRef::as_scalar)
-            .map(|s| s.value().into_owned());
-        let hit = text.as_deref() == Some(token);
-        self.aliases.insert(
-            id,
-            AliasMemo {
-                target: target_id,
-                text,
-            },
-        );
-        Ok(if hit { Match::Yes } else { Match::No })
+        Ok(if target.as_scalar().is_some_and(|s| s.value() == token) {
+            Match::Yes
+        } else {
+            Match::No
+        })
     }
 
     /// The bytes of the sources the alias keys `ids` name, which is what a
@@ -534,7 +557,8 @@ impl Texts {
         let Some(mut ix) = self.maps.remove(&map) else {
             return;
         };
-        self.file(&mut ix, id, &text);
+        let d = self.digest(&text);
+        self.file(&mut ix, id, d);
         self.maps.insert(map, ix);
     }
 
@@ -542,7 +566,6 @@ impl Texts {
     /// removed.
     pub(super) fn removed(&mut self, map: NodeId, token: &str, key: NodeId) {
         let d = self.hasher.hash_one(token);
-        self.aliases.remove(&key);
         let Some(ix) = self.maps.get_mut(&map) else {
             return;
         };
@@ -568,21 +591,35 @@ impl Texts {
         }
     }
 
-    /// The node `node` is about to be removed or replaced: the texts read from
-    /// it, or from anything under it, are forgotten, and so are the merged
+    /// The node `node` is about to be removed or replaced: what was read from
+    /// it, or from anything under it, is forgotten, and so are the merged
     /// mappings found so far.
+    ///
+    /// A scalar or an alias has nothing under it, so only its own mark goes
+    /// (O(1)). For a collection every mark is tested against its span, which
+    /// holds everything under it; a node on its edge may be forgotten too,
+    /// which only costs a read.
     pub(super) fn will_change(&mut self, doc: &Document, node: NodeId) -> Result<(), PatchError> {
         self.sources.clear();
-        if self.aliases.is_empty() {
+        if self.marks.is_empty() {
             return Ok(());
         }
-        // One walk up from each distinct node an alias key was read from.
-        self.charge(self.aliases.len())?;
-        let hit = |target: NodeId| match doc.node(target) {
-            Err(_) => true,
-            Ok(t) => target == node || t.tree_node().ancestors().any(|a| a.id() == node.0),
+        let Ok(changed) = doc.node(node) else {
+            self.marks.clear();
+            return Ok(());
         };
-        self.aliases.retain(|_, memo| !memo.target.is_some_and(hit));
+        if matches!(changed.kind(), NodeKind::Scalar | NodeKind::Alias) {
+            self.marks.remove(&node);
+            return Ok(());
+        }
+        self.charge(self.marks.len())?;
+        let span = changed.span();
+        self.marks.retain(|target, _| {
+            doc.node(*target).is_ok_and(|t| {
+                let inside = t.span();
+                *target != node && !(span.start <= inside.start && inside.end <= span.end)
+            })
+        });
         Ok(())
     }
 
@@ -595,7 +632,7 @@ impl Texts {
     /// The whole document was replaced: nothing found so far holds.
     pub(super) fn reset(&mut self) {
         self.maps.clear();
-        self.aliases.clear();
+        self.marks.clear();
         self.sources.clear();
     }
 

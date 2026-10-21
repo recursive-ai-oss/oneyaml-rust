@@ -57,6 +57,17 @@ impl ReadCache {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
     }
 
+    /// The bytes the kept indexes use for what they remember of alias-key
+    /// reads, if any are kept (tests).
+    #[cfg(test)]
+    fn kept_memo_bytes(&self) -> Option<usize> {
+        self.slot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .map(textindex::Texts::memo_bytes)
+    }
+
     /// Keys put into indexes on this thread since it began (tests).
     #[cfg(test)]
     fn built_on_thread() -> usize {

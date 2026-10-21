@@ -36,8 +36,9 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
     of the same meaning overrides (`DuplicateKeys::LastWins`). With
     `merge_keys` on, keys merged in by `<<` are found, as `get_path` finds
     them.
-  - The text of an alias key is read once per patch (again only if the patch
-    removes or replaces what the alias names), so a patch of many operations
+  - The node an alias key names is read once per patch, however many alias
+    keys name it (again only if the patch removes or replaces it), and only
+    a digest and the length of its text are kept, never a copy, so a patch of many operations
     on a mapping with alias keys does not read them again for each operation.
     The bytes read are charged to the alias byte budget, as are the bytes of
     the alias keys that an `add` into the mapping, a `LastWins` duplicate
