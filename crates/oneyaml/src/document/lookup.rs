@@ -122,7 +122,17 @@ struct Rng(u64);
 
 impl Rng {
     fn seeded() -> Self {
-        Self(RandomState::new().hash_one(0x44b_u64) | 1)
+        // The step-count tests compare counts between runs, so with the
+        // internal checks on (test tooling, never a release) every index
+        // gets the same shape.
+        #[cfg(any(test, feature = "__internal-checks"))]
+        {
+            Self(0x9e37_79b9_7f4a_7c15)
+        }
+        #[cfg(not(any(test, feature = "__internal-checks")))]
+        {
+            Self(RandomState::new().hash_one(0x44b_u64) | 1)
+        }
     }
 
     fn next(&mut self) -> u32 {
