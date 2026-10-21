@@ -50,10 +50,10 @@ The criterion other projects publish (and the one matrix.yaml.info uses):
 
 | Parser | Version | Valid | Error | Total | Error + prefix (vendored / corrected) | Notes |
 |---|---|---|---|---|---|---|
-| oneyaml-syntax | 0.1.2 | 308/308 | 94/94 | 402/402 | 85 / 93 of 94 |  |
+| oneyaml-syntax | 0.1.2 | 308/308 | 94/94 | 402/402 | 83 / 93 of 94 |  |
 | saphyr-parser | 0.1.0 | 308/308 | 94/94 | 402/402 | 55 / 55 of 94 | API lacks `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
 | yaml-rust2 | 0.13.0 | 308/308 | 94/94 | 402/402 | 57 / 57 of 94 | API lacks `---` marker, `...` marker, flow `{}`/`[]` markers, anchor names (compared by order); ignored |
-| libyaml (unsafe-libyaml) | 0.2.11 | 252/308 | 78/94 | 330/402 | 50 / 57 of 94 |  |
+| libyaml (unsafe-libyaml) | 0.2.11 | 252/308 | 78/94 | 330/402 | 50 / 56 of 94 |  |
 | yaml-edit | 0.3.2 | n/a | 25/94 | n/a | n/a | no event API: valid column is n/a (see classification table) |
 | yaml-edit + Validator | 0.3.2 | n/a | 94/94 | n/a | n/a | no event API: valid column is n/a (see classification table) |
 
@@ -73,17 +73,24 @@ Every parser, including yaml-edit, can be held to these.
 ## Our strict score (not comparable; shown separately)
 
 oneyaml-syntax strict (contract + exact error prefixes + pinned codes):
-**401/402** (valid 308/308, error 93/94; 9 judged against corrected expectations).
+**401/402** (valid 308/308, error 93/94; 11 judged against corrected expectations).
 
-The one failure is 4H7K (`[ a, b, c ] ]`): its recorded tree ends the
-document (`-DOC`) before the error on the extra `]`, and we report the `]`
-with the document still open. No timing rule was adopted for it, because
-the recorded trees do not agree with each other. 9JBA
-(`[ a, b, c, ]#invalid`) records no `-DOC`, although the reference parser
-emits one there too. KS4U (a flow root followed by `invalid item` on the
-next line) records no `-DOC`, although libyaml, yaml-rust2 and saphyr all
-emit one. A rule that yields `-DOC` for 4H7K alone would be fitted to that
-input. The case is an honest failure.
+The parser keeps a document open until its end marker, the next document
+start or the end of the stream (YAML 1.2.2 section 9.1), whatever the style of
+its root, so content after a complete root is an error inside the document
+and no `-DOC` comes before it. The recorded error trees do not all agree
+with that:
+
+* BS4K and EB22 (a plain scalar root followed by content on a later line)
+  record `-DOC` before the error. Their corrected expectations, listed in
+  `known-defects.txt`, drop it, and the parser matches the corrected ones.
+* 4H7K (`[ a, b, c ] ]`) records `-DOC` before the error on the extra `]`,
+  and its corrected expectation keeps it (it only restores the missing `[]`
+  marker). The parser reports the `]` with the document still open, so
+  4H7K is the one strict failure.
+* 9JBA (`[ a, b, c, ]#invalid`) and KS4U (a flow root followed by
+  `invalid item` on the next line) record no `-DOC`, although other parsers
+  emit one there; the parser matches the recorded trees.
 
 This is `cargo run -p test-suite -- --producer parser`: every stream must also
 pass the lossless event contract (`check_contract`), error cases must emit
@@ -153,13 +160,13 @@ and it is described in
   anchor spelling.
 * **"Error + prefix" (not part of the standard verdict).** For rejected
   error cases, it checks that the events emitted before the error equal
-  `test.event`: first the vendored file, then with the 9
+  `test.event`: first the vendored file, then with the 11
   `known-defects.txt` corrections applied. This column exists so the
   corrections cannot hide anything. **The corrections cannot affect the
-  standard columns:** all 9 corrected cases are error cases, and the standard
+  standard columns:** all 11 corrected cases are error cases, and the standard
   error verdict ignores events. For us the vendored and corrected results
-  differ on exactly 8 of the 9 corrected cases (85 vs 93, asserted in
-  `crates/test-suite/tests/standard.rs`). The ninth, 4H7K, misses both, see
+  differ on exactly 10 of the 11 corrected cases (83 vs 93, asserted in
+  `crates/test-suite/tests/standard.rs`). The eleventh, 4H7K, misses both, see
   above. For streaming parsers the prefix
   mostly measures lookahead (how far they read before reporting), so read it as
   information, not correctness.
@@ -226,7 +233,7 @@ reference parser and libfyaml score 402/402 there.
 under the standard criterion. The known-defect corrections change only
 error-case prefixes, which the standard criterion does not check. Our 402/402
 is the same number a matrix run would report. The only place the
-corrections show is the informational prefix column (85 vendored vs 93
+corrections show is the informational prefix column (83 vendored vs 93
 corrected for us).
 
 ## Observations
@@ -239,7 +246,7 @@ corrected for us).
   (YAML::Parser 0.0.5 via YAML::PP::Ref 0.02) emits it too. The correction
   keeps that `-DOC` and restores only the missing `[]` marker. yaml-rust2
   cannot express the marker, so both its counts include 4H7K (57 / 57).
-  libyaml can, so only its corrected count includes 4H7K (50 / 57). We
+  libyaml can, so only its corrected count includes 4H7K (50 / 56). We
   do not emit the `-DOC` (see "Our strict score"), and saphyr reports the
   error before the sequence.
 * libyaml 0.2.5-era behaviour is unchanged: 330/402, the same as the C

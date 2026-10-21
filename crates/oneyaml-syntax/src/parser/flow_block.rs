@@ -154,6 +154,7 @@ impl<'a> Parser<'a> {
         }
         if is_key && key_too_long(src, self.pos, colon) {
             self.abandon_flow();
+            self.blame.set(Some(colon.saturating_add(1)));
             return self.fail(IMPLICIT_KEY_TOO_LONG, TOO_LONG, slot_open);
         }
         match mode {
@@ -257,6 +258,8 @@ impl<'a> Parser<'a> {
     /// The flow machine stopped with an error: the valid prefix, then the
     /// error and its repairs (timing convention T5).
     fn flow_failed(&mut self, code: Code, message: &'static str) {
+        let blame = self.flow.blame.take();
+        self.blame.set(blame);
         // The C2SP rule: point at where the multi-line key starts.
         let key_open = self.flow.multiline_key.then_some(self.flow.open);
         let dedent = self.dedent(code);

@@ -123,6 +123,7 @@ const DIVERGENCES: &[(&str, &str, &str)] = &[
     ("9C9N", "v,j,s", "accepts_invalid"),
     ("9HCY", "s", "accepts_invalid"),
     ("9JBA", "v,j,s", "accepts_invalid"),
+    ("BS4K", "s", "accepts_invalid"),
     ("CVW2", "v,j,s", "accepts_invalid"),
     ("DK95/01", "v,j,s", "accepts_invalid"),
     ("EB22", "s", "accepts_invalid"),

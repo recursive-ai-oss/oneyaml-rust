@@ -100,9 +100,10 @@
 //!   emitted whole; the missing `:` (`Y0018`) is reported where the scan
 //!   stopped, which may be lines later or the end of input, so its
 //!   diagnostic carries a secondary label covering the key.
-//! * **T4: `-DOC` before content after the root.** Only when the root is a
-//!   plain scalar (which needs the next line to end it) is the implicit
-//!   `DocumentEnd` emitted before reporting content that follows it.
+//! * **T4: the document stays open at content after the root.** A document
+//!   ends only at its end marker, at the next document start, or at the end
+//!   of the stream, so content after a complete root (whatever its style) is
+//!   reported before the implicit `DocumentEnd`, which comes with the repair.
 //! * **T5: flow prefixes.** A flow collection with an error commits every
 //!   event before the error, then the repairs.
 //!
@@ -149,15 +150,13 @@ pub(crate) use flow::KEY_WINDOW;
 use std::collections::{BTreeMap, VecDeque};
 
 use oneyaml_core::code::{
-    DEPTH_LIMIT_EXCEEDED, DOCUMENT_TOO_LARGE, INTERNAL_ERROR, INVALID_ESCAPE,
-    MISPLACED_BYTE_ORDER_MARK, MISSING_MAPPING_COLON, SCALAR_TOO_LONG, TAB_INDENTATION,
-    TOO_MANY_DOCUMENTS, UNTERMINATED_FLOW_COLLECTION, UNTERMINATED_QUOTED_SCALAR,
+    DEPTH_LIMIT_EXCEEDED, DOCUMENT_TOO_LARGE, INTERNAL_ERROR, INVALID_COMMENT_CHARACTER,
+    INVALID_ESCAPE, MISPLACED_BYTE_ORDER_MARK, MISSING_MAPPING_COLON, SCALAR_TOO_LONG,
+    TAB_INDENTATION, TOO_MANY_DOCUMENTS, UNTERMINATED_FLOW_COLLECTION, UNTERMINATED_QUOTED_SCALAR,
 };
 use oneyaml_core::{Code, Diagnostic, Label, Settings, Span};
 
-use crate::event::{
-    Event, EventKind, EventList, NodeInfo, Properties, ScalarStyle, Sourced, TriviaKind,
-};
+use crate::event::{Event, EventKind, EventList, NodeInfo, Properties, Sourced, TriviaKind};
 
 pub(crate) use read::{
     anchor_at, decoded_suffix, directive_at, directive_prefix, resolve_tag, scalar_value,
@@ -304,26 +303,16 @@ pub(super) enum Item<'a> {
 #[derive(Debug, Default)]
 pub(super) struct Out<'a> {
     q: VecDeque<Item<'a>>,
-    /// The last event queued is a plain scalar (timing convention T4).
-    last_plain: bool,
 }
 
 impl<'a> Out<'a> {
     pub(super) fn event(&mut self, event: Event<'a>) {
-        self.last_plain = matches!(
-            event.kind(),
-            EventKind::Scalar {
-                style: ScalarStyle::Plain,
-                ..
-            }
-        );
         self.q.push_back(Item::Event(event));
     }
 
     /// Queues the trivia covering `start..end` (nothing when empty).
     pub(super) fn trivia(&mut self, start: usize, end: usize) {
         if start < end {
-            self.last_plain = false;
             self.q.push_back(Item::Trivia(start, end));
         }
     }
@@ -492,6 +481,11 @@ struct Parser<'a> {
     /// the error, in the order of their labels. Consumed
     /// by `fail_with`.
     mark_before_error: Option<usize>,
+    /// Where the first character that cannot belong to any valid document
+    /// is, when that is later than the scan position the failing construct
+    /// started at: the error is reported there (consumed by `fail_with`).
+    /// A cell, so that scanners holding only `&self` can name it.
+    blame: core::cell::Cell<Option<usize>>,
     /// Zero-width events completing an erroneous flow collection, emitted
     /// right after its `Error` (C6 R2).
     flow_repair: Vec<Owed>,
@@ -594,6 +588,55 @@ pub(super) fn misplaced_bom_diagnostic(start: usize, end: usize) -> Box<Diagnost
     )
 }
 
+/// Whether `bytes` may hold a character that is not printable: false only
+/// for bytes that are all ASCII, none a control character (a tab counts as
+/// one here) or DEL. Eight bytes at a time.
+#[inline(never)]
+fn may_hold_unprintable(bytes: &[u8]) -> bool {
+    const ONES: u64 = 0x0101_0101_0101_0101;
+    const HIGH: u64 = 0x8080_8080_8080_8080;
+    let mut words = bytes.chunks_exact(8);
+    for chunk in words.by_ref() {
+        let Ok(chunk) = <[u8; 8]>::try_from(chunk) else {
+            return true;
+        };
+        let w = u64::from_le_bytes(chunk);
+        // A byte with the high bit set, below 0x20, or equal to 0x7f.
+        let del = w ^ (ONES * 0x7f);
+        let found = w | (w.wrapping_sub(ONES * 0x20) & !w) | (del.wrapping_sub(ONES) & !del);
+        if found & HIGH != 0 {
+            return true;
+        }
+    }
+    words.remainder().iter().any(|b| *b < 0x20 || *b >= 0x7f)
+}
+
+/// The error for the first character of the comment `start..end` that is
+/// not printable, if any.
+#[inline(never)]
+pub(super) fn comment_char_diagnostic(
+    src: &str,
+    start: usize,
+    end: usize,
+) -> Option<Box<Diagnostic>> {
+    let text = src.get(start..end)?;
+    // Nearly every comment is plain printable ASCII: a cheap pass over the
+    // bytes rules that out before the slower pass over characters.
+    if !may_hold_unprintable(text.as_bytes()) {
+        return None;
+    }
+    let (k, c) = text.char_indices().find(|(_, c)| !scan::is_printable(*c))?;
+    let at = start.saturating_add(k);
+    Some(Box::new(
+        Diagnostic::error(
+            INVALID_COMMENT_CHARACTER,
+            "a comment may hold only printable characters",
+            Label::new(Span::new(at, at.saturating_add(c.len_utf8())), ""),
+        )
+        .with_help("remove this character; control characters (U+0000 to U+001F except tab, U+007F, and U+0080 to U+009F except U+0085) cannot appear in a comment"),
+    ))
+}
+
 fn diagnostic(code: Code, message: &str, span: Span) -> Box<Diagnostic> {
     Box::new(Diagnostic::error(code, message, Label::new(span, "")))
 }
@@ -622,6 +665,7 @@ impl<'a> Parser<'a> {
             doc_end_line: false,
             prefix_without_end: None,
             mark_before_error: None,
+            blame: core::cell::Cell::new(None),
             flow_repair: Vec::new(),
             scratch: Vec::new(),
             flow: flow::FlowState::default(),
@@ -859,9 +903,10 @@ impl<'a> Parser<'a> {
                 Some(b'#') if self.comment_at(i) => {
                     // c-nb-comment-text (production 75) is `nb-char`s,
                     // which exclude the mark (production 27).
-                    let end = line_end(self.src, i);
+                    let end = scan::comment_end(self.src, i);
                     self.pos = end;
-                    self.marks_in_token(i, end);
+                    let bad = comment_char_diagnostic(self.src, i, end);
+                    self.marks_in_token(i, end, bad);
                     continue;
                 }
                 _ if !bom && self.prefix_mark_at(i) => break,
@@ -908,17 +953,38 @@ impl<'a> Parser<'a> {
     /// the token, whose label covers the mark. The pending
     /// trivia up to the scan position is flushed first, so the error
     /// directly follows the token and nothing lies between them.
-    pub(super) fn marks_in_token(&mut self, start: usize, end: usize) {
-        let Some(text) = self.src.get(start..end) else {
-            return;
-        };
-        if !text.contains('\u{feff}') {
+    pub(super) fn marks_in_token(
+        &mut self,
+        start: usize,
+        end: usize,
+        bad: Option<Box<Diagnostic>>,
+    ) {
+        let text = self.src.get(start..end).unwrap_or_default();
+        if bad.is_none() && !text.contains('\u{feff}') {
             return;
         }
         self.flush();
+        // The errors keep the order of the characters they report.
+        let mut bad = bad;
         for (k, _) in text.match_indices('\u{feff}') {
             let at = start.saturating_add(k);
+            if bad.as_ref().is_some_and(|d| d.primary.span.start < at) {
+                self.comment_error(bad.take());
+            }
             let diag = misplaced_bom_diagnostic(at, at.saturating_add('\u{feff}'.len_utf8()));
+            let here = self.emit_pos;
+            self.push(EventKind::Error(diag), here, here);
+        }
+        self.comment_error(bad);
+    }
+
+    /// Pushes the error for a character that cannot be in a comment, if
+    /// there is one, right after the comment (production 1; comment text
+    /// is `nb-char`s, productions 75 and 27): one zero-width
+    /// `INVALID_COMMENT_CHARACTER` error whose label covers the character.
+    /// The comment itself is kept as written, and the parse goes on.
+    fn comment_error(&mut self, bad: Option<Box<Diagnostic>>) {
+        if let Some(diag) = bad {
             let here = self.emit_pos;
             self.push(EventKind::Error(diag), here, here);
         }
@@ -1010,6 +1076,7 @@ impl<'a> Parser<'a> {
         refine: impl FnOnce(Diagnostic) -> Diagnostic,
     ) {
         let mark = self.mark_before_error.take();
+        let blame = self.blame.take();
         if matches!(self.state, State::Skip) {
             // Already failed in this step: one error per problem, and never
             // a second error that could swallow the next line (e.g. `---`).
@@ -1073,7 +1140,14 @@ impl<'a> Parser<'a> {
         } else {
             line_end(self.src, start)
         };
-        let mut diag = Diagnostic::error(code, message, Label::new(Span::new(start, end), ""));
+        // The report points at the first character that cannot belong, when
+        // the producer named one; the event keeps covering the line.
+        let blame = blame.or_else(|| scalar::quoted_fault(self.src, start, code));
+        let at = blame.filter(|b| *b >= start).unwrap_or(start);
+        // A byte order mark that made the construct fail is reported right
+        // after it, so the error never starts after that mark.
+        let at = mark.filter(|m| *m >= start).map_or(at, |m| at.min(m));
+        let mut diag = Diagnostic::error(code, message, Label::new(Span::new(at, end.max(at)), ""));
         if let Some(help) = self.limit_help(code) {
             diag = diag.with_help(help);
         } else if let Some(help) = default_help(code) {
@@ -1140,6 +1214,12 @@ impl<'a> Parser<'a> {
     /// continues as if the problem were absent).
     fn soft_error(&mut self, code: Code, message: &str) {
         let at = self.emit_pos;
+        self.soft_error_at(code, message, at);
+    }
+
+    /// [`Parser::soft_error`] whose diagnostic points at `at`, an earlier
+    /// position than the event (which stays zero-width at the scan end).
+    fn soft_error_at(&mut self, code: Code, message: &str, at: usize) {
         self.zero(EventKind::Error(diagnostic(code, message, Span::empty(at))));
     }
 

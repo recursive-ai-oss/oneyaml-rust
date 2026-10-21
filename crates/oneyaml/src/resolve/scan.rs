@@ -403,6 +403,27 @@ fn parse_float(neg: bool, body: &str) -> Result<f64, ResolveError> {
     Ok(if neg { -v } else { v })
 }
 
+/// [`parse_float`] as a [`Number`]. A nonzero value that a double rounds to
+/// infinity or to zero keeps its exact value, so that keys such as `1e400`
+/// and `2e400` stay different (YAML 1.2.2 §3.2.1.3 compares scalars by their
+/// canonical form, and §10.2.1.4 leaves the range of a float to the
+/// implementation).
+fn float_number(neg: bool, body: &str) -> Result<Number, ResolveError> {
+    let v = parse_float(neg, body)?;
+    // A zero (`0.0`, `0e5`) is just zero: only a mantissa with a digit 1-9
+    // can be a nonzero value a double cannot hold. Checked in place, so the
+    // common zero allocates nothing more.
+    let mantissa = body.split(['e', 'E']).next().unwrap_or(body);
+    let nonzero = mantissa.bytes().any(|b| matches!(b, b'1'..=b'9'));
+    if nonzero && (v.is_infinite() || v == 0.0) {
+        let clean: String = body.chars().filter(|c| *c != '_').collect();
+        if let Some(n) = Number::out_of_range(neg, &clean, v) {
+            return Ok(n);
+        }
+    }
+    Ok(Number::from(v))
+}
+
 /// `[eE] [-+]? [0-9]+`, optional; false if started but malformed.
 fn exponent(c: &mut Cur<'_>) -> bool {
     if c.eat_any(b"eE") {
@@ -474,30 +495,30 @@ fn sexagesimal_float(neg: bool, s: &str) -> Result<f64, ResolveError> {
 /// Core §10.3.2 floats: the number form, `[-+]? ( \.inf | \.Inf | \.INF )`,
 /// and `\.nan | \.NaN | \.NAN`; plus 1.1 sexagesimal floats when enabled.
 /// `None`: not a float.
-pub(crate) fn core_float(s: &str, ext: Ext) -> Option<Result<f64, ResolveError>> {
+pub(crate) fn core_float(s: &str, ext: Ext) -> Option<Result<Number, ResolveError>> {
     if matches!(s, ".nan" | ".NaN" | ".NAN") {
-        return Some(Ok(f64::NAN));
+        return Some(Ok(Number::from(f64::NAN)));
     }
     let (neg, _, rest) = sign(s);
     if matches!(rest, ".inf" | ".Inf" | ".INF") {
-        return Some(Ok(if neg {
+        return Some(Ok(Number::from(if neg {
             f64::NEG_INFINITY
         } else {
             f64::INFINITY
-        }));
+        })));
     }
     if core_float_syntax(rest, ext.separators) {
-        return Some(parse_float(neg, rest));
+        return Some(float_number(neg, rest));
     }
     if ext.sexagesimal && sexagesimal_float_syntax(rest, ext.separators) {
-        return Some(sexagesimal_float(neg, rest));
+        return Some(sexagesimal_float(neg, rest).map(Number::from));
     }
     None
 }
 
 /// JSON §10.2.2:
 /// `-? ( 0 | [1-9] [0-9]* ) ( \. [0-9]* )? ( [eE] [-+]? [0-9]+ )?`.
-pub(crate) fn json_float(s: &str) -> Option<Result<f64, ResolveError>> {
+pub(crate) fn json_float(s: &str) -> Option<Result<Number, ResolveError>> {
     let neg = s.starts_with('-');
     let rest = s.strip_prefix('-').unwrap_or(s);
     let mut c = Cur::new(rest);
@@ -510,5 +531,5 @@ pub(crate) fn json_float(s: &str) -> Option<Result<f64, ResolveError>> {
     if !(exponent(&mut c) && c.done()) {
         return None;
     }
-    Some(parse_float(neg, rest))
+    Some(float_number(neg, rest))
 }

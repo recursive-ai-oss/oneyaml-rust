@@ -29,6 +29,22 @@ fn prefix_break_at(src: &str, i: usize) -> bool {
     any_marker_at(src, i) || src.get(i..).is_some_and(|r| r.starts_with('\u{feff}'))
 }
 
+/// Where the indicators of the header whose `|` or `>` is at `start` end: the
+/// first character that is not an indentation indicator (a digit from 1 to
+/// 9) or a chomping indicator, or is a second one of its kind.
+pub(super) fn header_stop(src: &str, start: usize) -> usize {
+    let mut i = start.saturating_add(1);
+    let (mut chomping, mut indicator) = (false, false);
+    loop {
+        match byte(src, i) {
+            Some(b'1'..=b'9') if !indicator => indicator = true,
+            Some(b'+' | b'-') if !chomping => chomping = true,
+            _ => return i,
+        }
+        i = i.saturating_add(1);
+    }
+}
+
 /// A parsed header: its end, chomping, and explicit indentation indicator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Header {
@@ -40,19 +56,15 @@ pub(super) struct Header {
 /// Parses `c-b-block-header` (production 162) after the `|`/`>` at `start`.
 /// `None` for `0`, repeated indicators, or no separation after the header.
 pub(super) fn header(src: &str, start: usize) -> Option<Header> {
-    let mut i = start.saturating_add(1);
+    let i = header_stop(src, start);
     let mut chomping = None;
     let mut indicator = None;
-    loop {
-        match byte(src, i) {
-            Some(d @ b'1'..=b'9') if indicator.is_none() => {
-                indicator = Some(d.saturating_sub(b'0'));
-            }
-            Some(b'+') if chomping.is_none() => chomping = Some(Chomping::Keep),
-            Some(b'-') if chomping.is_none() => chomping = Some(Chomping::Strip),
-            _ => break,
+    for k in start.saturating_add(1)..i {
+        match byte(src, k) {
+            Some(d @ b'1'..=b'9') => indicator = Some(d.saturating_sub(b'0')),
+            Some(b'+') => chomping = Some(Chomping::Keep),
+            _ => chomping = Some(Chomping::Strip),
         }
-        i = i.saturating_add(1);
     }
     blank_or_end(src, i).then_some(Header {
         end: i,
@@ -139,6 +151,31 @@ impl Indent {
             }),
         }
     }
+}
+
+/// From the line starting at `from`, only white space and comment lines
+/// remain before the end of the input or a line that starts a document
+/// marker. Such lines after a complete node are `l-comment` (production 78)
+/// before the end of the document (`l-document-prefix`, production 202), so
+/// a line of white space with a tab is valid there; between two entries it
+/// is not, because an entry starts with spaces.
+fn only_blank_lines_follow(src: &str, from: usize) -> bool {
+    let mut i = from;
+    while i < src.len() {
+        if any_marker_at(src, i) {
+            return true;
+        }
+        let line = line_end(src, i);
+        let text = skip_white(src, i);
+        if text < line && byte(src, text) != Some(b'#') {
+            return false;
+        }
+        i = line.saturating_add(break_len(src, line));
+        if i == line {
+            break;
+        }
+    }
+    true
 }
 
 /// Scans the body starting at `body` (the line after the header) of a block
@@ -236,7 +273,10 @@ pub(super) fn body<S: Sink>(
         // What ends the scalar must be an empty line, a comment, or less
         // indented content; white space with a tab is none of these.
         let ws_end = skip_white(src, line.start);
-        if ws_end == line.end && line.end > line.start.saturating_add(line.spaces) {
+        if ws_end == line.end
+            && line.end > line.start.saturating_add(line.spaces)
+            && !only_blank_lines_follow(src, line.start)
+        {
             return Err(BodyError::Tab { line: line.start });
         }
     }
@@ -308,6 +348,7 @@ impl<'a> Parser<'a> {
                 })
         });
         let Some(hdr) = header(src, start) else {
+            self.blame.set(Some(header_stop(src, start)));
             return self.mark_then_fail(
                 header_mark,
                 INVALID_BLOCK_HEADER,
@@ -320,11 +361,12 @@ impl<'a> Parser<'a> {
         let ws_end = skip_white(src, hdr.end);
         let comment = ws_end > hdr.end && byte(src, ws_end) == Some(b'#');
         let text_end = if comment {
-            line_end(src, ws_end)
+            super::scan::comment_end(src, ws_end)
         } else {
             ws_end
         };
         if !break_or_end(src, text_end) {
+            self.blame.set(Some(text_end));
             return self.mark_then_fail(
                 header_mark,
                 INVALID_BLOCK_HEADER,
@@ -380,7 +422,12 @@ impl<'a> Parser<'a> {
                 // content (`l-nb-literal-text` is `nb-char`s, production
                 // 27) is reported after the scalar, which keeps it: the
                 // recovered value holds the mark as written.
-                self.marks_in_token(start, b.end);
+                let bad = if comment {
+                    super::comment_char_diagnostic(src, ws_end, text_end)
+                } else {
+                    None
+                };
+                self.marks_in_token(start, b.end, bad);
                 let at_line_start = b.end == body_start && body_start > text_end
                     || src
                         .as_bytes()

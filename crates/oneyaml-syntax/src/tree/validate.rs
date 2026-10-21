@@ -18,8 +18,8 @@ use super::stored::Stored;
 use std::borrow::Cow;
 
 use oneyaml_core::code::{
-    DEPTH_LIMIT_EXCEEDED, DOCUMENT_TOO_LARGE, DUPLICATE_DIRECTIVE, SCALAR_TOO_LONG,
-    TOO_MANY_DOCUMENTS, YAML_VERSION_UNSUPPORTED_MAJOR,
+    DEPTH_LIMIT_EXCEEDED, DOCUMENT_TOO_LARGE, DUPLICATE_DIRECTIVE, DUPLICATE_YAML_DIRECTIVE,
+    SCALAR_TOO_LONG, TOO_MANY_DOCUMENTS, YAML_VERSION_UNSUPPORTED_MAJOR,
 };
 use oneyaml_core::{Code, Severity};
 
@@ -177,7 +177,10 @@ const fn is_directive_kind(k: K) -> bool {
 /// other error of a document has these codes (`DIRECTIVE_WITHOUT_DOCUMENT`,
 /// the other soft error, lies outside every document).
 pub(super) const fn is_directive_error(code: Code) -> bool {
-    matches!(code, DUPLICATE_DIRECTIVE | YAML_VERSION_UNSUPPORTED_MAJOR)
+    matches!(
+        code,
+        DUPLICATE_DIRECTIVE | DUPLICATE_YAML_DIRECTIVE | YAML_VERSION_UNSUPPORTED_MAJOR
+    )
 }
 
 const fn is_limit(code: Code) -> bool {

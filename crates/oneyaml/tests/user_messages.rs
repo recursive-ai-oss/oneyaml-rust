@@ -148,7 +148,7 @@ fn quote_mistakes_are_named_in_the_plain_message() {
     let err = Document::parse("a: 'abc\nb: c\n").unwrap_err();
     assert_eq!(
         err.to_string(),
-        "a single-quoted scalar is still open at a line that is not indented more than its parent; a closing `'` may be missing at a (1:4)"
+        "a single-quoted scalar is still open at a line that is not indented more than its parent; a closing `'` may be missing at a (2:1)"
     );
     let err = Document::parse("key: 'it's'\n").unwrap_err();
     assert_eq!(

@@ -185,8 +185,8 @@ fn num(n: Option<Number>) -> Option<Outcome> {
     n.map(|n| Ok(Resolved::Number(n)))
 }
 
-fn float(f: Option<Result<f64, ResolveError>>) -> Option<Outcome> {
-    f.map(|f| f.map(|f| Resolved::Number(Number::from(f))))
+fn float(f: Option<Result<Number, ResolveError>>) -> Option<Outcome> {
+    f.map(|f| f.map(Resolved::Number))
 }
 
 fn ok(r: Option<Resolved<'static>>) -> Option<Outcome> {

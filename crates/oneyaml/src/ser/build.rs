@@ -33,6 +33,7 @@ use oneyaml_core::code;
 use crate::error::Error;
 use crate::value::{
     Mapping, Number, Sequence, Tag, TaggedValue, VALUE_MAGIC, Value, arm, disarm, take_handed_over,
+    variant_tag_text,
 };
 
 /// Builds a [`Value`] from serde calls, `depth` levels deep.
@@ -98,7 +99,7 @@ fn variant(name: &str, content: Value) -> Value {
     match content {
         Value::String(_) | Value::Sequence(_) | Value::Mapping(_) if !name.is_empty() => {
             Value::Tagged(Box::new(TaggedValue {
-                tag: Tag::new(format!("!{name}")),
+                tag: Tag::new(variant_tag_text(name)),
                 value: content,
             }))
         }

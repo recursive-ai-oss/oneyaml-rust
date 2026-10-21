@@ -49,7 +49,9 @@ fn fixed(src: &str, d: &Diagnostic, k: usize, want: &str, how: Applicability) {
 fn glued_colon_points_at_the_colon_and_offers_the_space() {
     let src = "a: 1\nb:2\n";
     let d = first(src, c::MISSING_MAPPING_COLON);
-    assert_eq!(d.primary.span, Span::new(5, 8));
+    // The report is where the key's text ends, the first character that
+    // cannot belong to a key; the label marks the glued colon.
+    assert_eq!(d.primary.span, Span::new(8, 8));
     assert_eq!(d.secondary[0].span, Span::new(6, 7));
     assert!(d.help.as_deref().unwrap().contains("space"));
     fixed(src, &d, 0, "a: 1\nb: 2\n", Applicability::MaybeIncorrect);
@@ -592,7 +594,12 @@ fn check_fixes(src: &str, strict: bool) -> usize {
             // `\\` and `\"` as escapes, so the intended value is the
             // text between the quotes read with every other backslash
             // literal (`\'` loses its backslash).
-            let q = d.primary.span.start + src[d.primary.span.start..].find('"').unwrap();
+            // The report points inside the scalar; its opening quote is the
+            // first one on that line.
+            let line = src[..d.primary.span.start]
+                .rfind(['\n', '\r'])
+                .map_or(0, |k| k + 1);
+            let q = line + src[line..].find('"').unwrap();
             let mut want = String::new();
             let mut chars = src[q + 1..].chars();
             while let Some(c) = chars.next() {

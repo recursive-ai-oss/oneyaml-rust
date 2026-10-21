@@ -16,6 +16,9 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 
 ## Unreleased
 
+Changes to what the parser reports and accepts, how errors are placed, and
+how a few scalars are written. Each follows YAML 1.2.2 more closely.
+
 ### Added
 
 - JSON Patch (RFC 6902), merge patch (RFC 7396) and JSON Pointer (RFC 6901)
@@ -70,6 +73,14 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
     limit applies after every write.
   - A copied or moved value is written out in full, so an alias inside it
     becomes its content, and comments inside a moved value are not kept.
+
+- `Y0033` (`DUPLICATE_YAML_DIRECTIVE`): a second `%YAML` directive in one
+  document prefix. It is reported where the second directive starts.
+  `Y1004` stays the code for a repeated `%TAG` handle.
+- `Y0034` (`INVALID_COMMENT_CHARACTER`): a character that cannot appear in
+  a comment (a control character, U+007F, or one of U+0080 to U+009F other
+  than U+0085). The error is at the first such character; the comment is
+  kept as written and the parse goes on.
 
 ### Changed
 
@@ -162,6 +173,62 @@ Moving from `serde_yaml`, `serde_yaml_ng` or `serde_norway`? See the
 - A new mapping key is quoted as before when the document declares
   `%YAML 1.1` (or the settings read YAML 1.1 booleans): plain `y`, `n` and
   `no` keys are for documents read as YAML 1.2.
+
+- Parse errors point at the first character that cannot belong, not at the
+  start of the construct around it. This moves the position of many
+  diagnostics (the code and the message are unchanged unless listed below):
+  a bad escape, an invalid anchor or tag, a flow collection glued to a key
+  or property, a missing `:`, an unterminated quoted scalar, a plain
+  scalar with a second `: `, a bad block scalar header, an implicit key that
+  is too long, a line break inside an implicit key, and so on. A quoted
+  scalar that is still open on a line that is not indented more than its
+  parent is reported at the start of that line (the closing quote of a
+  nested scalar at the margin included), and properties on a line of their
+  own before a key of an open mapping are reported where the key starts.
+  Rendered snippets and `(line:column)` texts move with them.
+- Columns reported by `LineIndex` for characters and UTF-16 units leave out
+  a byte order mark at the start of the text: the first character after it
+  is column 0 (byte columns still count it).
+- A document ends only at its end marker, at the next document start, or at
+  the end of the stream. Content on a later line after a plain scalar root
+  is an error inside that document; it no longer starts a second one. The
+  events of such inputs no longer contain an early document end.
+- A line holding only a tab after a block scalar, at the end of the text or
+  before a document marker (`---` or `...`), is no longer an error.
+- A second `%YAML` directive in one document prefix is reported as `Y0033`
+  (it was `Y1004`), at the second directive. `Y1004` now covers only a
+  repeated `%TAG` handle.
+- A percent escape in a tag (`!a%41`, `!<tag:x,1:%41>`) is decoded when it
+  is the escape of an ASCII character other than `%`. The escape of a
+  non-ASCII byte (`%C3`) and `%25` are kept as written, so that tags that
+  differ only in such an escape stay different tags (`!a%25C3%25A9` and
+  `!a%C3%A9` are two tags, and as mapping keys not duplicates). A tag read
+  from a document is written back as it was read. The writer refuses
+  (`Y3015`) a `Value::Tagged` whose tag has a non-ASCII character, or a `%`
+  that no reader produces (a bare `%`, or the escape of an ASCII character
+  other than `%`), because no spelling reads back as that tag.
+- An enum variant named with non-ASCII characters (`#[serde(rename =
+  "café")]`) is written, in the layouts that write a variant as a tag, as the
+  escaped name (`!caf%C3%A9 1`), and a `%` in a variant name as `%25`; a
+  tag is matched to a variant by its name with every `%XX` escape decoded,
+  so output of earlier releases still reads. A tag that names no variant is
+  handed to the target decoded as well.
+- An escaped surrogate pair in a double-quoted scalar (`"\uD83D\uDE00"`)
+  reads as one character.
+- A float that is outside the range of a double (`1e400`, `1e-400`) keeps
+  its exact value as a key, so `1e400` and `2e400` are different keys
+  instead of both reading as infinity; they still read as the double they
+  round to.
+- Strings that other readers would read as numbers are quoted when
+  written: forms with two signs (`+-1`), with a leading `_`, with an
+  inner sign after a radix prefix (`0b-1`, `0X-F`), and radix prefixes in
+  any case.
+
+### Fixed
+- Inputs the parser accepted though they are invalid are errors now: a
+  flow collection directly after a property, an empty key, an explicit key
+  or a plain key (`&a[b]`, `{:{0}}`), a verbatim tag that is not a URI, and
+  a second anchor on one node.
 
 ## 1.1.0 — 2026-10-10
 

@@ -195,7 +195,7 @@
 //! unclosed quote that reads on into the content); whether a neighbour's
 //! errors reach an edit, and whether a window in a recovered document
 //! ends before its errors, is decided from content errors only
-//! (a directive error, `Y1004` or `%YAML 2.x`, is zero-width
+//! (a directive error, `Y1004`, `Y0033` or `%YAML 2.x`, is zero-width
 //! before its document's `---` and only directive errors precede it, so
 //! the scans stop at the first). A document where an other error precedes
 //! a directive error (a failed directive block kept with later

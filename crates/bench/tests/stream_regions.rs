@@ -197,7 +197,8 @@ fn diags(list: &[oneyaml::Diagnostic], base: usize) -> Vec<(String, usize, usize
 /// boundary error. So a stream-only diagnostic at relative offset 0, and
 /// an alone-only one at the document's end, are accepted when every one
 /// of them has a boundary code (`Y0022` unterminated flow collection,
-/// `Y0003` directive in a document not ended with `...`); anything else
+/// `Y0003` directive in a document not ended with `...`, `Y0009` a quoted
+/// scalar cut off by a document marker); anything else
 /// is a mismatch.
 type Diag = (String, usize, usize);
 /// A document whose diagnostics differ: its index, stream-only, alone-only.
@@ -224,6 +225,7 @@ fn recovered_mismatches(bytes: &[u8]) -> (Vec<Mismatch>, usize) {
         let codes = [
             oneyaml::code::UNTERMINATED_FLOW_COLLECTION.to_string(),
             oneyaml::code::DIRECTIVE_IN_DOCUMENT.to_string(),
+            oneyaml::code::UNTERMINATED_QUOTED_SCALAR.to_string(),
         ];
         let coded = |x: &Diag| codes.contains(&x.0);
         let boundary = s_only.iter().all(|x| x.1 == 0 && coded(x))
@@ -267,7 +269,8 @@ fn recovered_documents_report_their_own_diagnostics() {
     // The boundary exceptions stay rare: in the suite, N782 (an unclosed
     // `[` cut off by `---`, reported at that `---` by the next document:
     // a recovery choice) and EB22 (a `%YAML` directive after a document not
-    // ended with `...`, reported by the next document at its start).
+    // ended with `...`, reported by the next document at its start), and 5TRB
+    // (a quote cut off by `---`, reported at that `---`).
     assert!(excused <= 4, "{excused} boundary exceptions");
     assert!(streams > 400);
     let settings = oneyaml::Settings::new();

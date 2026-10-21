@@ -38,7 +38,7 @@ fn a_syntax_error_maps_every_field() {
     let labels: Vec<_> = err.labels().unwrap().collect();
     assert_eq!(labels.len(), 2);
     assert!(labels[0].primary());
-    assert_eq!((labels[0].offset(), labels[0].len()), (3, 4));
+    assert_eq!((labels[0].offset(), labels[0].len()), (5, 2));
     assert_eq!(labels[1].label(), Some("this `: ` starts a mapping"));
 
     let report = Report::new(err).with_source_code(src.to_owned());

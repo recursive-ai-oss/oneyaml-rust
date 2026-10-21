@@ -283,6 +283,17 @@ pub const INVALID_UTF32: Code = Code(31);
 /// `DIRECTIVE_IN_DOCUMENT`), with a label on that mark, and the content is
 /// read as the next document. Error.
 pub const MISPLACED_BYTE_ORDER_MARK: Code = Code(32);
+/// A second `%YAML` directive for one document (§6.8.1: it is an error to
+/// give more than one). Reported at the start of the second directive.
+/// Error. (A `%TAG` handle declared twice is still
+/// [`DUPLICATE_DIRECTIVE`]; before this code existed that code also
+/// covered a second `%YAML` directive.)
+pub const DUPLICATE_YAML_DIRECTIVE: Code = Code(33);
+/// A comment holding a character that is not printable (production 1): a
+/// C0 control other than tab, DEL, or a C1 control other than U+0085.
+/// Comment text is made of `nb-char`s (productions 75 and 27). Reported at
+/// the first such character. Error.
+pub const INVALID_COMMENT_CHARACTER: Code = Code(34);
 
 // ---------------------------------------------------------------------------
 // Y1000–Y1999: schema & resolution.
@@ -299,8 +310,8 @@ pub const YAML_VERSION_UNSUPPORTED_MAJOR: Code = Code(1002);
 /// A reserved directive (`%NAME` other than `YAML`/`TAG`) was ignored
 /// (YAML 1.2.2 §6.8). Warning.
 pub const RESERVED_DIRECTIVE_IGNORED: Code = Code(1003);
-/// A second `%YAML` directive, or a `%TAG` handle declared twice, for one
-/// document (§6.8.1, §6.8.2). Error.
+/// A `%TAG` handle declared twice for one document (§6.8.2). A second
+/// `%YAML` directive is [`DUPLICATE_YAML_DIRECTIVE`]. Error.
 pub const DUPLICATE_DIRECTIVE: Code = Code(1004);
 /// A named tag handle (`!e!`) not declared by a `%TAG` directive of its
 /// document (§6.8.2.1). Error.
@@ -591,6 +602,14 @@ pub const REGISTRY: &[CodeInfo] = &[
     error_entry!(
         MISPLACED_BYTE_ORDER_MARK,
         "byte order mark where no document prefix may start"
+    ),
+    error_entry!(
+        DUPLICATE_YAML_DIRECTIVE,
+        "more than one %YAML directive for a document"
+    ),
+    error_entry!(
+        INVALID_COMMENT_CHARACTER,
+        "non-printable character in a comment"
     ),
     CodeInfo {
         code: YAML_VERSION_1_1,

@@ -3,11 +3,12 @@
 # mutations-bom/default (an X38W mutation, Y1013 now) and mutations-bom/last_wins (two inline-colon fixes
 # now quote the text glued after a misplaced mark, maybe-incorrect) re-recorded
 # Re-recorded later: the groups holding a reworded Y0005, Y0007, Y0011 or Y0017 message. Only those diagnostics changed (their message, and for some their label, help and fix), checked item by item against the previous release with ONEYAML_DOC_DUMP
-mutations-bom/default	82	ad38ed84fdc2879d
-mutations-bom/merge_keys	93	cce9df5f60703b34
-mutations-bom/last_wins	83	d2e2394870e98698
-mutations-bom/json	111	12fc4a459908c991
-mutations-bom/failsafe	98	4f99720a4b225b42
-mutations-bom/yaml_1_1	98	a2dcc546e8c69fcd
-mutations-bom/serde_yaml	93	3d4e935ca9dc5e22
-mutations-bom/honor_lenient	99	f155f1646c97a752
+# Re-recorded later: every group of every setting, after an item-by-item ONEYAML_DOC_DUMP comparison with the previous release. Only these changed: the start of the primary label (the first character that cannot belong), the document that owns a diagnostic when content follows a plain root (it stays in the open document), Y0033 for a second %YAML (was Y1004), a tab-only line after a block scalar (no longer an error), and inputs that are now refused (a flow collection glued to a key or property, a verbatim tag that is not a URI, a second anchor, a bad escape) or refused with a different first error; properties on their own line before a key (reported where the key starts), a closing quote at the margin of a nested scalar (reported at the start of that line), and a comment character that cannot be printed (Y0034)
+mutations-bom/default	82	943f48cb251d1c4c
+mutations-bom/merge_keys	93	cb0fc17c04c54660
+mutations-bom/last_wins	83	21be923825b7843d
+mutations-bom/json	111	a15d3ee651242d55
+mutations-bom/failsafe	98	deec56c800669e8a
+mutations-bom/yaml_1_1	98	a5277f3d94ea93eb
+mutations-bom/serde_yaml	93	76cf70bac3fd5092
+mutations-bom/honor_lenient	99	c23d785f5383263e

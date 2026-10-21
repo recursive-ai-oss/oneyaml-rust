@@ -98,15 +98,15 @@ impl Location {
 /// let err = oneyaml::from_str::<Value>(src).err().ok_or("expected an error")?;
 /// assert_eq!(err.code(), oneyaml::code::INLINE_COLON_IN_PLAIN_VALUE);
 /// let at = err.location().ok_or("no location")?;
-/// assert_eq!((at.line(), at.column(), at.index()), (1, 8, 7));
+/// assert_eq!((at.line(), at.column(), at.index()), (1, 17, 16));
 /// assert_eq!(
 ///     err.render(src),
 ///     "error[Y0027]: `: ` inside an unquoted value starts a nested mapping, which cannot begin on this line
-///  --> 1:8
+///  --> 1:17
 ///   |
 /// 1 | title: The farm: a banana story
-///   |        ^^^^^^^^^^^^^^^^^^^^^^^^
 ///   |                - this `: ` starts a mapping
+///   |                 ^^^^^^^^^^^^^^^
 ///   |
 ///   = help: to keep the `: ` as text, quote the whole value; a nested mapping must start on its own, more indented line (Settings::lenient_inline_colons accepts such values with a warning)
 ///   = path: title

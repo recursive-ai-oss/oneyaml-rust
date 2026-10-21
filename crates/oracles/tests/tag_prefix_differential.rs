@@ -2,16 +2,15 @@
 //! shorthand suffix escape combinations, read by our parser, by a model of
 //! the spec rule, and by saphyr-parser.
 //!
-//! The rule: a shorthand tag is the URI prefix + suffix, `%XX`-decoded as
-//! **one** string; when the bytes are not UTF-8 the tag is `Y0013`.
-//! saphyr-parser agrees wherever it reads the tag correctly; it has two
-//! defects this corpus meets, kept apart and counted:
-//!
-//! * it decodes the prefix and the suffix each on its own, so a character
-//!   split across them (`%C3` + `%A9`) is an error there;
-//! * it decodes a multi-byte escape wrongly, in the prefix or the suffix
-//!   (`%C3%A9` gives U+C3A9 `쎩`, not `é`), so tags that decode to
-//!   non-ASCII are checked against the model only.
+//! The rule: a shorthand tag is the URI prefix + suffix, with the `%XX`
+//! escapes of ASCII characters decoded as **one** string; the escapes of
+//! bytes above 0x7F and `%25` stay as written, because tag characters are
+//! compared as presented (§5.6), so a tag is never an error for the bytes it
+//! escapes, and decoding `%25` would make two different spellings one tag.
+//! saphyr-parser agrees wherever the tag has no such escape; it decodes
+//! the prefix and the suffix each on its own, reads a multi-byte escape
+//! as one character and `%25` as `%`, so tags with such an escape are
+//! checked against the model only.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -25,7 +24,7 @@ use test_suite::standard::{Oracle, ParserOracle};
 
 /// Prefix starts (a prefix is never empty; `!` makes it local).
 const PREFIX_HEADS: &[&str] = &["tag:x,1:", "!", "a:"];
-/// Pieces of a prefix: plain text, ASCII escapes (`%25` is a literal `%`),
+/// Pieces of a prefix: plain text, ASCII escapes (`%25` is kept),
 /// lead and continuation bytes of multi-byte characters, invalid bytes.
 const PREFIX_PIECES: &[&str] = &[
     "",
@@ -36,6 +35,10 @@ const PREFIX_PIECES: &[&str] = &[
     "%2F",
     "%20",
     "%7E",
+    "%3A",
+    "%2B",
+    "%24",
+    "%40",
     "%C3",
     "%E2%82",
     "%F0",
@@ -58,6 +61,9 @@ const SUFFIX_PIECES: &[&str] = &[
     "%C3",
     "%FF",
     "%2C",
+    "%3D",
+    "%7C",
+    "%26",
 ];
 const SUFFIX_TAILS: &[&str] = &["", "x", "%A9", "%80"];
 const HANDLES: &[&str] = &["!e!", "!", "!!"];
@@ -75,29 +81,46 @@ fn tag_line(o: &mut dyn Oracle, src: &str) -> Result<String, String> {
         .ok_or_else(|| "no scalar".to_owned())
 }
 
-/// The model: `text` with its `%XX` escapes decoded, if UTF-8. (Every
-/// piece above holds only complete escapes.)
-fn decode(text: &str) -> Option<String> {
+/// The model: `text` with the `%XX` escapes of ASCII characters other than
+/// `%` decoded and the others kept as written. (Every piece above holds only complete
+/// escapes.)
+fn decode(text: &str) -> String {
     let b = text.as_bytes();
-    let mut out = Vec::new();
+    let mut out = String::new();
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'%' {
             let h = std::str::from_utf8(&b[i + 1..i + 3]).unwrap();
-            out.push(u8::from_str_radix(h, 16).unwrap());
+            let v = u8::from_str_radix(h, 16).unwrap();
+            if v.is_ascii() && v != b'%' {
+                out.push(char::from(v));
+            } else {
+                out.push_str(&text[i..i + 3]);
+            }
             i += 3;
         } else {
-            out.push(b[i]);
+            out.push(char::from(b[i]));
             i += 1;
         }
     }
-    String::from_utf8(out).ok()
+    out
+}
+
+/// Whether `text` has an escape that is kept as written: of a byte above
+/// 0x7F, or `%25`.
+fn has_kept_escape(text: &str) -> bool {
+    text.as_bytes().windows(3).any(|w| {
+        w[0] == b'%'
+            && std::str::from_utf8(&w[1..])
+                .ok()
+                .and_then(|h| u8::from_str_radix(h, 16).ok())
+                .is_some_and(|v| v >= 0x80 || v == 0x25)
+    })
 }
 
 #[test]
 fn tag_prefix_escapes_agree_with_the_rule_and_saphyr_parser() {
-    let (mut accepted, mut rejected, mut compared) = (0usize, 0usize, 0usize);
-    let (mut split, mut multibyte) = (0usize, 0usize);
+    let (mut accepted, mut kept, mut compared) = (0usize, 0usize, 0usize);
     let mut failures = Vec::new();
     for handle in HANDLES {
         for head in PREFIX_HEADS {
@@ -110,39 +133,24 @@ fn tag_prefix_escapes_agree_with_the_rule_and_saphyr_parser() {
                             let src = format!("%TAG {handle} {prefix}\n--- {handle}{suffix} v\n");
                             let ours = tag_line(&mut ParserOracle, &src);
                             // Ours follows the rule exactly.
-                            let Some(want) = decode(&format!("{prefix}{suffix}")) else {
-                                match &ours {
-                                    Err(e) if e.contains("Y0013") => rejected += 1,
-                                    _ => {
-                                        failures.push(format!("{src:?}: want Y0013, ours {ours:?}"))
-                                    }
-                                }
-                                continue;
-                            };
+                            let want = decode(&format!("{prefix}{suffix}"));
                             let line = format!("=VAL <{want}> :v");
                             if ours.as_ref() != Ok(&line) {
                                 failures.push(format!("{src:?}: want {line:?}, ours {ours:?}"));
                                 continue;
                             }
                             accepted += 1;
+                            if has_kept_escape(&prefix) || has_kept_escape(&suffix) {
+                                // saphyr-parser decodes these differently.
+                                kept += 1;
+                                continue;
+                            }
+                            compared += 1;
                             let theirs = tag_line(&mut Saphyr, &src);
-                            let (dp, ds) = (decode(&prefix), decode(&suffix));
-                            if dp.is_none() || ds.is_none() {
-                                // Defect 1: a character split across the two.
-                                split += 1;
-                                if theirs.is_ok() {
-                                    failures.push(format!("{src:?}: saphyr {theirs:?} (split)"));
-                                }
-                            } else if !want.is_ascii() {
-                                // Defect 2: a multi-byte escape.
-                                multibyte += 1;
-                            } else {
-                                compared += 1;
-                                if theirs.as_ref() != Ok(&line) {
-                                    failures.push(format!(
-                                        "{src:?}: ours {line:?}, saphyr-parser {theirs:?}"
-                                    ));
-                                }
+                            if theirs.as_ref() != Ok(&line) {
+                                failures.push(format!(
+                                    "{src:?}: ours {line:?}, saphyr-parser {theirs:?}"
+                                ));
                             }
                         }
                     }
@@ -163,13 +171,11 @@ fn tag_prefix_escapes_agree_with_the_rule_and_saphyr_parser() {
     );
     // Every class is well covered.
     assert!(accepted > 10_000, "only {accepted} accepted");
-    assert!(rejected > 10_000, "only {rejected} rejected");
+    assert!(kept > 10_000, "only {kept} with an escape kept as written");
     assert!(
         compared > 5_000,
         "only {compared} compared with saphyr-parser"
     );
-    assert!(split > 500, "only {split} split characters");
-    assert!(multibyte > 500, "only {multibyte} multi-byte escapes");
 }
 
 /// The review's cases, compared with saphyr-parser directly: the three

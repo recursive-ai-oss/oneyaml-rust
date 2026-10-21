@@ -135,6 +135,9 @@ pub(super) struct FlowState<'a> {
     /// Open pair reservations, oldest first: absolute index and the start
     /// of the entry (the would-be key).
     pairs: VecDeque<(usize, usize)>,
+    /// Where the first character that cannot belong to a valid document is,
+    /// when a step fails at an earlier scan position (see `Parser::blame`).
+    pub(super) blame: Option<usize>,
     /// End of the last event produced.
     pub(super) out_pos: usize,
     /// Scan position; `out_pos..pos` is pending trivia.
@@ -332,6 +335,15 @@ pub(super) fn separated(src: &str, i: usize) -> bool {
     blank_or_end(src, i) || char_at(src, i).is_some_and(is_flow_indicator)
 }
 
+/// The error for a flow collection written right against a `:`.
+#[cold]
+fn glued_collection() -> Stop {
+    (
+        MISSING_FLOW_SEPARATOR,
+        "a flow collection after `:` needs white space before it unless the key is quoted",
+    )
+}
+
 impl<'s, 'a> Flow<'s, 'a> {
     /// The flow sub-machine of `p` for one step.
     pub(super) fn new(p: &'s mut Parser<'a>) -> Self {
@@ -390,6 +402,33 @@ impl<'s, 'a> Flow<'s, 'a> {
         self.out_pos = end;
     }
 
+    /// The errors in the comment `i..end`, if any: the marks and the
+    /// character that cannot be printed, in the order of the characters
+    /// they report, each right after the comment.
+    fn comment_errors(&mut self, i: usize, end: usize) {
+        let src = self.src;
+        let text = src.get(i..end).unwrap_or("");
+        let mut bad = super::comment_char_diagnostic(src, i, end);
+        if bad.is_none() && !text.contains('\u{feff}') {
+            return;
+        }
+        self.pos = end;
+        self.flush();
+        for (k, _) in text.match_indices('\u{feff}') {
+            let at = i.saturating_add(k);
+            if bad.as_ref().is_some_and(|d| d.primary.span.start < at) {
+                if let Some(d) = bad.take() {
+                    self.zero(EventKind::Error(d));
+                }
+            }
+            let d = super::misplaced_bom_diagnostic(at, at.saturating_add('\u{feff}'.len_utf8()));
+            self.zero(EventKind::Error(d));
+        }
+        if let Some(d) = bad {
+            self.zero(EventKind::Error(d));
+        }
+    }
+
     /// A zero-width event before the pending trivia.
     pub(super) fn zero(&mut self, kind: EventKind) {
         let at = self.out_pos;
@@ -425,6 +464,20 @@ impl<'s, 'a> Flow<'s, 'a> {
         let start = self.pos;
         self.push(kind, start, end);
         self.pos = end;
+    }
+
+    /// The `:` of a mapping entry (productions 147 and 149). After a key that
+    /// is not JSON-like the `:` must be followed by white space before a value,
+    /// so a flow collection written right against it (`{a:{}}`) cannot be the
+    /// value: the collection is the first character that cannot belong.
+    #[inline]
+    fn value_indicator(&mut self, json: bool) -> Result<(), Stop> {
+        self.indicator(Indicator::MappingValue);
+        // `[` and `{` are the two bytes that are `0x5B` without bit 5.
+        if !json && byte(self.src, self.pos).is_some_and(|b| b & 0xDF == 0x5B) {
+            return Err(glued_collection());
+        }
+        Ok(())
     }
 
     fn indicator(&mut self, indicator: Indicator) {
@@ -472,19 +525,7 @@ impl<'s, 'a> Flow<'s, 'a> {
                     // A mark inside the comment (no `nb-char`,
                     // production 27) is reported right after it.
                     let end = line_end(src, i);
-                    let text = src.get(i..end).unwrap_or("");
-                    if text.contains('\u{feff}') {
-                        self.pos = end;
-                        self.flush();
-                        for (k, _) in text.match_indices('\u{feff}') {
-                            let at = i.saturating_add(k);
-                            let d = super::misplaced_bom_diagnostic(
-                                at,
-                                at.saturating_add('\u{feff}'.len_utf8()),
-                            );
-                            self.zero(EventKind::Error(d));
-                        }
-                    }
+                    self.comment_errors(i, end);
                     end
                 }
                 _ if src.get(i..).is_some_and(|r| r.starts_with('\u{feff}')) => {
@@ -627,8 +668,7 @@ impl<'s, 'a> Flow<'s, 'a> {
                     self.set(State::Node(Slot::Value));
                 }
                 self.empty();
-                self.indicator(Indicator::MappingValue);
-                Ok(())
+                self.value_indicator(false)
             }
             (Kind::Seq, State::Entry) => {
                 // Reserve the start of a possible pair (C4: it starts late,
@@ -656,6 +696,7 @@ impl<'s, 'a> Flow<'s, 'a> {
                 let pair = c == Some(b':') && self.line_start == line && (json || sep);
                 if pair && key_too_long(src, pos, i) {
                     // c-s-implicit-json-key / ns-s-implicit-yaml-key (154-155).
+                    self.blame = Some(i.saturating_add(1));
                     return Err((
                         IMPLICIT_KEY_TOO_LONG,
                         "an implicit key must be at most 1024 characters",
@@ -676,7 +717,7 @@ impl<'s, 'a> Flow<'s, 'a> {
                     let start = EventKind::mapping_start(CollectionStyle::FlowPair);
                     self.st
                         .resolve(at, Some(Event::new(start, Span::empty(pos))));
-                    self.indicator(Indicator::MappingValue);
+                    self.value_indicator(json)?;
                 } else {
                     self.st.resolve(at, None);
                     self.set(State::AfterEntry);
@@ -686,8 +727,7 @@ impl<'s, 'a> Flow<'s, 'a> {
             (kind, State::AfterKey { json }) => {
                 if c == Some(b':') && (json || sep) {
                     self.set(State::Node(Slot::Value));
-                    self.indicator(Indicator::MappingValue);
-                    return Ok(());
+                    return self.value_indicator(json);
                 }
                 if !matches!(c, Some(b',' | b']' | b'}')) {
                     return Err((

@@ -53,6 +53,39 @@ pub(super) fn line_end(src: &str, i: usize) -> usize {
         .map_or(src.len(), |k| i.saturating_add(k))
 }
 
+/// [`line_end`], eight bytes at a time: for the comments, which are
+/// scanned on every parse and are mostly long.
+#[inline(never)]
+pub(super) fn comment_end(src: &str, i: usize) -> usize {
+    const ONES: u64 = 0x0101_0101_0101_0101;
+    const HIGH: u64 = 0x8080_8080_8080_8080;
+    let Some(rest) = src.get(i..).map(str::as_bytes) else {
+        return src.len();
+    };
+    // Eight bytes at a time while none is a line break. In a word, the
+    // lowest flagged byte is the first line break (a borrow only ever
+    // flags bytes above a real match).
+    let mut at: usize = 0;
+    for chunk in rest.chunks_exact(8) {
+        let Ok(word) = <[u8; 8]>::try_from(chunk) else {
+            break;
+        };
+        let w = u64::from_le_bytes(word);
+        let (lf, cr) = (w ^ (ONES * 0x0a), w ^ (ONES * 0x0d));
+        let found = ((lf.wrapping_sub(ONES) & !lf) | (cr.wrapping_sub(ONES) & !cr)) & HIGH;
+        if found != 0 {
+            let first = usize::try_from(found.trailing_zeros() / 8).unwrap_or(0);
+            return i.saturating_add(at).saturating_add(first);
+        }
+        at = at.saturating_add(8);
+    }
+    let run = rest
+        .get(at..)
+        .and_then(|tail| tail.iter().position(|b| matches!(b, b'\n' | b'\r')))
+        .map_or(rest.len(), |k| at.saturating_add(k));
+    i.saturating_add(run)
+}
+
 /// The offset after the run of spaces and tabs starting at `i`.
 pub(super) fn skip_white(src: &str, i: usize) -> usize {
     let run = src
@@ -255,6 +288,76 @@ pub(super) struct TagScan {
     pub(super) end: usize,
 }
 
+/// Where the text of a verbatim tag, `from..to` (the characters between
+/// `!<` and `>`), stops being a tag, if it does: §6.9.1 wants a local tag
+/// (`!` and at least one more character) or a global one, a URI that begins
+/// with a scheme (`ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ) ":"`).
+fn verbatim_fault(src: &str, from: usize, to: usize) -> Option<usize> {
+    if byte(src, from) == Some(b'!') {
+        return (to == from.saturating_add(1)).then_some(to);
+    }
+    if !byte(src, from).is_some_and(|b| b.is_ascii_alphabetic()) {
+        return Some(from);
+    }
+    let mut j = from.saturating_add(1);
+    while j < to
+        && byte(src, j)
+            .is_some_and(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
+    {
+        j = j.saturating_add(1);
+    }
+    (byte(src, j) != Some(b':') || j >= to).then_some(j)
+}
+
+/// Where a `%` that does not start an escape (`%` and two hexadecimal
+/// digits) stops being a URI character: the first character that cannot
+/// continue it. Any other position is returned as it is.
+fn after_partial_escape(src: &str, at: usize) -> usize {
+    if byte(src, at) != Some(b'%') {
+        return at;
+    }
+    let hex = |k: usize| byte(src, at.saturating_add(k)).is_some_and(|h| h.is_ascii_hexdigit());
+    at.saturating_add(if hex(1) { 2 } else { 1 })
+}
+
+/// The first character that cannot belong to the tag starting with `!` at
+/// `start`, when the tag is malformed or not followed by white space or a
+/// flow indicator (`scanned` is what [`scan_tag`] made of it).
+pub(super) fn tag_blame(src: &str, start: usize, scanned: Option<TagScan>) -> usize {
+    if let Some(t) = scanned {
+        return after_partial_escape(src, t.end);
+    }
+    let after = start.saturating_add(1);
+    match byte(src, after) {
+        Some(b'<') => {
+            let from = after.saturating_add(1);
+            let to = uri_end(src, from, false);
+            if to > from && byte(src, to) == Some(b'>') {
+                verbatim_fault(src, from, to).unwrap_or(to)
+            } else {
+                after_partial_escape(src, to)
+            }
+        }
+        Some(b'!') => {
+            let from = after.saturating_add(1);
+            after_partial_escape(src, uri_end(src, from, true))
+        }
+        _ => {
+            let words = src
+                .as_bytes()
+                .get(after..)
+                .map_or(0, |r| r.iter().take_while(|b| is_word_char(**b)).count());
+            let word_end = after.saturating_add(words);
+            let from = if words > 0 && byte(src, word_end) == Some(b'!') {
+                word_end.saturating_add(1)
+            } else {
+                after
+            };
+            after_partial_escape(src, uri_end(src, from, true))
+        }
+    }
+}
+
 /// Scans a tag starting with `!` at `start`. `None` when malformed.
 pub(super) fn scan_tag(src: &str, start: usize) -> Option<TagScan> {
     let after = start.saturating_add(1);
@@ -263,12 +366,13 @@ pub(super) fn scan_tag(src: &str, start: usize) -> Option<TagScan> {
         Some(b'<') => {
             let from = after.saturating_add(1);
             let to = uri_end(src, from, false);
-            (to > from && byte(src, to) == Some(b'>')).then_some(TagScan {
-                form: TagForm::Verbatim,
-                handle: (start, start),
-                suffix: (from, to),
-                end: to.saturating_add(1),
-            })
+            (to > from && byte(src, to) == Some(b'>') && verbatim_fault(src, from, to).is_none())
+                .then_some(TagScan {
+                    form: TagForm::Verbatim,
+                    handle: (start, start),
+                    suffix: (from, to),
+                    end: to.saturating_add(1),
+                })
         }
         // c-ns-shorthand-tag with the secondary handle `!!` (production 99).
         Some(b'!') => {
@@ -314,23 +418,28 @@ pub(super) fn scan_tag(src: &str, start: usize) -> Option<TagScan> {
     }
 }
 
-/// The tag URI `prefix` + `suffix` with its `%XX` escapes decoded, built in
-/// one allocation. `None` when the decoded bytes are not UTF-8.
+/// The tag URI `prefix` + `suffix` with its `%XX` escapes of ASCII
+/// characters decoded, built in one allocation.
 ///
-/// §6.8.2.2: the prefix is part of the URI, so its escapes
-/// are decoded too, and UTF-8 is checked on the whole result — a multi-byte
-/// character may be split across prefix and suffix (`%C3` + `%A9` is `é`).
-/// Neither part ends inside an escape (`ns-uri-char`, production 39, needs
-/// both hex digits), so this equals decoding the concatenated text.
-pub(super) fn percent_decode_concat(prefix: &str, suffix: &str) -> Option<String> {
+/// Escapes of non-ASCII bytes and `%25` (the escaped `%`) stay as written,
+/// so that two spellings that differ only in such an escape stay two tags:
+/// decoding `%25` would make `%25C3%25A9` read as the same text as the
+/// kept escapes `%C3%A9`. Tag characters are preserved and compared as
+/// presented (§5.6), and only the other escaped characters of the
+/// restricted ASCII range are expanded (§6.9.1). The result is always
+/// valid UTF-8, so a prefix and suffix that split a multi-byte escape
+/// (`%C3` + `%A9`) are simply kept as that text.
+pub(super) fn percent_decode_concat(prefix: &str, suffix: &str) -> String {
     let mut out = Vec::with_capacity(prefix.len().saturating_add(suffix.len()));
     out.extend(decoded(prefix));
     out.extend(decoded(suffix));
-    String::from_utf8(out).ok()
+    // Only ASCII bytes were decoded; the rest is the original text.
+    String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The bytes of `s` with its `%XX` escapes decoded, one at a time (no
-/// allocation).
+/// The bytes of `s` with its `%XX` escapes of ASCII characters decoded, one at
+/// a time (no allocation). An escape of a byte above 0x7F, and `%25`, are
+/// passed through as written (see [`percent_decode_concat`]).
 pub(super) fn decoded(s: &str) -> impl Iterator<Item = u8> + '_ {
     let bytes = s.as_bytes();
     let mut i = 0usize;
@@ -341,7 +450,7 @@ pub(super) fn decoded(s: &str) -> impl Iterator<Item = u8> + '_ {
             .and_then(|h| core::str::from_utf8(h).ok())
             .and_then(|h| u8::from_str_radix(h, 16).ok());
         match (b, hex) {
-            (b'%', Some(v)) => {
+            (b'%', Some(v)) if v.is_ascii() && v != b'%' => {
                 i = i.saturating_add(3);
                 Some(v)
             }
@@ -353,84 +462,21 @@ pub(super) fn decoded(s: &str) -> impl Iterator<Item = u8> + '_ {
     })
 }
 
-/// Incremental UTF-8 validation (RFC 3629) of decoded tag bytes: the
-/// state between two bytes, so a `%TAG` prefix is validated once and each
-/// tag continues from where its prefix ended.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct Utf8 {
-    /// Continuation bytes still owed by the unfinished sequence.
-    need: u8,
-    /// The range the next continuation byte must lie in.
-    lo: u8,
-    hi: u8,
-}
-
-impl Utf8 {
-    /// Between characters.
-    pub(super) const START: Self = Self {
-        need: 0,
-        lo: 0x80,
-        hi: 0xBF,
-    };
-
-    const fn owing(need: u8, lo: u8, hi: u8) -> Self {
-        Self { need, lo, hi }
-    }
-
-    /// The state after byte `b`; `None` when no UTF-8 continues with it.
-    pub(super) fn push(self, b: u8) -> Option<Self> {
-        if self.need > 0 {
-            return (self.lo..=self.hi)
-                .contains(&b)
-                .then(|| Self::owing(self.need.saturating_sub(1), 0x80, 0xBF));
-        }
-        Some(match b {
-            0x00..=0x7F => Self::START,
-            0xC2..=0xDF => Self::owing(1, 0x80, 0xBF),
-            0xE0 => Self::owing(2, 0xA0, 0xBF),
-            0xED => Self::owing(2, 0x80, 0x9F),
-            0xE1..=0xEF => Self::owing(2, 0x80, 0xBF),
-            0xF0 => Self::owing(3, 0x90, 0xBF),
-            0xF1..=0xF3 => Self::owing(3, 0x80, 0xBF),
-            0xF4 => Self::owing(3, 0x80, 0x8F),
-            _ => return None,
-        })
-    }
-
-    /// No sequence is left unfinished.
-    pub(super) const fn complete(self) -> bool {
-        self.need == 0
-    }
-}
-
-/// A URI part read on: its decoded length and the UTF-8 state after it
-/// (`None`: it already holds a byte no UTF-8 continues with).
+/// A URI part read on: its decoded length.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct UriRead {
     pub(super) len: usize,
-    pub(super) utf8: Option<Utf8>,
 }
 
 impl UriRead {
     /// Nothing read yet.
-    pub(super) const EMPTY: Self = Self {
-        len: 0,
-        utf8: Some(Utf8::START),
-    };
+    pub(super) const EMPTY: Self = Self { len: 0 };
 
-    /// This state continued over the decoded bytes of `s`: O(`s`).
+    /// This length continued over the decoded bytes of `s`: O(`s`).
     pub(super) fn then(self, s: &str) -> Self {
-        let mut out = self;
-        for b in decoded(s) {
-            out.len = out.len.saturating_add(1);
-            out.utf8 = out.utf8.and_then(|u| u.push(b));
+        Self {
+            len: self.len.saturating_add(decoded(s).count()),
         }
-        out
-    }
-
-    /// The whole URI read is UTF-8.
-    pub(super) fn is_utf8(self) -> bool {
-        self.utf8.is_some_and(Utf8::complete)
     }
 }
 
@@ -585,56 +631,27 @@ mod tests {
         assert!(scan_tag("!<> x", 0).is_none());
         assert!(scan_tag("!! x", 0).is_none());
         assert!(scan_tag("!e! x", 0).is_none());
-        assert_eq!(percent_decode_concat("p:", "a%21b").unwrap(), "p:a!b");
-        assert_eq!(percent_decode_concat("", "%4").unwrap(), "%4");
-        assert!(percent_decode_concat("", "%ff").is_none());
-        // The prefix is decoded too, and UTF-8 is checked on the
-        // whole URI.
-        assert_eq!(percent_decode_concat("p:%21", "a").unwrap(), "p:!a");
-        assert_eq!(percent_decode_concat("p:%C3", "%A9").unwrap(), "p:é");
-        assert!(percent_decode_concat("%FF", "x").is_none());
-        assert!(percent_decode_concat("p:%C3", "x").is_none());
+        assert_eq!(percent_decode_concat("p:", "a%21b"), "p:a!b");
+        assert_eq!(percent_decode_concat("", "%4"), "%4");
+        // Escapes of non-ASCII bytes stay as written.
+        assert_eq!(percent_decode_concat("", "%ff"), "%ff");
+        // The prefix is decoded too.
+        assert_eq!(percent_decode_concat("p:%21", "a"), "p:!a");
+        assert_eq!(percent_decode_concat("p:%C3", "%A9"), "p:%C3%A9");
+        // `%25` stays too: it is not the same text as the escapes it spells.
+        assert_eq!(percent_decode_concat("", "a%25C3%25A9"), "a%25C3%25A9");
+        assert_ne!(
+            percent_decode_concat("", "a%25C3%25A9"),
+            percent_decode_concat("", "a%C3%A9")
+        );
         assert_eq!(tag_prefix_at("%TAG !e! a:%21 ", 9), Some("a:%21"));
         assert_eq!(tag_prefix_at("x ", 1), None);
         // A prefix read once, continued by each suffix.
         let p = TagPrefix::read("%TAG !e! a:%C3 ", 9).unwrap();
-        assert_eq!(p.read.len, 3);
-        assert!(!p.read.is_utf8() && p.read.utf8.is_some());
-        assert!(p.read.then("%A9x").is_utf8());
-        assert_eq!(p.read.then("%A9x").len, 5);
-        assert!(!p.read.then("x").is_utf8());
+        assert_eq!(p.read.len, 5);
+        assert_eq!(p.read.then("%A9x").len, 9);
         assert!(TagPrefix::read("x", 1).is_none());
         assert!(valid_handle("!e!") && !valid_handle("!e") && !valid_handle("!!!"));
-    }
-
-    /// The incremental validator agrees with `std::str::from_utf8` on
-    /// every 1- and 2-byte sequence, and on 3- and 4-byte ones over the
-    /// boundary continuation bytes.
-    #[test]
-    fn utf8_validation_matches_std() {
-        let valid = |bytes: &[u8]| {
-            let mut u = Some(Utf8::START);
-            for b in bytes {
-                u = u.and_then(|u| u.push(*b));
-            }
-            u.is_some_and(Utf8::complete)
-        };
-        let edges = [0x00, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xFF];
-        for a in 0..=255u8 {
-            assert_eq!(valid(&[a]), core::str::from_utf8(&[a]).is_ok(), "{a:x}");
-            for b in 0..=255u8 {
-                let two = [a, b];
-                assert_eq!(valid(&two), core::str::from_utf8(&two).is_ok());
-                for c in edges {
-                    let three = [a, b, c];
-                    assert_eq!(valid(&three), core::str::from_utf8(&three).is_ok());
-                    for d in edges {
-                        let four = [a, b, c, d];
-                        assert_eq!(valid(&four), core::str::from_utf8(&four).is_ok());
-                    }
-                }
-            }
-        }
     }
 
     #[test]
@@ -643,5 +660,29 @@ mod tests {
         assert_eq!(anchor_end("&a,b", 1), 2);
         assert_eq!(anchor_end("&a\u{a0}b c", 1), 5);
         assert_eq!(anchor_end("&a\u{feff}", 1), 2);
+    }
+
+    /// The word-at-a-time scans agree with the plain ones at every length,
+    /// offset and break position.
+    #[test]
+    fn word_scans_agree_with_the_plain_ones() {
+        for len in 0..40 {
+            for brk in 0..=len {
+                for sep in ["\n", "\r", "\r\n"] {
+                    let mut s = "x".repeat(brk);
+                    s.push_str(sep);
+                    s.push_str(&"y".repeat(len - brk));
+                    for i in 0..=s.len() {
+                        assert_eq!(comment_end(&s, i), line_end(&s, i), "{s:?} {i}");
+                    }
+                }
+            }
+            // No break at all; a multi-byte character straddling a word.
+            let s = format!("{}\u{e9}\u{1F600}", "z".repeat(len));
+            for i in (0..=s.len()).filter(|i| s.is_char_boundary(*i)) {
+                assert_eq!(comment_end(&s, i), line_end(&s, i), "{s:?} {i}");
+            }
+            assert_eq!(comment_end(&s, s.len() + 1), line_end(&s, s.len() + 1));
+        }
     }
 }

@@ -19,9 +19,9 @@ use test_suite::{
     default_data_dir, default_known_defects_path, load_suite, run_case, run_suite, run_suite_with,
 };
 
-const SHIPPED: [&str; 9] = [
-    "4H7K", "MUS6/01", "T833", "Y79Y/004", "Y79Y/005", "Y79Y/006", "Y79Y/007", "Y79Y/008",
-    "Y79Y/009",
+const SHIPPED: [&str; 11] = [
+    "4H7K", "BS4K", "EB22", "MUS6/01", "T833", "Y79Y/004", "Y79Y/005", "Y79Y/006", "Y79Y/007",
+    "Y79Y/008", "Y79Y/009",
 ];
 
 fn shipped() -> KnownDefects {
@@ -190,10 +190,10 @@ fn cli(args: &[&str]) -> (i32, String, String) {
 fn cli_marks_corrected_cases_and_rejects_bad_lists() {
     let (code, stdout, _) = cli(&["--producer", "parser", "--failures"]);
     assert_eq!(code, 0);
-    assert!(stdout.contains("known-defect entries: 9"));
+    assert!(stdout.contains("known-defect entries: 11"));
     assert!(stdout.contains("FAIL 4H7K "));
     assert_eq!(stdout.matches("FAIL ").count(), 1);
-    assert!(stdout.contains("judged against corrected expectations: 9 (8 passed"));
+    assert!(stdout.contains("judged against corrected expectations: 11 (10 passed"));
 
     let path = std::env::temp_dir().join(format!("oneyaml-known-{}.txt", std::process::id()));
     let d88j = "+STR; +DOC; +MAP; =VAL :a; +SEQ []; =VAL :b; =VAL :c; -SEQ; -MAP; -DOC; -STR";
