@@ -23,8 +23,8 @@ handle issued before the fork resolves in both copies.
 
 No `unsafe`, no panics on any input, and no recursion on the
 input-driven path. Its yaml-test-suite results are in
-[docs/conformance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/docs/conformance.md).
+[docs/conformance.md](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/docs/conformance.md).
 
 MSRV: Rust 1.85 (rolling policy in the
-[oneyaml README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/v1.2.0/crates/oneyaml/README.md#minimum-supported-rust-version)).
+[oneyaml README](https://github.com/recursive-ai-oss/oneyaml-rust/blob/main/crates/oneyaml/README.md#minimum-supported-rust-version)).
 License: MIT OR Apache-2.0.
