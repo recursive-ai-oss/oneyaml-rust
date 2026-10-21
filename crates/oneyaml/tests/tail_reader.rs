@@ -68,23 +68,23 @@ fn other_values_are_written_as_before() {
     assert_eq!(d.to_string(), "k: \"y\\n\\n\"\n ");
     assert_eq!(value_at(&d, &path!["k"]), Value::from("y\n\n"));
     // No final space line: no tail reader; the value it has (a
-    // byte no-op, the `|+` stays; it once wrote the inferred
-    // `|`), and another value in the inferred block style.
+    // byte no-op, the `|+` stays), and another value that one
+    // final line break holds, which keeps the `|+` too.
     let mut d = Document::parse("k: |+\n  x\n").unwrap();
     d.set_path(&path!["k"], "x\n").unwrap();
     assert_eq!(d.to_string(), "k: |+\n  x\n");
     d.set_path(&path!["k"], "y\n").unwrap();
-    assert_eq!(d.to_string(), "k: |\n  y\n");
+    assert_eq!(d.to_string(), "k: |+\n  y\n");
     // A kept scalar that is not the last: not the reader.
     let mut d = Document::parse("k: |+\n  x\n\nz: 1\n ").unwrap();
     let v = value_at(&d, &path!["k"]);
     d.set_path(&path!["k"], &v).unwrap();
     assert_eq!(value_at(&d, &path!["k"]), v);
-    // The value with its tag dropped is another value.
+    // The value under its custom tag, which stays, is another value.
     let mut d = Document::parse("k: !t |+\n  x\n ").unwrap();
     d.set_path(&path!["k"], "x\n\n").unwrap();
-    assert_eq!(value_at(&d, &path!["k"]), Value::from("x\n\n"));
-    assert!(!d.to_string().contains("!t"));
+    assert_eq!(value_at(&d, &path!["k"]).untag_ref(), &Value::from("x\n\n"));
+    assert!(d.to_string().contains("!t"));
 }
 
 fn big(n: usize) -> String {

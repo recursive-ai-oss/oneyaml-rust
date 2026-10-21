@@ -1143,9 +1143,9 @@ fn explicit_owners_follow_their_comment_through_node_edits() {
     assert_eq!(e[0].owner(), CommentOwner::Leading(c));
     assert_eq!(d.comments(c).unwrap().leading()[0].raw(), "# x");
 
-    // A same-line comment moved onto a new block scalar's header keeps its
-    // explicit owner.
-    let mut d = Document::parse("a: 1 # t\nb: 2\n").unwrap();
+    // A same-line comment moved onto a new block scalar's header (the new
+    // text replaces a collection) keeps its explicit owner.
+    let mut d = Document::parse("a: [1] # t\nb: 2\n").unwrap();
     let t = d.comment_ids()[0];
     let b = key(&d, &path!["b"]);
     d.attach_comment(t, CommentOwner::Leading(b)).unwrap();

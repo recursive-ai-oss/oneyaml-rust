@@ -27,8 +27,9 @@ pub use de::{
 };
 pub use document::{
     AsKey, Comment, CommentExplanation, CommentId, CommentOwner, CommentRule, Comments, Document,
-    DocumentMut, EditError, Entry, IntoPath, MappingRef, NO_COMMENTS, NodeId, NodeKind, NodeMut,
-    NodeRef, Parsed, ReinsertError, Removed, ScalarRef, ScalarStyle, SequenceRef, Stream,
+    DocumentMut, EditError, Entry, IntoPath, MappingRef, MergePatch, NO_COMMENTS, NodeId, NodeKind,
+    NodeMut, NodeRef, Parsed, Patch, PatchError, PatchErrorKind, PatchOp, Pointer, ReinsertError,
+    Removed, ScalarRef, ScalarStyle, SequenceRef, Stream,
 };
 pub use error::{Error, ErrorKind, Location};
 #[cfg(feature = "miette")]

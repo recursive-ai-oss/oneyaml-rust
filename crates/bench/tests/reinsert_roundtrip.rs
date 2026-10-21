@@ -294,3 +294,148 @@ fn remove_then_reinsert_at_the_same_place_restores_the_bytes() {
     assert!(t.round_trips > 1000, "{}", t.round_trips);
     assert!(t.with_comments > 50, "{}", t.with_comments);
 }
+
+/// Remove `at` from `src`, check the text left and the comments the removal
+/// reports, put the entry back at `index` of the collection at `parent` and
+/// check the bytes.
+fn last_entry_round_trip(
+    src: &str,
+    parent: &oneyaml::Path,
+    at: &oneyaml::Path,
+    index: usize,
+    left: &str,
+    comments: &[&str],
+) {
+    let mut d = Document::parse(src).unwrap();
+    let removed = d.remove_path(at).unwrap();
+    assert_eq!(d.to_string(), left, "{src:?}");
+    assert_eq!(removed.comments(), comments, "{src:?}");
+    d.get_path_mut(parent)
+        .unwrap()
+        .insert_removed_at(index, removed)
+        .unwrap();
+    assert_eq!(d.to_string().as_bytes(), src.as_bytes());
+}
+
+#[test]
+fn the_comments_a_last_entry_takes_from_under_a_block_scalar_come_back() {
+    use oneyaml::path;
+    let map = path!["a"];
+    let x = path!["a", "x"];
+    let cases: &[(&str, &str, &[&str])] = &[
+        (
+            "a:\n  k: |\n    v\n  x: 1\n    # c\nb: 2\n",
+            "a:\n  k: |\n    v\nb: 2\n",
+            &["# c"],
+        ),
+        // CRLF.
+        (
+            "a:\r\n  k: |\r\n    v\r\n  x: 1\r\n    # c\r\nb: 2\r\n",
+            "a:\r\n  k: |\r\n    v\r\nb: 2\r\n",
+            &["# c"],
+        ),
+        // Keep chomping.
+        (
+            "a:\n  k: |+\n    v\n\n  x: 1\n    # c\nb: 2\n",
+            "a:\n  k: |+\n    v\n\nb: 2\n",
+            &["# c"],
+        ),
+        // A document end marker follows.
+        (
+            "a:\n  k: |\n    v\n  x: 1\n    # c\n...\n",
+            "a:\n  k: |\n    v\n...\n",
+            &["# c"],
+        ),
+        // A flow value.
+        (
+            "a:\n  k: |\n    v\n  x: [1,\n    2]\n    # c\nb: 2\n",
+            "a:\n  k: |\n    v\nb: 2\n",
+            &["# c"],
+        ),
+        // A same-line comment first.
+        (
+            "a:\n  k: |\n    v\n  x: 1 # same\n    # c\nb: 2\n",
+            "a:\n  k: |\n    v\nb: 2\n",
+            &["# same", "# c"],
+        ),
+        // Several comment lines; the one narrower than the content stays
+        // with what follows it.
+        (
+            "a:\n  k: |\n    v\n  x: 1\n    # c1\n    # c2\n  # d\nb: 2\n",
+            "a:\n  k: |\n    v\n  # d\nb: 2\n",
+            &["# c1", "# c2"],
+        ),
+        // A footer of the entry's own collection is taken once.
+        (
+            "a:\n  k: >\n    v\n  x:\n    y: 1\n    # c\nb: 2\n",
+            "a:\n  k: >\n    v\nb: 2\n",
+            &["# c"],
+        ),
+    ];
+    for (src, left, comments) in cases {
+        last_entry_round_trip(src, &map, &x, 1, left, comments);
+    }
+    // A comment that ends the file without a line break would get one when
+    // it goes back: the removal is refused and nothing changes.
+    for src in [
+        "- |\n  v\n- x\n  # c",
+        "a:\n  k: |\n    v\n  x: 1\n    # c",
+        "a:\n  k: |\n    v\n  x: 1\n    # c1\n    # c2",
+    ] {
+        let mut d = Document::parse(src).unwrap();
+        let at = if src.starts_with('-') {
+            path![1]
+        } else {
+            path!["a", "x"]
+        };
+        assert!(d.remove_path(&at).is_err(), "{src:?}");
+        assert_eq!(d.to_string(), src);
+    }
+    // A sequence item.
+    last_entry_round_trip(
+        "- |\n  v\n- x\n  # c\n",
+        &oneyaml::Path::new(),
+        &path![1],
+        1,
+        "- |\n  v\n",
+        &["# c"],
+    );
+}
+
+#[test]
+fn a_comment_narrower_than_the_scalar_ends_what_a_last_entry_takes() {
+    use oneyaml::path;
+    let src = "a:\n  k: |\n    v\n  x: 1\n    # c1\n  # c2\n    # c3\nb: 2\n";
+    let mut d = Document::parse(src).unwrap();
+    let removed = d.remove_path(&path!["a", "x"]).unwrap();
+    // `# c2` ends the scalar, so `# c3` below it does not read as content
+    // and nothing is taken but `# c1`.
+    assert_eq!(d.to_string(), "a:\n  k: |\n    v\n  # c2\n    # c3\nb: 2\n");
+    assert_eq!(removed.comments(), ["# c1"]);
+}
+
+#[test]
+fn a_comment_after_an_empty_line_is_never_dropped_by_a_last_entry_removal() {
+    use oneyaml::path;
+    let src = "a:\n  k: |\n    v\n  x: 1\n\n    # c\nb: 2\n";
+    let value = |d: &Document| oneyaml::Value::try_from(d).unwrap();
+    let mut d = Document::parse(src).unwrap();
+    let before = value(&d);
+    // The removal may be refused; if it goes through, the comment is kept
+    // in the text or reported by the removal.
+    if let Ok(removed) = d.remove_path(&path!["a", "x"]) {
+        assert!(
+            d.to_string().contains("# c") || removed.comments().iter().any(|c| c == "# c"),
+            "{:?}",
+            d.to_string()
+        );
+        let mut expected = before;
+        if let Some(a) = expected.get_mut("a").and_then(|a| a.as_mapping_mut()) {
+            a.remove(&oneyaml::Value::from("x"));
+        }
+        assert_eq!(value(&d), expected);
+    } else {
+        assert_eq!(d.to_string(), src);
+        assert_eq!(value(&d), before);
+    }
+}

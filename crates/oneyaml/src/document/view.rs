@@ -688,6 +688,23 @@ impl<'d> NodeRef<'d> {
         self.scalar_meaning().is_some_and(|v| v.is_null())
     }
 
+    /// For a mapping entry's key, its value.
+    pub(super) fn entry_value(self) -> Option<NodeRef<'d>> {
+        value_after(self)
+    }
+
+    /// For a mapping entry's value, its key.
+    pub(super) fn entry_key(self) -> Option<NodeRef<'d>> {
+        let mut at = self.node.prev_sibling();
+        while let Some(x) = at {
+            if x.kind().is_yaml_node() {
+                return Some(NodeRef::new(self.doc, presented(x)));
+            }
+            at = x.prev_sibling();
+        }
+        None
+    }
+
     /// A mapping's entry for `key` (see [`MappingRef::get`]).
     #[must_use]
     pub fn get<K: AsKey>(self, key: K) -> Option<NodeRef<'d>> {
@@ -735,7 +752,8 @@ impl<'d> NodeRef<'d> {
                         return Err(EditError::NotAMapping { at });
                     };
                     at.push_key(k.clone());
-                    m.get(k)
+                    m.segment(k, false)
+                        .map_err(|e| e.located(&at))?
                         .ok_or_else(|| EditError::NotFound { at: at.clone() })?
                 }
                 oneyaml_core::PathSegment::Index(i) => {
@@ -994,6 +1012,96 @@ impl<'d> MappingRef<'d> {
     pub fn get<K: AsKey>(self, key: K) -> Option<NodeRef<'d>> {
         let k = key::arg(&key);
         self.get_in(KeyQuery::of(&k), false)
+    }
+
+    /// Calls `f` with each of this mapping's own keys that a pointer token can
+    /// name: a scalar key, whatever its style or tag and whether or not it
+    /// resolves, with its text, or an alias key (`None`). Merge keys, collection
+    /// keys and keys without a value are left out. One pass, in document order.
+    pub(super) fn for_each_text_key(self, mut f: impl FnMut(NodeRef<'d>, Option<Cow<'d, str>>)) {
+        let r = self.0.resolver();
+        for (key, _) in self.iter() {
+            if key.kind() == NodeKind::Alias {
+                f(key, None);
+                continue;
+            }
+            let Some(s) = key.as_scalar() else { continue };
+            if r.merge_keys() && lookup_hit(s.is_merge_key(&r)) {
+                continue;
+            }
+            f(key, Some(s.value()));
+        }
+    }
+
+    /// Whether `key`, one of this mapping's own keys, is the one that counts
+    /// for what it means: no other own key means the same, so a later
+    /// duplicate (under `DuplicateKeys::LastWins`) does not override it.
+    pub(super) fn governs(self, key: NodeRef<'d>) -> bool {
+        let r = self.0.resolver();
+        let Some(s) = key.as_scalar() else {
+            return true;
+        };
+        let Ok(meaning) = s.resolved_with(&r) else {
+            return true;
+        };
+        let query = match &meaning {
+            Value::String(text) => KeyQuery::Str(text),
+            other => KeyQuery::Value(other),
+        };
+        self.own_key(&r, query, false)
+            .is_none_or(|k| k.node.id() == key.node.id())
+    }
+
+    /// The mappings this one merges in with `<<` (with `merge_keys` on), in
+    /// the order a lookup searches them: earlier sources first.
+    pub(super) fn merge_sources(self) -> Vec<MappingRef<'d>> {
+        let r = self.0.resolver();
+        let Some(v) = self.last_merge(&r, false).and_then(value_after) else {
+            return Vec::new();
+        };
+        match v.as_sequence() {
+            Some(seq) => seq.iter().filter_map(NodeRef::as_mapping).collect(),
+            None => v.as_mapping().into_iter().collect(),
+        }
+    }
+
+    /// The value a path segment names: for `key` as [`MappingRef::get`]
+    /// (`own`: only this mapping's own entries, as the last segment of a
+    /// set does), except that the empty segment goes by the key's text.
+    ///
+    /// The empty segment names the entry whose key has no content: a key
+    /// written as nothing (`: v`, `[: v]`) is a scalar of empty text, though
+    /// it reads as null, and so is a quoted empty key (`'': v`), whatever
+    /// properties either has (`&a : v`, `!!null : v`). When both kinds are
+    /// present the segment names two entries and the lookup is refused.
+    pub(super) fn segment(self, key: &str, own: bool) -> Result<Option<NodeRef<'d>>, EditError> {
+        if !key.is_empty() {
+            return Ok(if own {
+                self.own_value(key)
+            } else {
+                self.get_in(KeyQuery::Str(key), false)
+            });
+        }
+        let (mut written, mut quoted) = (None, None);
+        for (k, v) in self.iter() {
+            let Some(s) = k.as_scalar().filter(|s| s.value().is_empty()) else {
+                continue;
+            };
+            // (The last of a repeated key counts.)
+            match s.style() {
+                ScalarStyle::Plain => written = Some(v),
+                _ => quoted = Some(v),
+            }
+        }
+        match (written, quoted) {
+            (Some(_), Some(_)) => Err(EditError::Unsupported {
+                at: Path::new(),
+                reason: "the empty key names two entries, one written as nothing and one quoted",
+            }),
+            (Some(v), None) | (None, Some(v)) => Ok(Some(v)),
+            (None, None) if own => Ok(None),
+            (None, None) => Ok(self.get_in(KeyQuery::Str(""), false)),
+        }
     }
 
     fn get_in(self, key: KeyQuery<'_>, linear: bool) -> Option<NodeRef<'d>> {
